@@ -1,29 +1,24 @@
-# User Database
+# Logger
 
-Application Flask/Docker minimale dédiée uniquement à `user.db`.
+Version 1.1.0. Application Flask minimale pour importer plusieurs fichiers Excel dans `user.db` selon une configuration YAML séparée.
 
-Fonctions :
-- création et modification de catégories dans Settings ;
-- position configurable ;
-- groupe ;
-- colonne technique créée automatiquement ;
-- règles d'import alternatives (OU), une par ligne ;
-- import de plusieurs fichiers `.xlsx` / `.xlsm` avec un seul bouton ;
-- toutes les feuilles Excel sont traitées ;
-- affichage des données présentes dans `user.db`.
+## Architecture
 
-Lancer :
+- `user.db` contient uniquement les données importées dans la table `users`.
+- `configuration.yml` contient les catégories, groupes et règles d'import.
+- Le fichier de configuration est persistant dans `/app/instance/configuration.yml`.
+- Les anciennes bases de travail, bases publiques, logbook et imports spécialisés ne font plus partie de cette version.
 
-```bash
-docker compose up --build
-```
-Puis ouvrir `http://localhost:8000`.
+## Import
 
+Les règles d'import sont des alternatives OR. Par exemple, `immat`, `reg` et `registration` peuvent tous alimenter `users.registration`. Une colonne Excel inconnue est ignorée.
 
-## Import user.db
+Un nouvel import portant le même nom de fichier remplace les lignes provenant de ce fichier uniquement. Les données des autres fichiers restent présentes.
 
-- Les règles d'import d'une catégorie sont des alternatives (OU).
-- Une donnée Excel sans colonne technique existante dans `user.db` est ignorée. L'import des autres données continue.
-- Chaque ligne importée conserve le nom du fichier source.
-- Réimporter un fichier remplace les lignes précédemment importées par ce même fichier. Les lignes provenant d'autres fichiers ne sont pas supprimées.
-- La colonne interne `import_source` sert uniquement au suivi des imports et n'est pas une catégorie affichée.
+## Déploiement
+
+Copier `.env.example` vers `.env`, puis définir les identifiants. En développement local :
+
+    docker compose up -d --build
+
+L'image GHCR peut ensuite être publiée par GitHub Actions.

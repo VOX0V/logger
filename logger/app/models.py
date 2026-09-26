@@ -1,149 +1,118 @@
 import re
 import sqlite3
 from pathlib import Path
+import yaml
+import shutil
 from flask import current_app
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS schema_meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    display_name TEXT NOT NULL,
-    column_name TEXT NOT NULL UNIQUE,
-    position INTEGER NOT NULL,
-    group_name TEXT
-);
-CREATE TABLE IF NOT EXISTS import_rules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id INTEGER NOT NULL,
-    rule_text TEXT NOT NULL,
-    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE,
-    UNIQUE(category_id, rule_text)
-);
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    import_source TEXT
-);
-"""
+DEFAULT_CATEGORIES = [
+    {"position": 1, "affichage": "year", "groupe": "date", "colonne_technique": "year", "import": ["year"]},
+    {"position": 2, "affichage": "month", "groupe": "date", "colonne_technique": "month", "import": ["month"]},
+    {"position": 3, "affichage": "day", "groupe": "date", "colonne_technique": "day", "import": ["day"]},
+    {"position": 4, "affichage": "type", "groupe": "aircraft", "colonne_technique": "type", "import": ["type"]},
+    {"position": 5, "affichage": "registration", "groupe": "aircraft", "colonne_technique": "registration", "import": ["immat", "reg", "registration"]},
+    {"position": 6, "affichage": "pilot in command", "groupe": "crew", "colonne_technique": "pilot_in_command", "import": ["pic"]},
+    {"position": 7, "affichage": "copilot", "groupe": "crew", "colonne_technique": "copilot", "import": ["copi"]},
+    {"position": 8, "affichage": "departure", "groupe": "airports", "colonne_technique": "departure", "import": ["dep"]},
+    {"position": 9, "affichage": "arrival", "groupe": "airports", "colonne_technique": "arrival", "import": ["arr"]},
+    {"position": 10, "affichage": "remarks", "groupe": "misc", "colonne_technique": "remarks", "import": ["remarks"]},
+    {"position": 11, "affichage": "single engine dual day", "groupe": "time", "colonne_technique": "single_engine_dual_day", "import": ["se dual day"]},
+    {"position": 12, "affichage": "single engine pic day", "groupe": "time", "colonne_technique": "single_engine_pic_day", "import": ["se pic day"]},
+    {"position": 13, "affichage": "single engine dual night", "groupe": "time", "colonne_technique": "single_engine_dual_night", "import": ["se dual night"]},
+    {"position": 14, "affichage": "single engine pic night", "groupe": "time", "colonne_technique": "single_engine_pic_night", "import": ["se pic night"]},
+]
+
+
+def config_path():
+    return Path(current_app.instance_path) / "configuration.yml"
+
+
+def ensure_config():
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        bundled = Path(current_app.root_path).parent / "default-configuration.yml"
+        if bundled.exists():
+            shutil.copyfile(bundled, path)
+        else:
+            path.write_text(yaml.safe_dump({"categories": DEFAULT_CATEGORIES}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def load_config():
+    ensure_config()
+    data = yaml.safe_load(config_path().read_text(encoding="utf-8")) or {}
+    categories = data.get("categories") or []
+    categories.sort(key=lambda c: int(c.get("position", 0)))
+    return {"categories": categories}
+
+
+def save_config(data):
+    config_path().write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def db_path():
     return Path(current_app.instance_path) / "user.db"
 
 
-def get_db():
+def connect():
     conn = sqlite3.connect(db_path())
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-def table_columns(conn, table="users"):
-    return [row[1] for row in conn.execute(f'PRAGMA table_info("{table}")')]
-
-
-def _slugify(name):
-    text = name.strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "_", text)
-    return text.strip("_") or "colonne"
-
-
-def _unique_column_name(conn, base):
-    existing = set(table_columns(conn))
-    candidate = base
-    n = 2
-    while candidate in existing:
-        candidate = f"{base}_{n}"
-        n += 1
-    return candidate
-
-
-def list_categories(conn):
-    return conn.execute("SELECT * FROM categories ORDER BY position, id").fetchall()
-
-
-def list_rules_by_category(conn):
-    result = {}
-    for row in conn.execute("SELECT category_id, rule_text FROM import_rules ORDER BY id"):
-        result.setdefault(row["category_id"], []).append(row["rule_text"])
-    return result
-
-
-def find_conflicting_rules(conn, rule_texts, exclude_category_id=None):
-    conflicts = {}
-    for rule in rule_texts:
-        row = conn.execute(
-            """SELECT import_rules.rule_text, categories.display_name, categories.id
-               FROM import_rules JOIN categories ON categories.id = import_rules.category_id
-               WHERE lower(import_rules.rule_text) = lower(?)""", (rule,)
-        ).fetchone()
-        if row and row["id"] != exclude_category_id:
-            conflicts[rule] = row["display_name"]
-    return conflicts
-
-
-def create_category(conn, display_name, position, group_name, rule_texts):
-    count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
-    position = max(1, min(position, count + 1))
-    column_name = _unique_column_name(conn, _slugify(display_name))
-    conn.execute("UPDATE categories SET position = position + 1 WHERE position >= ?", (position,))
-    cur = conn.execute(
-        "INSERT INTO categories(display_name,column_name,position,group_name) VALUES(?,?,?,?)",
-        (display_name, column_name, position, group_name or None),
-    )
-    category_id = cur.lastrowid
-    for rule in rule_texts:
-        conn.execute("INSERT INTO import_rules(category_id,rule_text) VALUES(?,?)", (category_id, rule))
-    conn.execute(f'ALTER TABLE users ADD COLUMN "{column_name}" TEXT')
-    conn.commit()
-    return category_id
-
-
-def update_category(conn, category_id, display_name, position, group_name, rule_texts):
-    current = conn.execute("SELECT position FROM categories WHERE id=?", (category_id,)).fetchone()
-    if current is None:
-        return
-    count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
-    position = max(1, min(position, count))
-    old = current["position"]
-    if position != old:
-        if position < old:
-            conn.execute("UPDATE categories SET position=position+1 WHERE position>=? AND position<? AND id!=?", (position, old, category_id))
-        else:
-            conn.execute("UPDATE categories SET position=position-1 WHERE position<=? AND position>? AND id!=?", (position, old, category_id))
-    conn.execute("UPDATE categories SET display_name=?,position=?,group_name=? WHERE id=?", (display_name, position, group_name or None, category_id))
-    conn.execute("DELETE FROM import_rules WHERE category_id=?", (category_id,))
-    for rule in rule_texts:
-        conn.execute("INSERT INTO import_rules(category_id,rule_text) VALUES(?,?)", (category_id, rule))
-    conn.commit()
-
-
-def delete_category(conn, category_id):
-    row = conn.execute("SELECT column_name,position FROM categories WHERE id=?", (category_id,)).fetchone()
-    if not row:
-        return
-    conn.execute("DELETE FROM categories WHERE id=?", (category_id,))
-    conn.execute("UPDATE categories SET position=position-1 WHERE position>?", (row["position"],))
-    try:
-        conn.execute(f'ALTER TABLE users DROP COLUMN "{row["column_name"]}"')
-    except sqlite3.OperationalError:
-        pass
-    conn.commit()
+def safe_identifier(value):
+    value = str(value or "").strip()
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        raise ValueError(f"Nom de colonne technique invalide: {value}")
+    return value
 
 
 def init_db(app):
     with app.app_context():
-        Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(db_path())
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.executescript(SCHEMA)
-        columns = table_columns(conn)
-        if "import_source" not in columns:
-            conn.execute('ALTER TABLE users ADD COLUMN "import_source" TEXT')
-        conn.execute("INSERT INTO schema_meta(key,value) VALUES('schema_version','4') ON CONFLICT(key) DO UPDATE SET value='4'")
+        ensure_config()
+        conn = connect()
+        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, import_source TEXT NOT NULL)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_import_source ON users(import_source)")
+        sync_user_columns(conn, load_config()["categories"])
         conn.commit()
         conn.close()
+
+
+def sync_user_columns(conn, categories):
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    for category in categories:
+        col = safe_identifier(category.get("colonne_technique"))
+        if col in {"id", "import_source"}:
+            raise ValueError(f"Colonne réservée: {col}")
+        if col not in existing:
+            conn.execute(f'ALTER TABLE users ADD COLUMN "{col}" TEXT')
+
+
+def clear_import_source(source):
+    conn = connect()
+    conn.execute("DELETE FROM users WHERE import_source = ?", (source,))
+    conn.commit()
+    conn.close()
+
+
+def import_rows(source, rows, categories):
+    conn = connect()
+    sync_user_columns(conn, categories)
+    columns = [safe_identifier(c["colonne_technique"]) for c in categories]
+    conn.execute("DELETE FROM users WHERE import_source = ?", (source,))
+    if rows:
+        placeholders = ", ".join("?" for _ in columns)
+        names = ", ".join(f'"{c}"' for c in columns)
+        sql = f'INSERT INTO users (import_source, {names}) VALUES (?, {placeholders})'
+        for row in rows:
+            conn.execute(sql, [source] + [row.get(c) for c in columns])
+    conn.commit()
+    conn.close()
+
+
+def list_users():
+    conn = connect()
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall() if row[1] != "import_source"]
+    rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+    conn.close()
+    return cols, rows

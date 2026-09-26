@@ -1,11 +1,6 @@
-__pycache__/
-*.py[cod]
-.venv/
 .env
-.coverage
-htmlcov/
-*.db
-logger/instance/*
-!logger/instance/.gitkeep
-logger/data/*
-!logger/data/.gitkeep
+__pycache__/
+*.pyc
+.pytest_cache/
+logger/instance/*.db
+logger/instance/backups/

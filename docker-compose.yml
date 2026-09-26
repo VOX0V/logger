@@ -1,13 +1,14 @@
 services:
-  userdb:
+  logger:
     build:
       context: ./logger
-    container_name: userdb
+    container_name: logger
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     volumes:
-      - userdb_instance:/app/instance
-
+      - logger_instance:/app/instance
 volumes:
-  userdb_instance:
+  logger_instance:
