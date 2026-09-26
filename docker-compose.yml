@@ -1,0 +1,13 @@
+services:
+  userdb:
+    build:
+      context: ./logger
+    container_name: userdb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - userdb_instance:/app/instance
+
+volumes:
+  userdb_instance:
