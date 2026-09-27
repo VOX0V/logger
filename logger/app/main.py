@@ -1,9 +1,11 @@
 import re
+import io
+import zipfile
 from datetime import datetime
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for, send_file
 from .auth import login_required
 from .importer import importable_rows
-from .db import safe_identifier, connect, logbook_connect
+from .db import safe_identifier, connect, logbook_connect, user_root, current_username
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       save_logbook_db_config, load_logbook_layout, save_logbook_layout,
                       logbook_columns, technical_name)
@@ -65,6 +67,18 @@ def index():
     config=load_config(); columns,users=list_users(config)
     return render_template("index.html",categories=_columns(config),columns=columns,users=users)
 
+@main_bp.route("/export")
+@login_required
+def export_user_data():
+    username=current_username(); folder=user_root(username)
+    buf=io.BytesIO()
+    with zipfile.ZipFile(buf,"w",zipfile.ZIP_DEFLATED) as zf:
+        for f in sorted(folder.iterdir()):
+            if f.is_file(): zf.write(f,arcname=f.name)
+    buf.seek(0)
+    stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
+    return send_file(buf,mimetype="application/zip",as_attachment=True,download_name=f"{username}_backup_{stamp}.zip")
+
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
@@ -96,7 +110,8 @@ def logbook():
             while j < len(cols) and cols[j].get("group")==g: j+=1
             subgroups.append({"span":j-i,"label":""})
             i=j
-    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups)
+    label_colspan=next((i for i,c in enumerate(cols) if c.get("group") not in {"date","aircraft","crew","route","remarks","remarks_cont"}),len(cols))
+    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups,label_colspan=label_colspan)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
@@ -144,6 +159,15 @@ def save_logbook_settings():
             c["width"]=float(request.form.get("width_"+c["key"],c.get("width",13)))
         save_logbook_layout(layout); flash("Configuration d'affichage du logbook enregistrée.")
     except Exception as exc: flash(f"Configuration impossible — {exc}")
+    return redirect(url_for("main.logbook_settings"))
+
+@main_bp.route("/logbook/settings/layout-column/<key>/delete",methods=["POST"])
+@login_required
+def delete_layout_column(key):
+    layout=load_logbook_layout(); before=len(layout["columns"])
+    layout["columns"]=[c for c in layout["columns"] if c["key"]!=key]
+    if len(layout["columns"])==before: flash("Colonne introuvable.")
+    else: save_logbook_layout(layout); flash("Colonne retirée de l'affichage du Logbook.")
     return redirect(url_for("main.logbook_settings"))
 
 @main_bp.route("/logbook/settings/column/new",methods=["GET","POST"])

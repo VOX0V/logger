@@ -183,12 +183,12 @@ def ensure_configs(username=None):
         try:
             from flask import current_app
             bundled = __import__("pathlib").Path(current_app.root_path).parent / "default-userdb.yml"
-            data = yaml.safe_load(bundled.read_text(encoding="utf-8")) if bundled.exists() else {"database": {"name": "user", "columns": DEFAULT_COLUMNS}}
+            data = yaml.safe_load(bundled.read_text(encoding="utf-8")) if bundled.exists() else {"database": {"columns": DEFAULT_COLUMNS}}
         except Exception:
-            data = {"database": {"name": "user", "columns": DEFAULT_COLUMNS}}
+            data = {"database": {"columns": DEFAULT_COLUMNS}}
         config_path(username).write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
     if not logbook_db_config_path(username).exists():
-        logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"name": "logbook", "columns": DEFAULT_LOGBOOK_DB_COLUMNS}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"columns": DEFAULT_LOGBOOK_DB_COLUMNS}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
     if not logbook_layout_path(username).exists():
         logbook_layout_path(username).write_text(yaml.safe_dump(DEFAULT_LOGBOOK_LAYOUT, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
@@ -199,12 +199,12 @@ def load_config(username=None):
     db = raw.get("database", raw); cols = db.get("columns", raw.get("categories", [])) or []
     systems = _norm_system(cols, SYSTEM_COLUMNS)
     normal = [_norm_user(x, i) for i, x in enumerate([x for x in cols if x.get("group") != "system"], 1)]
-    return {"database": {"name": db.get("name", "user"), "columns": systems + normal}}
+    return {"database": {"columns": systems + normal}}
 
 
 def save_config(data, username=None):
     db = data.get("database", data); cols = db.get("columns", [])
-    config_path(username).write_text(yaml.safe_dump({"database": {"name": db.get("name", "user"), "columns": cols}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    config_path(username).write_text(yaml.safe_dump({"database": {"columns": cols}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def load_logbook_db_config(username=None):
@@ -213,12 +213,12 @@ def load_logbook_db_config(username=None):
     db = raw.get("database", raw); cols = db.get("columns", []) or []
     systems = _norm_system(cols, LOGBOOK_SYSTEM_COLUMNS)
     normal = [_norm_lb(x, i) for i, x in enumerate([x for x in cols if x.get("group") != "system"], 1)]
-    return {"database": {"name": "logbook", "columns": systems + normal}}
+    return {"database": {"columns": systems + normal}}
 
 
 def save_logbook_db_config(data, username=None):
     db = data.get("database", data)
-    logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"name": "logbook", "columns": db.get("columns", [])}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"columns": db.get("columns", [])}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def load_logbook_layout(username=None):
