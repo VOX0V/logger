@@ -1,6 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
+from datetime import time
 import pytest
 from app import create_app
 from app.models import connect, load_config
