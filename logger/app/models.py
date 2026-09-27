@@ -28,7 +28,37 @@ DEFAULT_COLUMNS = [
 DEFAULT_LOGBOOK_DB_COLUMNS = [
  {"column":"date","display_name":"date","position":1,"group":"date","data_type":"date","nullable":True,"visible":True,"editable":True,
   "source":[{"type":"date_parts","source":["users.year","users.month","users.day"]},{"type":"datetime","source":["users.departure_local"]}],"transformation":"date"},
+ {"column":"aircraft_type","display_name":"aircraft type","position":2,"group":"aircraft","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.type"],"transformation":""},
+ {"column":"registration","display_name":"registration","position":3,"group":"aircraft","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.registration"],"transformation":""},
+ {"column":"pilot_in_command","display_name":"pilot in command","position":4,"group":"crew","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.pilot_in_command"],"transformation":""},
+ {"column":"copilot","display_name":"copilot","position":5,"group":"crew","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.copilot"],"transformation":""},
+ {"column":"departure","display_name":"departure","position":6,"group":"route","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.departure"],"transformation":""},
+ {"column":"arrival","display_name":"arrival","position":7,"group":"route","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.arrival"],"transformation":""},
+ {"column":"remarks","display_name":"remarks","position":8,"group":"remarks","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.remarks"],"transformation":""},
+ {"column":"single_engine_dual_day","display_name":"single engine dual day","position":9,"group":"single_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.single_engine_dual_day"],"transformation":""},
+ {"column":"single_engine_pic_day","display_name":"single engine pic day","position":10,"group":"single_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.single_engine_pic_day"],"transformation":""},
+ {"column":"single_engine_dual_night","display_name":"single engine dual night","position":11,"group":"single_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.single_engine_dual_night"],"transformation":""},
+ {"column":"single_engine_pic_night","display_name":"single engine pic night","position":12,"group":"single_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.single_engine_pic_night"],"transformation":""},
+ {"column":"multi_engine_dual_day","display_name":"multi engine dual day","position":13,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_dual_day"],"transformation":""},
+ {"column":"multi_engine_pic_day","display_name":"multi engine pic day","position":14,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_pic_day"],"transformation":""},
+ {"column":"multi_engine_copi_day","display_name":"multi engine copilot day","position":15,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_copi_day"],"transformation":""},
+ {"column":"multi_engine_dual_night","display_name":"multi engine dual night","position":16,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_dual_night"],"transformation":""},
+ {"column":"multi_engine_pic_night","display_name":"multi engine pic night","position":17,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_pic_night"],"transformation":""},
+ {"column":"multi_engine_copi_night","display_name":"multi engine copilot night","position":18,"group":"multi_engine","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.multi_engine_copi_night"],"transformation":""},
+ {"column":"ifr","display_name":"ifr","position":19,"group":"instruments","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.ifr"],"transformation":""},
+ {"column":"hood","display_name":"hood","position":20,"group":"instruments","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.hood"],"transformation":""},
+ {"column":"ftd","display_name":"ftd","position":21,"group":"instruments","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.ftd"],"transformation":""},
+ {"column":"ifr_approach","display_name":"ifr app","position":22,"group":"instruments","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.ifr_approach"],"transformation":""},
+ {"column":"cross_country_dual_day","display_name":"cross country dual day","position":23,"group":"cross_country","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.cross_country_dual_day"],"transformation":""},
+ {"column":"cross_country_pic_day","display_name":"cross country pic day","position":24,"group":"cross_country","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.cross_country_pic_day"],"transformation":""},
+ {"column":"cross_country_dual_night","display_name":"cross country dual night","position":25,"group":"cross_country","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.cross_country_dual_night"],"transformation":""},
+ {"column":"cross_country_pic_night","display_name":"cross country pic night","position":26,"group":"cross_country","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.cross_country_pic_night"],"transformation":""},
+ {"column":"landings_day","display_name":"landings day","position":27,"group":"landings","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.landings_day"],"transformation":""},
+ {"column":"landings_night","display_name":"landings night","position":28,"group":"landings","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.landings_night"],"transformation":""},
+ {"column":"instruction_day","display_name":"instruction day","position":29,"group":"instruction","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.instruction_day"],"transformation":""},
+ {"column":"instruction_night","display_name":"instruction night","position":30,"group":"instruction","data_type":"text","nullable":True,"visible":True,"editable":True,"source":["users.instruction_night"],"transformation":""},
 ]
+
 
 # Layout is deliberately separate from the logbook database schema.
 DEFAULT_LOGBOOK_LAYOUT = {
