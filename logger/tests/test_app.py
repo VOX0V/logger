@@ -62,3 +62,22 @@ def test_reimport_same_source_replaces_only_that_source(client, app):
     with app.app_context():
         conn=connect(); rows=conn.execute('SELECT registration, import_source FROM users ORDER BY id').fetchall(); conn.close()
     assert [(r['registration'],r['import_source']) for r in rows] == [('OTHER','other.xlsx'),('NEW','same.xlsx')]
+
+def test_excel_time_value_is_sqlite_compatible():
+    from datetime import time
+    from app.importer import sqlite_value
+    assert sqlite_value(time(8, 30, 0)) == "08:30:00"
+
+
+def test_import_normalizes_punctuation_and_spaces():
+    from app.importer import importable_rows
+    from openpyxl import Workbook
+    import io
+    wb = Workbook(); ws = wb.active; ws.title = 'raw'
+    ws.append(['SE-DUAL-DAY', 'some unknown'])
+    ws.append([time(8, 30), 'ignored'])
+    buf = io.BytesIO(); wb.save(buf)
+    categories = [{'affichage':'single engine dual day','groupe':'time','import':['se dual day'],'colonne_technique':'single_engine_dual_day'}]
+    rows, matched = importable_rows('test.xlsx', buf.getvalue(), categories)
+    assert matched == 1
+    assert rows[0]['single_engine_dual_day'] == '08:30:00'

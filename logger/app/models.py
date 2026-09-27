@@ -38,16 +38,45 @@ def ensure_config():
             path.write_text(yaml.safe_dump({"categories": DEFAULT_CATEGORIES}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
+def _technical_name(affichage):
+    value = str(affichage or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    value = re.sub(r"_+", "_", value).strip("_")
+    if not value:
+        raise ValueError("L'affichage doit produire un nom de colonne technique valide.")
+    if value[0].isdigit():
+        value = "_" + value
+    safe_identifier(value)
+    if value in {"id", "import_source"}:
+        raise ValueError(f"Nom de colonne réservé: {value}")
+    return value
+
+
+def _normalize_categories(categories):
+    normalized = []
+    for index, category in enumerate(categories or [], 1):
+        item = dict(category or {})
+        item["position"] = index
+        item["affichage"] = str(item.get("affichage") or "").strip()
+        item["groupe"] = str(item.get("groupe") or "").strip()
+        item["colonne_technique"] = _technical_name(item["affichage"])
+        rules = item.get("import") or []
+        item["import"] = list(dict.fromkeys(str(rule).strip() for rule in rules if str(rule).strip()))
+        normalized.append(item)
+    return normalized
+
+
 def load_config():
     ensure_config()
     data = yaml.safe_load(config_path().read_text(encoding="utf-8")) or {}
-    categories = data.get("categories") or []
-    categories.sort(key=lambda c: int(c.get("position", 0)))
+    categories = _normalize_categories(data.get("categories") or [])
     return {"categories": categories}
 
 
 def save_config(data):
-    config_path().write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    categories = _normalize_categories(data.get("categories") or [])
+    payload = {"categories": categories}
+    config_path().write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def db_path():
