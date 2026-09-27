@@ -10,11 +10,14 @@ class FileImportError(Exception):
 
 
 def normalize(value):
+    """Normalize Excel headers/import rules to a common comparison form."""
     if value is None:
         return ""
-    text = str(value).strip().lower().replace(".", "")
-    text = text.replace("–", "-").replace("—", "-")
-    return re.sub(r"\s+", " ", text)
+    text = str(value).strip().lower()
+    # Treat punctuation/separators (hyphens, underscores, dots, slashes, etc.)
+    # like spaces so aliases such as ``SE-DUAL-DAY`` and ``se dual day`` match.
+    text = re.sub(r"[^\w]+", " ", text, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def sqlite_value(value):
