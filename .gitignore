@@ -2,5 +2,4 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-logger/instance/*.db
-logger/instance/backups/
+logger/storage/

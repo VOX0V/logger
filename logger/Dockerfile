@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY wsgi.py .
 COPY VERSION .
-COPY default-configuration.yml .
-RUN mkdir -p /app/instance
+COPY default-userdb.yml .
+RUN mkdir -p /app/storage/users
 EXPOSE 8000
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "wsgi:app"]

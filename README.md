@@ -1,15 +1,21 @@
 # Logger
 
-Version 1.4.0. Application Flask minimale pour importer plusieurs fichiers Excel dans `user.db` selon une configuration YAML séparée.
+Version 1.4.0. Application Flask multi-utilisateurs pour importer des fichiers Excel/CSV dans une base par utilisateur, selon une configuration YAML propre à chaque compte.
 
 ## Architecture
 
-- `user.db` contient uniquement les données importées dans la table `users`.
-- `userdb.yml` contient les catégories, groupes et règles d'import de `user.db`.
-- `logbookdb.yml` contient la structure et les sources de `logbook.db`.
+- Chaque compte possède son propre espace : `storage/users/<username>/user_data.db` (import brut), `user_logbook.db` (logbook dérivé), `userdb.yml`, `logbookdb.yml`, `logbook.yml`.
+- `storage/accounts.db` est une base globale unique qui liste les comptes (username, mot de passe haché, rôle `admin`/`user`).
+- `userdb.yml` contient les catégories, groupes et règles d'import de `user_data.db`.
+- `logbookdb.yml` contient la structure et les sources de `user_logbook.db`.
 - `logbook.yml` contient la présentation du Logbook : colonnes, largeurs, hauteurs, pagination et totaux.
-- Le fichier de configuration est persistant dans `/app/instance/userdb.yml, /app/instance/logbookdb.yml et /app/instance/logbook.yml`.
-- Les anciennes bases de travail, bases publiques, logbook et imports spécialisés ne font plus partie de cette version.
+- Le dossier persistant complet est `/app/storage` (à monter en volume).
+
+## Comptes
+
+- Au premier démarrage, si aucun compte n'existe, un compte admin est créé automatiquement à partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD`.
+- Seul un admin peut créer/modifier/supprimer des comptes (menu "Comptes").
+- Un `user` normal n'a accès qu'à ses propres données.
 
 ## Import
 
@@ -19,7 +25,7 @@ Un nouvel import portant le même nom de fichier remplace les lignes provenant d
 
 ## Déploiement
 
-Copier `.env.example` vers `.env`, puis définir les identifiants. En développement local :
+Copier `.env.example` vers `.env`, puis définir les identifiants (utilisés uniquement pour créer le premier compte admin). En développement local :
 
     docker compose up -d --build
 

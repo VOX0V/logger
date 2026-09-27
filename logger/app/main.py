@@ -3,22 +3,14 @@ from datetime import datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from .auth import login_required
 from .importer import importable_rows
-from .models import (load_config, save_config, configurable_columns, import_rows, safe_identifier,
-                     load_logbook_db_config, save_logbook_db_config, load_logbook_layout, save_logbook_layout,
-                     refresh_logbook, list_logbook_rows, update_logbook_cell, logbook_columns, logbook_connect,
-                     drop_unused_logbook_columns, connect, drop_unused_columns)
+from .db import safe_identifier, connect, logbook_connect
+from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
+                      save_logbook_db_config, load_logbook_layout, save_logbook_layout,
+                      logbook_columns, technical_name)
+from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell
+from .models import import_rows, list_users, drop_unused_logbook_columns, drop_unused_columns
 
 main_bp = Blueprint("main", __name__)
-
-def technical_name(display_name):
-    value = str(display_name or "").strip().lower()
-    value = re.sub(r"[^a-z0-9]+", "_", value)
-    value = re.sub(r"_+", "_", value).strip("_")
-    if not value: raise ValueError("Le display_name doit produire un nom de colonne technique valide.")
-    if value[0].isdigit(): value = "_" + value
-    safe_identifier(value)
-    if value in {"id", "created_at", "updated_at", "import_source"}: raise ValueError(f"Nom de colonne réservé: {value}")
-    return value
 
 def _columns(config): return configurable_columns(config)
 
@@ -60,13 +52,12 @@ def _prepare_pages(rows, layout):
 @main_bp.route("/")
 @login_required
 def index():
-    config=load_config(); columns,users=__import__("app.models",fromlist=["list_users"]).list_users(config)
+    config=load_config(); columns,users=list_users(config)
     return render_template("index.html",categories=_columns(config),columns=columns,users=users)
 
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
-    from .models import logbook_columns
     cols=logbook_columns(load_config())
     conn=logbook_connect(); rows=conn.execute("SELECT * FROM logbook ORDER BY id").fetchall(); conn.close()
     return render_template("logbook_db.html",categories=cols,rows=rows)

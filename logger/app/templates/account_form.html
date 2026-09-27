@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}<h2>{% if account %}Modifier le compte{% else %}Nouveau compte{% endif %}</h2><div class="card"><form method="post"><div class="grid">
+<div class="field"><label>Username</label>{% if account %}<input value="{{account.username}}" readonly>{% else %}<input name="username" required pattern="[A-Za-z0-9_-]{3,32}" title="3 à 32 caractères : lettres, chiffres, _ ou -">{% endif %}</div>
+<div class="field"><label>{% if account %}Nouveau mot de passe{% else %}Mot de passe{% endif %}</label><input type="password" name="password" {% if not account %}required{% endif %} placeholder="{% if account %}laisser vide pour ne pas changer{% endif %}"></div>
+<div class="field"><label>Rôle</label><select name="role"><option value="user" {% if account and account.role=='user' %}selected{% endif %}>user</option><option value="admin" {% if account and account.role=='admin' %}selected{% endif %}>admin</option></select></div>
+</div><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('accounts.list_view')}}">Annuler</a></form></div>{% endblock %}
