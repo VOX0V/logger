@@ -38,12 +38,22 @@ def _is_numeric_layout(col):
 
 def _prepare_pages(rows, layout):
     cols=layout["columns"]; per_page=max(1,int(layout.get("rows_per_page",30))); pages=[]
-    for start in range(0,len(rows),per_page):
-        chunk=rows[start:start+per_page]; totals={c["key"]:sum(_num(_read_logbook_value(r,c)) for r in chunk) for c in cols if _is_numeric_layout(c)}
+    numeric_cols=[c for c in cols if _is_numeric_layout(c)]
+    cumulative={c["key"]:0.0 for c in numeric_cols}
+    def _with_total(totals):
         for c in cols:
-            if c.get("total"): totals[c["key"]]=sum(totals.get(x["key"],0) for x in cols if _is_numeric_layout(x))
-        pages.append({"rows":chunk,"totals":totals,"number":start//per_page+1})
-    if not pages: pages=[{"rows":[],"totals":{c["key"]:0 for c in cols},"number":1}]
+            if c.get("total"): totals[c["key"]]=sum(totals.get(x["key"],0) for x in numeric_cols)
+        return totals
+    for start in range(0,len(rows),per_page):
+        chunk=rows[start:start+per_page]
+        totals=_with_total({c["key"]:sum(_num(_read_logbook_value(r,c)) for r in chunk) for c in numeric_cols})
+        forwarded=_with_total(dict(cumulative))
+        to_date=_with_total({k:forwarded.get(k,0)+totals.get(k,0) for k in totals})
+        pages.append({"rows":chunk,"totals":totals,"forwarded":forwarded,"to_date":to_date,"number":start//per_page+1})
+        cumulative={k:to_date.get(k,cumulative[k]) for k in cumulative}
+    if not pages:
+        zero=_with_total({c["key"]:0 for c in numeric_cols})
+        pages=[{"rows":[],"totals":zero,"forwarded":dict(zero),"to_date":dict(zero),"number":1}]
     grand={c["key"]:sum(_num(_read_logbook_value(r,c)) for r in rows) for c in cols if _is_numeric_layout(c)}
     for c in cols:
         if c.get("total"): grand[c["key"]]=sum(grand.get(x["key"],0) for x in cols if _is_numeric_layout(x))
@@ -66,10 +76,6 @@ def logbook_db_page():
 @login_required
 def logbook():
     rows=list_logbook_rows(); layout=load_logbook_layout(); dbcols=logbook_columns(load_config()); pages,grand=_prepare_pages(rows,layout)
-    try: page=max(1,int(request.args.get("page",1)))
-    except ValueError: page=1
-    page=min(page,len(pages))
-    
     cols=layout["columns"]
     groups=[]; i=0
     while i < len(cols):
@@ -90,14 +96,14 @@ def logbook():
             while j < len(cols) and cols[j].get("group")==g: j+=1
             subgroups.append({"span":j-i,"label":""})
             i=j
-    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,current_page=page,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups)
+    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
 def refresh_logbook_data():
     try: refresh_logbook(load_config()); flash("Logbook actualisé à partir de user.db.")
     except Exception as exc: flash(f"Actualisation du logbook impossible — {exc}")
-    return redirect(url_for("main.logbook"))
+    return redirect(url_for("main.logbook_db_page"))
 
 @main_bp.route("/logbook/cell",methods=["POST"])
 @login_required
@@ -108,7 +114,7 @@ def edit_logbook_cell():
         if column not in allowed: raise ValueError("Colonne logbook invalide.")
         update_logbook_cell(row_id,column,value if value != "" else None); flash("Modification enregistrée.")
     except Exception as exc: flash(f"Modification impossible — {exc}")
-    return redirect(url_for("main.logbook",page=request.form.get("page",1)))
+    return redirect(url_for("main.logbook"))
 
 @main_bp.route("/logbook/settings")
 @login_required

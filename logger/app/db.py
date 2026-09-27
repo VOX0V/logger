@@ -53,11 +53,13 @@ def user_file(name, username=None):
 
 
 def db_path(username=None):
-    return user_file("user_data.db", username)
+    username = username or current_username()
+    return user_file(f"{username}_data.db", username)
 
 
 def logbook_db_path(username=None):
-    return user_file("user_logbook.db", username)
+    username = username or current_username()
+    return user_file(f"{username}_logbook.db", username)
 
 
 def connect(username=None):

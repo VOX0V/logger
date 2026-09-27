@@ -103,9 +103,17 @@ DEFAULT_LOGBOOK_LAYOUT = {
 }
 
 
-def config_path(username=None): return user_file("userdb.yml", username)
-def logbook_db_config_path(username=None): return user_file("logbookdb.yml", username)
-def logbook_layout_path(username=None): return user_file("logbook.yml", username)
+def _cfg_username(username):
+    from .db import current_username
+    return username or current_username()
+
+
+def config_path(username=None):
+    u = _cfg_username(username); return user_file(f"{u}_data.yml", username)
+def logbook_db_config_path(username=None):
+    u = _cfg_username(username); return user_file(f"{u}_logbook.yml", username)
+def logbook_layout_path(username=None):
+    u = _cfg_username(username); return user_file(f"{u}_layout.yml", username)
 
 
 def technical_name(display_name):

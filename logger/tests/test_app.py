@@ -41,7 +41,7 @@ def test_bootstrap_admin_can_login(client):
 def test_three_yaml_files_exist(client, app):
     login(client)
     user_dir = Path(app.config["STORAGE_DIR"]) / "users" / "admin"
-    for name in ('userdb.yml', 'logbookdb.yml', 'logbook.yml'):
+    for name in ('admin_data.yml', 'admin_logbook.yml', 'admin_layout.yml'):
         assert (user_dir / name).exists()
 
 
@@ -114,4 +114,4 @@ def test_admin_can_create_account_and_data_is_isolated(client, app):
     assert r.status_code == 200
     with app.app_context():
         user_dir = Path(app.config["STORAGE_DIR"]) / "users" / "pilot2"
-        assert (user_dir / "user_data.db").exists()
+        assert (user_dir / "pilot2_data.db").exists()
