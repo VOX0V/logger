@@ -2,7 +2,7 @@ import re
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from .auth import login_required
 from .importer import importable_rows
-from .models import load_config, list_users, import_rows, save_config, safe_identifier, configurable_columns
+from .models import load_config, list_users, list_logbook, import_rows, save_config, safe_identifier, configurable_columns, refresh_logbook, logbook_config
 
 main_bp = Blueprint("main", __name__)
 
@@ -58,6 +58,95 @@ def index():
     config = load_config()
     columns, users = list_users(config)
     return render_template("index.html", categories=_columns(config), columns=columns, users=users)
+
+
+@main_bp.route("/logbook")
+@login_required
+def logbook():
+    config = load_config()
+    lb_config = logbook_config(config)
+    columns, rows = list_logbook(config)
+    return render_template("logbook.html", categories=[c for c in lb_config["columns"] if c.get("group") != "system"], columns=columns, rows=rows)
+
+
+@main_bp.route("/logbook/refresh", methods=["POST"])
+@login_required
+def refresh_logbook_data():
+    config = load_config()
+    try:
+        refresh_logbook(config)
+        flash("Logbook actualisé à partir de user.db.")
+    except Exception as exc:
+        flash(f"Actualisation du logbook impossible — {exc}")
+    return redirect(url_for("main.logbook"))
+
+
+@main_bp.route("/logbook/settings")
+@login_required
+def logbook_settings():
+    config = load_config()
+    lb = logbook_config(config)
+    categories = [c for c in lb["columns"] if c.get("group") != "system"]
+    groups = sorted({c.get("group") for c in categories if c.get("group")})
+    return render_template("logbook_settings.html", categories=categories, groups=groups)
+
+
+@main_bp.route("/logbook/settings/column/new", methods=["GET", "POST"])
+@login_required
+def new_logbook_column():
+    config = load_config(); lb = logbook_config(config)
+    categories = [c for c in lb["columns"] if c.get("group") != "system"]
+    groups = sorted({c.get("group") for c in categories if c.get("group")})
+    positions = list(range(1, len(categories) + 2))
+    if request.method == "POST":
+        try:
+            position=int(request.form.get("position", len(categories)+1))
+            if position not in positions: raise ValueError("Position invalide.")
+            display=request.form.get("display_name", "").strip(); group=request.form.get("group", "").strip(); new_group=request.form.get("new_group", "").strip()
+            if group == "__new__": group=new_group
+            source=[x.strip() for x in request.form.get("source", "").splitlines() if x.strip()]
+            if not display or not group or not source: raise ValueError("Display name, groupe et source sont obligatoires.")
+            item={"column":technical_name(display),"display_name":display,"position":position,"group":group,"data_type":(request.form.get("data_type") or "text").lower(),"nullable":request.form.get("nullable") == "1","visible":request.form.get("visible") == "1","editable":request.form.get("editable") == "1","source":source,"transformation":request.form.get("transformation", "").strip()}
+            if any(c["column"] == item["column"] for c in categories): raise ValueError(f"La colonne {item['column']} existe déjà.")
+            categories.insert(position-1,item)
+            for i,c in enumerate(categories,1): c["position"]=i
+            config["logbook"]["columns"]=[c for c in lb["columns"] if c.get("group")=="system"]+categories
+            save_config(config); flash("Colonne logbook ajoutée à configuration.yml."); return redirect(url_for("main.logbook_settings"))
+        except ValueError as exc: flash(str(exc))
+    return render_template("logbook_column_form.html", category=None, groups=groups, positions=positions, action=url_for("main.new_logbook_column"))
+
+
+@main_bp.route("/logbook/settings/column/<int:position>/edit", methods=["GET", "POST"])
+@login_required
+def edit_logbook_column(position):
+    config=load_config(); lb=logbook_config(config); categories=[c for c in lb["columns"] if c.get("group")!="system"]
+    category=next((c for c in categories if int(c.get("position",0))==position),None)
+    if category is None: flash("Colonne introuvable."); return redirect(url_for("main.logbook_settings"))
+    groups=sorted({c.get("group") for c in categories if c.get("group")}); positions=list(range(1,len(categories)+1))
+    if request.method=="POST":
+        try:
+            newpos=int(request.form.get("position",position)); display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); new_group=request.form.get("new_group","").strip(); group=new_group if group=="__new__" else group
+            source=[x.strip() for x in request.form.get("source","").splitlines() if x.strip()]
+            if newpos not in positions or not display or not group or not source: raise ValueError("Position, display name, groupe et source sont obligatoires.")
+            item={"column":technical_name(display),"display_name":display,"position":newpos,"group":group,"data_type":(request.form.get("data_type") or "text").lower(),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","source":source,"transformation":request.form.get("transformation","").strip()}
+            if any(c is not category and c["column"]==item["column"] for c in categories): raise ValueError(f"La colonne {item['column']} existe déjà.")
+            categories.remove(category); categories.insert(newpos-1,item)
+            for i,c in enumerate(categories,1): c["position"]=i
+            config["logbook"]["columns"]=[c for c in lb["columns"] if c.get("group")=="system"]+categories; save_config(config); flash("Colonne logbook modifiée."); return redirect(url_for("main.logbook_settings"))
+        except ValueError as exc: flash(str(exc))
+    return render_template("logbook_column_form.html", category=category, groups=groups, positions=positions, action=url_for("main.edit_logbook_column",position=position))
+
+
+@main_bp.route("/logbook/settings/column/<int:position>/delete", methods=["POST"])
+@login_required
+def delete_logbook_column(position):
+    config=load_config(); lb=logbook_config(config); categories=[c for c in lb["columns"] if c.get("group")!="system"]; target=next((c for c in categories if int(c.get("position",0))==position),None)
+    if target is None: flash("Colonne introuvable."); return redirect(url_for("main.logbook_settings"))
+    categories=[c for c in categories if c is not target]
+    for i,c in enumerate(categories,1): c["position"]=i
+    config["logbook"]["columns"]=[c for c in lb["columns"] if c.get("group")=="system"]+categories; save_config(config)
+    from .models import logbook_connect, drop_unused_logbook_columns
+    conn=logbook_connect(); drop_unused_logbook_columns(conn,config); conn.commit(); conn.close(); flash(f"Colonne {target['column']} supprimée du logbook."); return redirect(url_for("main.logbook_settings"))
 
 
 @main_bp.route("/settings")

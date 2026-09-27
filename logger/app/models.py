@@ -12,6 +12,18 @@ SYSTEM_COLUMNS = [
     {"column": "import_source", "display_name": "Import source", "position": 0, "group": "system", "data_type": "text", "nullable": True, "visible": False, "editable": False},
 ]
 
+LOGBOOK_SYSTEM_COLUMNS = [
+    {"column": "id", "display_name": "ID", "position": 0, "group": "system", "data_type": "integer", "nullable": False, "visible": False, "editable": False, "primary_key": True},
+    {"column": "created_at", "display_name": "Created at", "position": 0, "group": "system", "data_type": "datetime", "nullable": False, "visible": False, "editable": False},
+    {"column": "updated_at", "display_name": "Updated at", "position": 0, "group": "system", "data_type": "datetime", "nullable": False, "visible": False, "editable": False},
+    {"column": "import_source", "display_name": "Import source", "position": 0, "group": "system", "data_type": "text", "nullable": True, "visible": False, "editable": False},
+]
+
+DEFAULT_LOGBOOK_COLUMNS = [
+    {"column": "date", "display_name": "date", "position": 1, "group": "date", "data_type": "date", "nullable": True, "visible": True, "editable": True,
+     "source": ["users.year", "users.month", "users.day"], "transformation": "date"},
+]
+
 DEFAULT_COLUMNS = [
     {"position": 1, "display_name": "year", "group": "date", "column": "year", "data_type": "integer", "nullable": True, "visible": True, "editable": True, "import_rules": ["year"]},
     {"position": 2, "display_name": "month", "group": "date", "column": "month", "data_type": "integer", "nullable": True, "visible": True, "editable": True, "import_rules": ["month"]},
@@ -95,10 +107,10 @@ def _normalize_column(raw, index):
     }
 
 
-def _normalize_system_columns(raw_columns):
+def _normalize_system_columns(raw_columns, system_columns=SYSTEM_COLUMNS):
     by_name = {c["column"]: dict(c) for c in (raw_columns or []) if c.get("column")}
     result = []
-    for base in SYSTEM_COLUMNS:
+    for base in system_columns:
         item = dict(base)
         item.update(by_name.get(base["column"], {}))
         item["group"] = "system"
@@ -107,6 +119,32 @@ def _normalize_system_columns(raw_columns):
         item["editable"] = False
         result.append(item)
     return result
+
+
+def _normalize_logbook_column(raw, index):
+    item = dict(raw or {})
+    display_name = str(item.get("display_name", item.get("affichage", "")) or "").strip()
+    group = str(item.get("group", item.get("groupe", "")) or "").strip()
+    column = str(item.get("column", item.get("colonne_technique", "")) or "").strip()
+    if not column:
+        column = _technical_name(display_name)
+    else:
+        safe_identifier(column)
+        if column in {c["column"] for c in LOGBOOK_SYSTEM_COLUMNS}:
+            raise ValueError(f"Nom de colonne réservé: {column}")
+    data_type = str(item.get("data_type", "text") or "text").lower()
+    if data_type not in {"text", "integer", "decimal", "date", "datetime", "boolean"}:
+        raise ValueError(f"Type de donnée invalide pour {column}: {data_type}")
+    source = item.get("source", []) or []
+    if isinstance(source, str):
+        source = [source]
+    source = [str(v).strip() for v in source if str(v).strip()]
+    return {
+        "column": column, "display_name": display_name, "position": index, "group": group,
+        "data_type": data_type, "nullable": bool(item.get("nullable", True)),
+        "visible": bool(item.get("visible", True)), "editable": bool(item.get("editable", True)),
+        "source": source, "transformation": str(item.get("transformation", "") or "").strip(),
+    }
 
 
 def _normalize_config(data):
@@ -118,10 +156,18 @@ def _normalize_config(data):
     system_names = {s["column"] for s in SYSTEM_COLUMNS}
     raw_non_system = [item for item in raw_columns if str((item or {}).get("column", (item or {}).get("colonne_technique", ""))).strip() not in system_names]
     columns = [_normalize_column(item, index) for index, item in enumerate(raw_non_system, 1)]
-    # System columns are always present and protected; they are part of the same list.
     system = _normalize_system_columns(database.get("columns") or [])
-    return {"database": {"name": database.get("name", "users"), "columns": system + columns}}
 
+    raw_logbook = data.get("logbook") or {}
+    logbook_columns_raw = raw_logbook.get("columns") or DEFAULT_LOGBOOK_COLUMNS
+    logbook_system_names = {s["column"] for s in LOGBOOK_SYSTEM_COLUMNS}
+    logbook_non_system = [item for item in logbook_columns_raw if str((item or {}).get("column", "")).strip() not in logbook_system_names]
+    logbook_columns = [_normalize_logbook_column(item, index) for index, item in enumerate(logbook_non_system, 1)]
+    logbook_system = _normalize_system_columns(raw_logbook.get("columns") or [], LOGBOOK_SYSTEM_COLUMNS)
+    return {
+        "database": {"name": database.get("name", "users"), "columns": system + columns},
+        "logbook": {"name": raw_logbook.get("name", "logbook"), "columns": logbook_system + logbook_columns},
+    }
 
 def load_config():
     ensure_config()
@@ -160,6 +206,82 @@ def connect():
     return conn
 
 
+def logbook_config(config):
+    return config.get("logbook", {"name": "logbook", "columns": LOGBOOK_SYSTEM_COLUMNS + DEFAULT_LOGBOOK_COLUMNS})
+
+def logbook_db_path():
+    return Path(current_app.instance_path) / "logbook.db"
+
+def logbook_connect():
+    conn = sqlite3.connect(logbook_db_path())
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def sync_logbook_columns(conn, config):
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(logbook)").fetchall()}
+    for column in config["logbook"]["columns"]:
+        col = safe_identifier(column["column"])
+        if col == "id":
+            continue
+        if col not in existing:
+            nullable = "" if column.get("nullable", True) else " NOT NULL"
+            conn.execute(f'ALTER TABLE logbook ADD COLUMN "{col}" {sqlite_type(column.get("data_type"))}{nullable}')
+
+def drop_unused_logbook_columns(conn, config):
+    configured = {c["column"] for c in config["logbook"]["columns"]}
+    existing = [row[1] for row in conn.execute("PRAGMA table_info(logbook)").fetchall()]
+    protected = {c["column"] for c in LOGBOOK_SYSTEM_COLUMNS}
+    for col in existing:
+        if col not in configured and col not in protected:
+            conn.execute(f'DROP COLUMN "{safe_identifier(col)}"')
+
+def refresh_logbook(config):
+    conn = logbook_connect()
+    user_conn = connect()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS logbook (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, import_source TEXT)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_logbook_import_source ON logbook(import_source)")
+        sync_logbook_columns(conn, config)
+        drop_unused_logbook_columns(conn, config)
+        user_cols = [c["column"] for c in configurable_columns(config)]
+        user_select = ", ".join(f'"{safe_identifier(c)}"' for c in user_cols)
+        rows = user_conn.execute(f"SELECT id, import_source, {user_select} FROM users ORDER BY id").fetchall()
+        log_cols = [c for c in config["logbook"]["columns"] if c.get("group") != "system"]
+        names = [safe_identifier(c["column"]) for c in log_cols]
+        conn.execute("DELETE FROM logbook")
+        for row in rows:
+            values=[]
+            for col in log_cols:
+                values.append(transform_logbook_value(col, row))
+            placeholders=", ".join("?" for _ in names)
+            if names:
+                conn.execute(f'INSERT INTO logbook (import_source, {", ".join(chr(34)+n+chr(34) for n in names)}) VALUES (?, {placeholders})', [row["import_source"]] + values)
+        conn.commit()
+    finally:
+        user_conn.close(); conn.close()
+
+def transform_logbook_value(column, row):
+    source = column.get("source", [])
+    values = [row[s.split(".", 1)[1]] if "." in s else row[s] for s in source]
+    transformation = column.get("transformation", "")
+    if transformation == "date":
+        if len(values) < 3 or any(v in (None, "") for v in values[:3]):
+            return None
+        try:
+            return f"{int(values[0]):04d}-{int(values[1]):02d}-{int(values[2]):02d}"
+        except (TypeError, ValueError):
+            return None
+    return values[0] if len(values) == 1 else (" ".join(str(v) for v in values if v not in (None, "")) or None)
+
+def list_logbook(config):
+    conn = logbook_connect()
+    visible = [c for c in config["logbook"]["columns"] if c.get("group") != "system" and c.get("visible", True)]
+    cols = [c["column"] for c in sorted(visible, key=lambda c: int(c.get("position", 0)))]
+    select_cols = ", ".join([f'"{safe_identifier(c)}"' for c in cols]) if cols else "id"
+    rows = conn.execute(f"SELECT {select_cols} FROM logbook ORDER BY id").fetchall()
+    conn.close()
+    return cols, rows
+
 def init_db(app):
     with app.app_context():
         config = load_config()
@@ -169,6 +291,12 @@ def init_db(app):
         sync_user_columns(conn, config)
         conn.commit()
         conn.close()
+        lb = logbook_connect()
+        lb.execute("CREATE TABLE IF NOT EXISTS logbook (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, import_source TEXT)")
+        lb.execute("CREATE INDEX IF NOT EXISTS idx_logbook_import_source ON logbook(import_source)")
+        sync_logbook_columns(lb, config)
+        lb.commit()
+        lb.close()
 
 
 def sync_user_columns(conn, config):

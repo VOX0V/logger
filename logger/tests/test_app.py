@@ -85,7 +85,8 @@ def test_import_normalizes_punctuation_and_spaces():
 
 def test_configuration_uses_single_database_columns_list(client, app):
     login(client)
-    config = load_config()
+    with app.app_context():
+        config = load_config()
     columns = config['database']['columns']
     assert {c['column'] for c in columns if c['group'] == 'system'} == {'id', 'created_at', 'updated_at', 'import_source'}
     assert all(set(['column','display_name','position','group','data_type','nullable','visible','editable','import_rules']).issubset(c) for c in columns if c['group'] != 'system')
@@ -125,3 +126,29 @@ def test_deleting_configured_column_drops_database_column(client, app):
     assert 'year' not in cols
     assert 'year' not in {c['column'] for c in config['database']['columns']}
     assert {'id', 'created_at', 'updated_at', 'import_source'}.issubset(cols)
+
+
+def test_logbook_is_created_and_date_is_built_from_user_date(client, app):
+    login(client)
+    from openpyxl import Workbook
+    import io
+    wb=Workbook(); ws=wb.active; ws.title='raw'
+    ws.append(['year','month','day','reg'])
+    ws.append([2026,9,27,'C-AAA'])
+    bio=io.BytesIO(); wb.save(bio); bio.seek(0)
+    response=client.post('/import', data={'files':[(bio,'logbook-source.xlsx')]}, content_type='multipart/form-data')
+    assert response.status_code == 302
+    response=client.post('/logbook/refresh', follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        from app.models import logbook_connect, load_config
+        conn=logbook_connect()
+        row=conn.execute('SELECT date FROM logbook ORDER BY id').fetchone()
+        cols=[r[1] for r in conn.execute('PRAGMA table_info(logbook)').fetchall()]
+        conn.close()
+        config=load_config()
+    assert 'date' in cols
+    assert row['date'] == '2026-09-27'
+    assert config['logbook']['columns'][4]['column'] == 'date'
+    assert config['logbook']['columns'][4]['source'] == ['users.year','users.month','users.day']
+    assert config['logbook']['columns'][4]['transformation'] == 'date'

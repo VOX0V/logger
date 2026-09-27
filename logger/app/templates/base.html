@@ -8,6 +8,6 @@ body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f7;color:#20242a}
 </style>
 </head>
 <body>
-<header><strong>Logger</strong><nav>{% if session.user %}<a href="{{url_for('main.index')}}">Users</a><a href="{{url_for('main.import_files')}}">Importer</a><a href="{{url_for('main.settings')}}">Settings</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
+<header><strong>Logger</strong><nav>{% if session.user %}<a href="{{url_for('main.index')}}">Users</a><a href="{{url_for('main.import_files')}}">Importer</a><a href="{{url_for('main.settings')}}">Settings</a><a href="{{url_for('main.logbook')}}">Logbook</a><a href="{{url_for('main.logbook_settings')}}">Logbook Settings</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
 <main>{% for message in get_flashed_messages() %}<div class="flash">{{message}}</div>{% endfor %}{% block content %}{% endblock %}</main><span class="app-version">v{{config.APP_VERSION}}</span>
 </body></html>
