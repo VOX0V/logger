@@ -1,12 +1,14 @@
 # Logger
 
-Version 1.1.0. Application Flask minimale pour importer plusieurs fichiers Excel dans `user.db` selon une configuration YAML séparée.
+Version 1.4.0. Application Flask minimale pour importer plusieurs fichiers Excel dans `user.db` selon une configuration YAML séparée.
 
 ## Architecture
 
 - `user.db` contient uniquement les données importées dans la table `users`.
-- `configuration.yml` contient les catégories, groupes et règles d'import.
-- Le fichier de configuration est persistant dans `/app/instance/configuration.yml`.
+- `userdb.yml` contient les catégories, groupes et règles d'import de `user.db`.
+- `logbookdb.yml` contient la structure et les sources de `logbook.db`.
+- `logbook.yml` contient la présentation du Logbook : colonnes, largeurs, hauteurs, pagination et totaux.
+- Le fichier de configuration est persistant dans `/app/instance/userdb.yml, /app/instance/logbookdb.yml et /app/instance/logbook.yml`.
 - Les anciennes bases de travail, bases publiques, logbook et imports spécialisés ne font plus partie de cette version.
 
 ## Import
