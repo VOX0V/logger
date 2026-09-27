@@ -1,87 +1,162 @@
-categories:
-  - position: 1
-    affichage: year
-    groupe: date
-    colonne_technique: year
-    import:
-      - year
-  - position: 2
-    affichage: month
-    groupe: date
-    colonne_technique: month
-    import:
-      - month
-  - position: 3
-    affichage: day
-    groupe: date
-    colonne_technique: day
-    import:
-      - day
-  - position: 4
-    affichage: type
-    groupe: aircraft
-    colonne_technique: type
-    import:
-      - type
-  - position: 5
-    affichage: registration
-    groupe: aircraft
-    colonne_technique: registration
-    import:
-      - immat
-      - reg
-      - registration
-  - position: 6
-    affichage: pilot in command
-    groupe: crew
-    colonne_technique: pilot_in_command
-    import:
-      - pic
-  - position: 7
-    affichage: copilot
-    groupe: crew
-    colonne_technique: copilot
-    import:
-      - copi
-  - position: 8
-    affichage: departure
-    groupe: airports
-    colonne_technique: departure
-    import:
-      - dep
-  - position: 9
-    affichage: arrival
-    groupe: airports
-    colonne_technique: arrival
-    import:
-      - arr
-  - position: 10
-    affichage: remarks
-    groupe: misc
-    colonne_technique: remarks
-    import:
-      - remarks
-  - position: 11
-    affichage: single engine dual day
-    groupe: time
-    colonne_technique: single_engine_dual_day
-    import:
-      - se dual day
-  - position: 12
-    affichage: single engine pic day
-    groupe: time
-    colonne_technique: single_engine_pic_day
-    import:
-      - se pic day
-  - position: 13
-    affichage: single engine dual night
-    groupe: time
-    colonne_technique: single_engine_dual_night
-    import:
-      - se dual night
-  - position: 14
-    affichage: single engine pic night
-    groupe: time
-    colonne_technique: single_engine_pic_night
-    import:
-      - se pic night
+database:
+  name: users
+  columns:
+    - column: id
+      display_name: ID
+      position: 0
+      group: system
+      data_type: integer
+      nullable: false
+      visible: false
+      editable: false
+      primary_key: true
+    - column: created_at
+      display_name: Created at
+      position: 0
+      group: system
+      data_type: datetime
+      nullable: false
+      visible: false
+      editable: false
+    - column: updated_at
+      display_name: Updated at
+      position: 0
+      group: system
+      data_type: datetime
+      nullable: false
+      visible: false
+      editable: false
+    - column: import_source
+      display_name: Import source
+      position: 0
+      group: system
+      data_type: text
+      nullable: true
+      visible: false
+      editable: false
+    - column: year
+      display_name: year
+      position: 1
+      group: date
+      data_type: integer
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [year]
+    - column: month
+      display_name: month
+      position: 2
+      group: date
+      data_type: integer
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [month]
+    - column: day
+      display_name: day
+      position: 3
+      group: date
+      data_type: integer
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [day]
+    - column: type
+      display_name: type
+      position: 4
+      group: aircraft
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [type]
+    - column: registration
+      display_name: registration
+      position: 5
+      group: aircraft
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [immat, reg, registration]
+    - column: pilot_in_command
+      display_name: pilot in command
+      position: 6
+      group: crew
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [pic]
+    - column: copilot
+      display_name: copilot
+      position: 7
+      group: crew
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [copi]
+    - column: departure
+      display_name: departure
+      position: 8
+      group: airports
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [dep]
+    - column: arrival
+      display_name: arrival
+      position: 9
+      group: airports
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [arr]
+    - column: remarks
+      display_name: remarks
+      position: 10
+      group: misc
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [remarks]
+    - column: single_engine_dual_day
+      display_name: single engine dual day
+      position: 11
+      group: time
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [se dual day]
+    - column: single_engine_pic_day
+      display_name: single engine pic day
+      position: 12
+      group: time
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [se pic day]
+    - column: single_engine_dual_night
+      display_name: single engine dual night
+      position: 13
+      group: time
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [se dual night]
+    - column: single_engine_pic_night
+      display_name: single engine pic night
+      position: 14
+      group: time
+      data_type: text
+      nullable: true
+      visible: true
+      editable: true
+      import_rules: [se pic night]

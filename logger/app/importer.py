@@ -75,8 +75,10 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None):
 
     rule_map = {}
     for category in categories:
-        destination = category.get("colonne_technique")
-        for rule in category.get("import", []) or []:
+        if category.get("group", category.get("groupe")) == "system":
+            continue
+        destination = category.get("column", category.get("colonne_technique"))
+        for rule in category.get("import_rules", category.get("import", [])) or []:
             rule_map[normalize(rule)] = destination
 
     source_indexes = {}

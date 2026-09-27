@@ -78,7 +78,50 @@ def test_import_normalizes_punctuation_and_spaces():
     ws.append(['SE-DUAL-DAY', 'some unknown'])
     ws.append([time(8, 30), 'ignored'])
     buf = io.BytesIO(); wb.save(buf)
-    categories = [{'affichage':'single engine dual day','groupe':'time','import':['se dual day'],'colonne_technique':'single_engine_dual_day'}]
+    categories = [{'display_name':'single engine dual day','group':'time','import_rules':['se dual day'],'column':'single_engine_dual_day'}]
     rows, matched = importable_rows('test.xlsx', buf.getvalue(), categories)
     assert matched == 1
     assert rows[0]['single_engine_dual_day'] == '08:30:00'
+
+def test_configuration_uses_single_database_columns_list(client, app):
+    login(client)
+    config = load_config()
+    columns = config['database']['columns']
+    assert {c['column'] for c in columns if c['group'] == 'system'} == {'id', 'created_at', 'updated_at', 'import_source'}
+    assert all(set(['column','display_name','position','group','data_type','nullable','visible','editable','import_rules']).issubset(c) for c in columns if c['group'] != 'system')
+    text = (Path(app.instance_path) / 'configuration.yml').read_text()
+    assert 'database:' in text and 'columns:' in text
+    assert 'categories:' not in text
+
+
+def test_system_columns_exist_and_are_hidden_from_main_table(client, app):
+    login(client)
+    with app.app_context():
+        conn = connect()
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(users)').fetchall()]
+        conn.close()
+    assert {'id', 'created_at', 'updated_at', 'import_source'}.issubset(cols)
+    response = client.get('/')
+    body = response.get_data(as_text=True)
+    assert '<th>ID</th>' not in body
+    assert 'Created at' not in body
+    assert 'Updated at' not in body
+    assert 'Import source' not in body
+
+
+def test_deleting_configured_column_drops_database_column(client, app):
+    login(client)
+    with app.app_context():
+        conn = connect()
+        assert 'year' in [r[1] for r in conn.execute('PRAGMA table_info(users)').fetchall()]
+        conn.close()
+    response = client.post('/settings/category/1/delete', follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        conn = connect()
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(users)').fetchall()]
+        config = load_config()
+        conn.close()
+    assert 'year' not in cols
+    assert 'year' not in {c['column'] for c in config['database']['columns']}
+    assert {'id', 'created_at', 'updated_at', 'import_source'}.issubset(cols)
