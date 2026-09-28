@@ -8,9 +8,9 @@ from app import create_app
 
 @pytest.fixture()
 def app():
-    storage = tempfile.mkdtemp()
     import os
-    os.environ["STORAGE_DIR"] = storage
+    os.environ["APPDATA_DIR"] = tempfile.mkdtemp()
+    os.environ["USERS_DIR"] = tempfile.mkdtemp()
     os.environ["SECRET_KEY"] = "test"
     os.environ["ADMIN_USERNAME"] = "admin"
     os.environ["ADMIN_PASSWORD"] = "admin"
@@ -40,8 +40,8 @@ def test_bootstrap_admin_can_login(client):
 
 def test_three_yaml_files_exist(client, app):
     login(client)
-    user_dir = Path(app.config["STORAGE_DIR"]) / "users" / "admin"
-    for name in ('admin_data.yml', 'admin_logbook.yml', 'admin_layout.yml'):
+    user_dir = Path(app.config["USERS_DIR"]) / "admin"
+    for name in ('admin_data.yml', 'admin_logbook.yml', 'admin_layout.yml', 'admin_converter.yml'):
         assert (user_dir / name).exists()
 
 
@@ -113,5 +113,183 @@ def test_admin_can_create_account_and_data_is_isolated(client, app):
     r = client.get('/', follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
-        user_dir = Path(app.config["STORAGE_DIR"]) / "users" / "pilot2"
+        user_dir = Path(app.config["USERS_DIR"]) / "pilot2"
         assert (user_dir / "pilot2_data.db").exists()
+
+
+# ---------------- convertisseur ----------------
+
+def _import_flight(client, **cols):
+    headers = list(cols.keys()); values = list(cols.values())
+    r = client.post('/import', data={'files': [(excel(headers, values), 'f.xlsx')]}, content_type='multipart/form-data')
+    assert r.status_code == 302
+
+
+def test_appdata_structure_and_reference_data(client, app):
+    from app.refdata import find_airport
+    root = Path(app.config["APPDATA_DIR"])
+    for name in ("db/users.db", "db/airport.db", "db/aircrafts.db", "converter/rules.yml", "converter/settings.yml"):
+        assert (root / name).exists(), name
+    with app.app_context():
+        assert find_airport("YUL")["icao_code"] == "CYUL"
+        assert find_airport("cyul")["iata_code"] == "YUL"      # ICAO et minuscules acceptés
+        assert find_airport("CMH4")["icao_code"] == "KCMH"     # fichier importé tel quel
+        assert find_airport("ZZZ") is None
+
+
+def test_day_night_computation_at_yul():
+    from app.converter.transforms import is_night, parse_utc
+    lat, lon = 45.4706, -73.7408
+    day = parse_utc("1728680385000")                      # 2024-10-11 16:59 heure locale
+    assert day.isoformat() == "2024-10-11T20:59:45"
+    assert is_night(day, lat, lon, 30, 30) is False
+    assert is_night(parse_utc("2024-10-12 02:00:00"), lat, lon, 30, 30) is True   # 22h locale
+    assert is_night(parse_utc("2024-10-12 12:00:00"), lat, lon, 30, 30) is False  # 8h locale
+
+
+def test_night_margin_after_sunset():
+    from app.converter.transforms import is_night, parse_utc
+    import ephem
+    obs = ephem.Observer(); obs.lat, obs.lon = "45.4706", "-73.7408"; obs.date = "2024-10-11 20:00"
+    sunset = obs.next_setting(ephem.Sun()).datetime()
+    from datetime import timedelta
+    assert is_night(sunset + timedelta(minutes=10), 45.4706, -73.7408, 30, 30) is False   # dans la marge
+    assert is_night(sunset + timedelta(minutes=40), 45.4706, -73.7408, 30, 30) is True
+    assert is_night(sunset + timedelta(minutes=10), 45.4706, -73.7408, 0, 30) is True     # marge à 0
+
+
+def test_tc_rounding():
+    from app.converter.transforms import parse_block, block_to_decimal
+    from app.converter.catalog import rounding_from_text, rounding_to_text
+    import yaml
+    rules = yaml.safe_load(open(Path(__file__).parent.parent / "defaults" / "converter_settings.yml"))["tc_rounding"]["rules"]
+    assert block_to_decimal(parse_block("01:23:00"), "tc", rules) == 1.4
+    assert block_to_decimal(parse_block("1:57"), "tc", rules) == 2.0     # 57 min → +1 h
+    assert block_to_decimal(parse_block("00:02"), "tc", rules) == 0.0
+    assert block_to_decimal(parse_block("00:00:00"), "tc", rules) is None
+    assert block_to_decimal(parse_block("1900-01-01 02:30:00"), "none", rules) == 2.5
+    assert rounding_from_text(rounding_to_text(rules)) == rules
+
+
+def test_refresh_with_day_night_rule(client, app):
+    login(client)
+    with app.app_context():
+        from app.refdata import save_aircraft
+        save_aircraft(None, {"registration": "C-GABC", "type": "C172", "engine": "single"})
+    _import_flight(client, year=2024, month=10, day=11, reg='C-GABC', arr='YUL', block='01:23:00', fcv_on_millis_utc=1728680385000)
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+    r = client.post('/logbook/refresh', follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.converter import list_logbook_rows
+        row = list_logbook_rows(username="admin")[0]
+    assert row['date'] == '2024-10-11' and row['registration'] == 'C-GABC'
+    assert row['single_engine_pic_day'] == '1.4' or row['single_engine_pic_day'] == 1.4
+    assert row['single_engine_pic_night'] is None
+    assert row['arrival'] is None                       # règle "copie arrivée" non cochée
+
+
+def test_refresh_warns_on_unknown_airport_and_aircraft(client, app):
+    login(client)
+    _import_flight(client, year=2024, month=10, day=11, reg='C-XXXX', arr='ZZZ', block='01:00:00', fcv_on_millis_utc=1728680385000)
+    client.post('/converter/select', data={'enabled': ['daynight_single_pic']})
+    r = client.post('/logbook/refresh', follow_redirects=True)
+    assert 'Avion inconnu : C-XXXX' in r.get_data(as_text=True)
+
+
+def test_engine_filter_skips_other_engine(client, app):
+    login(client)
+    with app.app_context():
+        from app.refdata import save_aircraft
+        save_aircraft(None, {"registration": "C-FMUL", "engine": "multi"})
+    _import_flight(client, year=2024, month=10, day=11, reg='C-FMUL', arr='YUL', block='02:00:00', fcv_on_millis_utc=1728680385000)
+    client.post('/converter/select', data={'enabled': ['daynight_single_pic', 'daynight_multi_pic']})
+    client.post('/logbook/refresh')
+    with app.app_context():
+        from app.converter import list_logbook_rows
+        row = list_logbook_rows(username="admin")[0]
+    assert row['single_engine_pic_day'] is None
+    assert float(row['multi_engine_pic_day']) == 2.0
+
+
+def test_first_rule_wins_for_same_column(client, app):
+    login(client)
+    _import_flight(client, year=2024, month=10, day=11, dep_datetime_local='2020-01-01 10:00:00')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'date_from_departure']})
+    client.post('/logbook/refresh')
+    with app.app_context():
+        from app.converter import list_logbook_rows
+        assert list_logbook_rows(username="admin")[0]['date'] == '2024-10-11'
+
+
+def test_only_admin_edits_catalog_and_users_tick_their_own(client, app):
+    with app.app_context():
+        from app.accounts import create_account
+        create_account("pilot3", "pilot3pass", role="user")
+    login(client, "pilot3", "pilot3pass")
+    assert client.get('/converter').status_code == 200
+    r = client.get('/converter/rule/new', follow_redirects=True)
+    assert 'Nouvelle règle' not in r.get_data(as_text=True) or 'Type de transformation' not in r.get_data(as_text=True)
+    assert client.post('/converter/rule/copy_remarks/delete').status_code == 302
+    from app.converter.catalog import load_rules
+    with app.app_context():
+        assert any(r['id'] == 'copy_remarks' for r in load_rules())   # rien supprimé
+    client.post('/converter/select', data={'enabled': ['copy_remarks']})
+    with app.app_context():
+        from app.converter.catalog import load_selection
+        assert load_selection(username="pilot3") == ['copy_remarks']
+        assert 'copy_remarks' in load_selection(username="admin")       # sélection de l'admin inchangée
+
+
+def test_admin_creates_edits_deletes_rule(client, app):
+    login(client)
+    r = client.post('/converter/rule/new', data={'save': '1', 'transform': 'tc_round', 'name': 'Bloc décimal', 'group': 'Temps',
+                    'in_time': 'block_time', 'out_target': 'remarks', 'param_rounding': 'tc'}, follow_redirects=True)
+    assert 'Règle ajoutée' in r.get_data(as_text=True)
+    r = client.post('/converter/rule/bloc_decimal/edit', data={'name': 'Bloc décimal 2', 'group': 'Temps', 'in_time': 'block_time',
+                    'out_target': 'remarks', 'param_rounding': 'none'}, follow_redirects=True)
+    assert 'Règle modifiée' in r.get_data(as_text=True)
+    r = client.post('/converter/rule/new', data={'save': '1', 'transform': 'copy', 'name': 'Sans sortie', 'in_source': 'year'}, follow_redirects=True)
+    assert 'obligatoire' in r.get_data(as_text=True)
+    client.post('/converter/rule/bloc_decimal/delete')
+    from app.converter.catalog import get_rule
+    with app.app_context():
+        assert get_rule('bloc_decimal') is None
+
+
+def test_admin_settings_and_reference_pages(client, app):
+    login(client)
+    r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-29=0.0\n30-60=0.5'}, follow_redirects=True)
+    assert 'enregistrés' in r.get_data(as_text=True)
+    from app.converter.catalog import load_settings
+    with app.app_context():
+        st = load_settings()
+    assert st['night'] == {'after_sunset_minutes': 15, 'before_sunrise_minutes': 20}
+    r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-10=0.0'}, follow_redirects=True)
+    assert 'non enregistrés' in r.get_data(as_text=True)
+    for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
+        assert client.get(url).status_code == 200
+    r = client.post('/converter/aircrafts/new', data={'registration': 'c-gzzz', 'engine': 'single'}, follow_redirects=True)
+    assert 'C-GZZZ' in r.get_data(as_text=True)
+
+
+def test_new_account_gets_default_rules_selected(client, app):
+    login(client)
+    client.post('/accounts/new', data={'username': 'pilot4', 'password': 'pilot4pass', 'role': 'user'})
+    with app.app_context():
+        from app.converter.catalog import load_selection
+        sel = load_selection(username="pilot4")
+    assert 'date_from_parts' in sel and 'copy_registration' in sel
+    assert 'daynight_single_pic' not in sel
+
+
+def test_concurrent_startup_is_safe(tmp_path):
+    """gunicorn boots several workers at once on a fresh install: they must not race."""
+    import os, subprocess, sys
+    env = {**os.environ, "APPDATA_DIR": str(tmp_path / "appdata"), "USERS_DIR": str(tmp_path / "users"),
+           "PYTHONPATH": str(Path(__file__).parent.parent), "ADMIN_USERNAME": "admin", "ADMIN_PASSWORD": "admin"}
+    procs = [subprocess.Popen([sys.executable, "-c", "from app import create_app; create_app()"], env=env,
+                              cwd=str(Path(__file__).parent.parent), stderr=subprocess.PIPE) for _ in range(6)]
+    for proc in procs:
+        _, err = proc.communicate(timeout=120)
+        assert proc.returncode == 0, err.decode()

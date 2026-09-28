@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block content %}
+<h2>{{'Modifier' if rule else 'Nouvelle'}} règle</h2>
+<form class="card" method="post" action="{{action}}"><input type="hidden" name="save" value="1">
+<div class="grid">
+<div class="field"><label>Type de transformation</label>{% if rule %}<input value="{{spec.label}}" disabled>{% else %}<select name="transform" onchange="window.location='{{url_for('converter.rule_new')}}?transform='+this.value">{% for key, t in transforms.items() %}<option value="{{key}}" {% if key==transform %}selected{% endif %}>{{t.label}}</option>{% endfor %}</select>{% endif %}</div>
+<div class="field"><label>Nom de la règle</label><input name="name" value="{{values.get('name','')}}" required></div>
+<div class="field"><label>Groupe (pour l'affichage)</label><input name="group" list="rule-groups" value="{{values.get('group','')}}"></div>
+</div>
+<h3>Colonnes lues (base A)</h3><div class="grid">
+{% for slot, label, required in spec.inputs %}<div class="field"><label>{{label}}</label><input name="in_{{slot}}" list="a-cols" value="{{values.get('in_'+slot,'')}}" {% if required %}required{% endif %}></div>{% endfor %}
+</div>
+<h3>Colonnes écrites (base B)</h3><div class="grid">
+{% for slot, label, required in spec.outputs %}<div class="field"><label>{{label}}</label><input name="out_{{slot}}" list="b-cols" value="{{values.get('out_'+slot,'')}}" required></div>{% endfor %}
+</div>
+{% if spec.params %}<h3>Paramètres</h3><div class="grid">
+{% for key, label, choices in spec.params %}<div class="field"><label>{{label}}</label><select name="param_{{key}}">{% for value, text in choices %}<option value="{{value}}" {% if values.get('param_'+key, choices[0][0])==value %}selected{% endif %}>{{text}}</option>{% endfor %}</select></div>{% endfor %}
+</div>{% endif %}
+<div><label><input type="checkbox" name="default" value="1" {% if values.get('default')=='1' %}checked{% endif %}> Cochée par défaut pour les nouveaux comptes</label></div>
+<datalist id="a-cols">{% for c in a_columns %}<option value="{{c}}"></option>{% endfor %}</datalist>
+<datalist id="b-cols">{% for c in b_columns %}<option value="{{c}}"></option>{% endfor %}</datalist>
+<datalist id="rule-groups">{% for gname in groups %}<option value="{{gname}}"></option>{% endfor %}</datalist>
+<p><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('converter.index')}}">Annuler</a></p></form>{% endblock %}

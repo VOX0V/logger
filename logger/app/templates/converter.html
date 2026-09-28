@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">Nouvelle règle</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a>{% endif %}</div></div>
+<p class="muted">Règles qui transforment user.db en logbook.db. Coche celles que tu veux appliquer, puis clique sur Actualiser dans logbook.db. Pour une même colonne de logbook.db, la première règle cochée qui donne une valeur l'emporte.</p>
+<form method="post" action="{{url_for('converter.select')}}">
+{% for group, items in groups.items() %}
+<div class="card"><h3>{{group}}</h3><table class="data"><thead><tr><th></th><th>Règle</th><th>Type</th><th>Colonnes</th>{% if g.role=='admin' %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+{% for it in items %}<tr><td><input type="checkbox" name="enabled" value="{{it.rule.id}}" {% if it.checked %}checked{% endif %}></td><td>{{it.rule.name}}{% if it.missing %}<br><span class="muted">Colonne manquante : {{it.missing|join(', ')}}</span>{% endif %}</td><td>{{it.label}}</td><td>{{it.summary}}</td>{% if g.role=='admin' %}<td><a class="btn secondary" href="{{url_for('converter.rule_edit',rule_id=it.rule.id)}}">Modifier</a> <button class="btn danger" type="submit" form="delete-rule-{{it.rule.id}}" onclick="return confirm('Supprimer cette règle du catalogue ?')">Supprimer</button></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<div class="card"><p class="muted">Aucune règle dans le catalogue.</p></div>{% endfor %}
+<p><button class="btn">Enregistrer la sélection</button></p>
+</form>
+{% if g.role=='admin' %}
+{% for group, items in groups.items() %}{% for it in items %}<form id="delete-rule-{{it.rule.id}}" method="post" action="{{url_for('converter.rule_delete',rule_id=it.rule.id)}}"></form>{% endfor %}{% endfor %}
+<div class="card"><h3>Réglages (admin)</h3><form method="post" action="{{url_for('converter.save_settings_route')}}"><div class="grid">
+<div class="field"><label>Nuit : minutes après le coucher du soleil</label><input type="number" name="after_sunset_minutes" min="0" max="180" value="{{settings.night.after_sunset_minutes}}"></div>
+<div class="field"><label>Nuit : minutes avant le lever du soleil</label><input type="number" name="before_sunrise_minutes" min="0" max="180" value="{{settings.night.before_sunrise_minutes}}"></div>
+</div><div class="field"><label>Arrondi Transport Canada — une plage par ligne : min-max=décimale (ajouter +1h pour compter une heure de plus)</label><textarea class="rules" name="tc_rounding">{{rounding_text}}</textarea></div>
+<p><button class="btn">Enregistrer les réglages</button></p></form></div>
+{% endif %}
+{% endblock %}

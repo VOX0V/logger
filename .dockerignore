@@ -2,4 +2,5 @@
 .env
 __pycache__
 .pytest_cache
-logger/storage
+logger/appdata
+logger/users

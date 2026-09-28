@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-head"><h2>Aéroports</h2><div><a class="btn" href="{{url_for('converter.airport_form')}}">Nouvel aéroport</a> <a class="btn secondary" href="{{url_for('converter.index')}}">Convertisseur</a></div></div>
+<div class="card"><p class="muted">{{airports|length}} aéroport(s). Le code d'arrivée des vols est cherché d'abord en IATA, puis en ICAO.</p><div class="table-wrap"><table class="data"><thead><tr><th>ICAO</th><th>IATA</th><th>Nom</th><th>Pays</th><th>Latitude</th><th>Longitude</th><th>Actions</th></tr></thead><tbody>
+{% for a in airports %}<tr><td>{{a.icao_code or ''}}</td><td>{{a.iata_code or ''}}</td><td>{{a.full_name or ''}}</td><td>{{a.country or ''}}</td><td>{{a.latitude}}</td><td>{{a.longitude}}</td><td><a class="btn secondary" href="{{url_for('converter.airport_form',airport_id=a.id)}}">Modifier</a> <form style="display:inline" method="post" action="{{url_for('converter.airport_delete',airport_id=a.id)}}" onsubmit="return confirm('Supprimer cet aéroport ?')"><button class="btn danger" type="submit">Supprimer</button></form></td></tr>{% endfor %}
+</tbody></table></div></div>{% endblock %}

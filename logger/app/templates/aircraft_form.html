@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block content %}
+{% set v = form if form else aircraft %}
+<h2>{{'Modifier' if aircraft else 'Nouvel'}} avion</h2>
+<form class="card" method="post"><div class="grid">
+<div class="field"><label>Immatriculation</label><input name="registration" value="{{v.registration if v and v.registration is not none else ''}}" required></div>
+<div class="field"><label>Type</label><input name="type" value="{{v.type if v and v.type is not none else ''}}"></div>
+<div class="field"><label>Moteur</label><select name="engine"><option value="">-- non renseigné --</option>{% for e in engines %}<option value="{{e}}" {% if v and v.engine==e %}selected{% endif %}>{{'monomoteur' if e=='single' else 'multimoteur'}}</option>{% endfor %}</select></div>
+</div><div class="field"><label>Notes</label><input name="notes" value="{{v.notes if v and v.notes is not none else ''}}"></div>
+<p><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Annuler</a></p></form>{% endblock %}

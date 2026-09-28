@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block content %}
+{% set v = form if form else airport %}
+<h2>{{'Modifier' if airport else 'Nouvel'}} aéroport</h2>
+<form class="card" method="post"><div class="grid">
+<div class="field"><label>Code ICAO</label><input name="icao_code" value="{{v.icao_code if v and v.icao_code is not none else ''}}"></div>
+<div class="field"><label>Code IATA</label><input name="iata_code" value="{{v.iata_code if v and v.iata_code is not none else ''}}"></div>
+<div class="field"><label>Nom</label><input name="full_name" value="{{v.full_name if v and v.full_name is not none else ''}}"></div>
+<div class="field"><label>Pays</label><input name="country" value="{{v.country if v and v.country is not none else ''}}"></div>
+<div class="field"><label>Latitude (degrés décimaux)</label><input name="latitude" value="{{v.latitude if v and v.latitude is not none else ''}}" required></div>
+<div class="field"><label>Longitude (degrés décimaux)</label><input name="longitude" value="{{v.longitude if v and v.longitude is not none else ''}}" required></div>
+<div class="field"><label>Altitude (m)</label><input name="elevation" value="{{v.elevation if v and v.elevation is not none else ''}}"></div>
+<div class="field"><label>Fuseau horaire</label><input name="timezone" value="{{v.timezone if v and v.timezone is not none else ''}}"></div>
+</div><div class="field"><label>Notes</label><input name="notes" value="{{v.notes if v and v.notes is not none else ''}}"></div>
+<p><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('converter.airports')}}">Annuler</a></p></form>{% endblock %}

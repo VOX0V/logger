@@ -116,7 +116,9 @@ def logbook():
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
 def refresh_logbook_data():
-    try: refresh_logbook(load_config()); flash("Logbook actualisé à partir de user.db.")
+    try:
+        result=refresh_logbook(load_config()); flash(f"logbook.db actualisé à partir de user.db ({result['rows']} ligne(s)).")
+        for warning in result["warnings"]: flash(f"Attention — {warning}")
     except Exception as exc: flash(f"Actualisation du logbook impossible — {exc}")
     return redirect(url_for("main.logbook_db_page"))
 
@@ -176,9 +178,9 @@ def new_logbook_column():
     cfg=load_logbook_db_config(); cols=[c for c in cfg["database"]["columns"] if c.get("group")!="system"]
     if request.method=="POST":
         try:
-            display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); source=[x.strip() for x in request.form.get("source","").splitlines() if x.strip()]
-            if not display or not group or not source: raise ValueError("Display name, groupe et source sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":len(cols)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","source":source,"transformation":request.form.get("transformation","")}
+            display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip()
+            if not display or not group: raise ValueError("Display name et groupe sont obligatoires.")
+            item={"column":technical_name(display),"display_name":display,"position":len(cols)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1"}
             if any(c["column"]==item["column"] for c in cols): raise ValueError("Cette colonne existe déjà.")
             cols.append(item); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg); flash("Colonne logbook ajoutée."); return redirect(url_for("main.logbook_settings"))
         except ValueError as exc: flash(str(exc))
@@ -191,9 +193,9 @@ def edit_logbook_column(position):
     if not category: flash("Colonne introuvable."); return redirect(url_for("main.logbook_settings"))
     if request.method=="POST":
         try:
-            old=category; display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); source=[x.strip() for x in request.form.get("source","").splitlines() if x.strip()]
-            if not display or not group or not source: raise ValueError("Display name, groupe et source sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","source":source,"transformation":request.form.get("transformation","")}; cols[cols.index(old)]=item; _reposition(cols); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg); flash("Colonne logbook modifiée."); return redirect(url_for("main.logbook_settings"))
+            old=category; display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip()
+            if not display or not group: raise ValueError("Display name et groupe sont obligatoires.")
+            item={"column":technical_name(display),"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1"}; cols[cols.index(old)]=item; _reposition(cols); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg); flash("Colonne logbook modifiée."); return redirect(url_for("main.logbook_settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("logbook_column_form.html",category=category,groups=sorted({c.get("group") for c in cols}),positions=list(range(1,len(cols)+1)),action=url_for("main.edit_logbook_column",position=position))
 

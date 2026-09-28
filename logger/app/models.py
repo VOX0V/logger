@@ -57,11 +57,14 @@ def list_users(config, username=None):
 
 
 def init_user_db(username):
-    """Create (or bring up to date) the two SQLite databases and the three
-    YAML config files for a given user. Called when an account is created,
-    and defensively on every login in case the user's folder is missing."""
+    """Create (or bring up to date) the two SQLite databases, the YAML config
+    files and the converter rule selection for a given user. Called when an
+    account is created, and defensively on every login in case the user's
+    folder is missing."""
+    from .converter.catalog import ensure_user_selection  # lazy: avoids a circular import
     user_root(username)  # ensures the folder exists
     ensure_configs(username)
+    ensure_user_selection(username)
     config = load_config(username)
     conn = connect(username)
     conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,import_source TEXT)")

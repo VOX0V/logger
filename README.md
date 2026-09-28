@@ -1,32 +1,39 @@
 # Logger
 
-Version 1.4.0. Application Flask multi-utilisateurs pour importer des fichiers Excel/CSV dans une base par utilisateur, selon une configuration YAML propre à chaque compte.
+Application Flask multi-utilisateurs : importer des données brutes (Excel/CSV) dans une base A par utilisateur, les convertir avec des règles vers une base B, puis produire un logbook imprimable.
 
-## Architecture
+## Organisation des données
 
-- Chaque compte possède son propre espace : `storage/users/<username>/user_data.db` (import brut), `user_logbook.db` (logbook dérivé), `userdb.yml`, `logbookdb.yml`, `logbook.yml`.
-- `storage/accounts.db` est une base globale unique qui liste les comptes (username, mot de passe haché, rôle `admin`/`user`).
-- `userdb.yml` contient les catégories, groupes et règles d'import de `user_data.db`.
-- `logbookdb.yml` contient la structure et les sources de `user_logbook.db`.
-- `logbook.yml` contient la présentation du Logbook : colonnes, largeurs, hauteurs, pagination et totaux.
-- Le dossier persistant complet est `/app/storage` (à monter en volume).
+```
+logger/
+  appdata/                      (partagé, à monter en volume)
+    db/users.db                 comptes
+    db/airport.db               aéroports (coordonnées GPS)
+    db/aircrafts.db             avions (immatriculation, type, moteur)
+    converter/rules.yml         catalogue des règles de conversion
+    converter/settings.yml      marges de nuit et tableau d'arrondi Transport Canada
+  users/<utilisateur>/          (par compte, à monter en volume)
+    <u>_data.db / <u>_data.yml          base A et sa structure
+    <u>_logbook.db / <u>_logbook.yml    base B et sa structure
+    <u>_layout.yml                      mise en page du logbook
+    <u>_converter.yml                   règles cochées par l'utilisateur
+```
+
+Le code reste dans l'image Docker ; les valeurs par défaut (`defaults/`) ne sont copiées vers `appdata/` qu'à la première utilisation, une mise à jour n'écrase donc jamais les réglages.
 
 ## Comptes
 
-- Au premier démarrage, si aucun compte n'existe, un compte admin est créé automatiquement à partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD`.
-- Seul un admin peut créer/modifier/supprimer des comptes (menu "Comptes").
-- Un `user` normal n'a accès qu'à ses propres données.
+- Au premier démarrage, si aucun compte n'existe, un admin est créé depuis `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+- Seuls les admins créent les comptes et gèrent le catalogue de règles, les aéroports et les avions.
 
-## Import
+## Convertisseur
 
-Les règles d'import sont des alternatives OR. Par exemple, `immat`, `reg` et `registration` peuvent tous alimenter `users.registration`. Une colonne Excel inconnue est ignorée.
+Onglet **Convertisseur** : catalogue de règles partagé. Chaque règle lit des colonnes de A, applique une transformation (copie, assemblage de date, temps de bloc en décimales, jour/nuit) et écrit dans B. Chaque utilisateur coche les règles qu'il veut appliquer, puis clique sur **Actualiser** dans logbook.db. Pour une même colonne de B, la première règle cochée qui donne une valeur l'emporte.
 
-Un nouvel import portant le même nom de fichier remplace les lignes provenant de ce fichier uniquement. Les données des autres fichiers restent présentes.
+Nuit : de 30 min après le coucher du soleil à 30 min avant le lever (réglable), calculée avec `ephem` à l'aéroport d'arrivée.
 
 ## Déploiement
 
-Copier `.env.example` vers `.env`, puis définir les identifiants (utilisés uniquement pour créer le premier compte admin). En développement local :
+Copier `.env.example` vers `.env`, puis :
 
     docker compose up -d --build
-
-L'image GHCR peut ensuite être publiée par GitHub Actions.

@@ -1,0 +1,345 @@
+rules:
+- id: date_from_parts
+  name: Date à partir de année / mois / jour
+  group: Date
+  transform: date_parts
+  inputs:
+    year: year
+    month: month
+    day: day
+  outputs:
+    target: date
+  params: {}
+  default: true
+- id: date_from_departure
+  name: Date à partir du départ local (si année/mois/jour vides)
+  group: Date
+  transform: datetime_date
+  inputs:
+    source: departure_local
+  outputs:
+    target: date
+  params: {}
+  default: true
+- id: copy_aircraft_type
+  name: Copie type → aircraft_type
+  group: Avion
+  transform: copy
+  inputs:
+    source: type
+  outputs:
+    target: aircraft_type
+  params: {}
+  default: true
+- id: copy_registration
+  name: Copie registration → registration
+  group: Avion
+  transform: copy
+  inputs:
+    source: registration
+  outputs:
+    target: registration
+  params: {}
+  default: true
+- id: copy_pilot_in_command
+  name: Copie pilot_in_command → pilot_in_command
+  group: Équipage
+  transform: copy
+  inputs:
+    source: pilot_in_command
+  outputs:
+    target: pilot_in_command
+  params: {}
+  default: true
+- id: copy_copilot
+  name: Copie copilot → copilot
+  group: Équipage
+  transform: copy
+  inputs:
+    source: copilot
+  outputs:
+    target: copilot
+  params: {}
+  default: true
+- id: copy_departure
+  name: Copie departure → departure
+  group: Route
+  transform: copy
+  inputs:
+    source: departure
+  outputs:
+    target: departure
+  params: {}
+  default: true
+- id: copy_arrival
+  name: Copie arrival → arrival
+  group: Route
+  transform: copy
+  inputs:
+    source: arrival
+  outputs:
+    target: arrival
+  params: {}
+  default: true
+- id: copy_remarks
+  name: Copie remarks → remarks
+  group: Remarques
+  transform: copy
+  inputs:
+    source: remarks
+  outputs:
+    target: remarks
+  params: {}
+  default: true
+- id: copy_single_engine_dual_day
+  name: Copie single_engine_dual_day → single_engine_dual_day
+  group: Monomoteur
+  transform: copy
+  inputs:
+    source: single_engine_dual_day
+  outputs:
+    target: single_engine_dual_day
+  params: {}
+  default: true
+- id: copy_single_engine_pic_day
+  name: Copie single_engine_pic_day → single_engine_pic_day
+  group: Monomoteur
+  transform: copy
+  inputs:
+    source: single_engine_pic_day
+  outputs:
+    target: single_engine_pic_day
+  params: {}
+  default: true
+- id: copy_single_engine_dual_night
+  name: Copie single_engine_dual_night → single_engine_dual_night
+  group: Monomoteur
+  transform: copy
+  inputs:
+    source: single_engine_dual_night
+  outputs:
+    target: single_engine_dual_night
+  params: {}
+  default: true
+- id: copy_single_engine_pic_night
+  name: Copie single_engine_pic_night → single_engine_pic_night
+  group: Monomoteur
+  transform: copy
+  inputs:
+    source: single_engine_pic_night
+  outputs:
+    target: single_engine_pic_night
+  params: {}
+  default: true
+- id: copy_multi_engine_dual_day
+  name: Copie multi_engine_dual_day → multi_engine_dual_day
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_dual_day
+  outputs:
+    target: multi_engine_dual_day
+  params: {}
+  default: true
+- id: copy_multi_engine_pic_day
+  name: Copie multi_engine_pic_day → multi_engine_pic_day
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_pic_day
+  outputs:
+    target: multi_engine_pic_day
+  params: {}
+  default: true
+- id: copy_multi_engine_copi_day
+  name: Copie multi_engine_copi_day → multi_engine_copi_day
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_copi_day
+  outputs:
+    target: multi_engine_copi_day
+  params: {}
+  default: true
+- id: copy_multi_engine_dual_night
+  name: Copie multi_engine_dual_night → multi_engine_dual_night
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_dual_night
+  outputs:
+    target: multi_engine_dual_night
+  params: {}
+  default: true
+- id: copy_multi_engine_pic_night
+  name: Copie multi_engine_pic_night → multi_engine_pic_night
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_pic_night
+  outputs:
+    target: multi_engine_pic_night
+  params: {}
+  default: true
+- id: copy_multi_engine_copi_night
+  name: Copie multi_engine_copi_night → multi_engine_copi_night
+  group: Multimoteur
+  transform: copy
+  inputs:
+    source: multi_engine_copi_night
+  outputs:
+    target: multi_engine_copi_night
+  params: {}
+  default: true
+- id: copy_ifr
+  name: Copie ifr → ifr
+  group: Instruments
+  transform: copy
+  inputs:
+    source: ifr
+  outputs:
+    target: ifr
+  params: {}
+  default: true
+- id: copy_hood
+  name: Copie hood → hood
+  group: Instruments
+  transform: copy
+  inputs:
+    source: hood
+  outputs:
+    target: hood
+  params: {}
+  default: true
+- id: copy_ftd
+  name: Copie ftd → ftd
+  group: Instruments
+  transform: copy
+  inputs:
+    source: ftd
+  outputs:
+    target: ftd
+  params: {}
+  default: true
+- id: copy_ifr_approach
+  name: Copie ifr_approach → ifr_approach
+  group: Instruments
+  transform: copy
+  inputs:
+    source: ifr_approach
+  outputs:
+    target: ifr_approach
+  params: {}
+  default: true
+- id: copy_cross_country_dual_day
+  name: Copie cross_country_dual_day → cross_country_dual_day
+  group: Vol sur campagne
+  transform: copy
+  inputs:
+    source: cross_country_dual_day
+  outputs:
+    target: cross_country_dual_day
+  params: {}
+  default: true
+- id: copy_cross_country_pic_day
+  name: Copie cross_country_pic_day → cross_country_pic_day
+  group: Vol sur campagne
+  transform: copy
+  inputs:
+    source: cross_country_pic_day
+  outputs:
+    target: cross_country_pic_day
+  params: {}
+  default: true
+- id: copy_cross_country_dual_night
+  name: Copie cross_country_dual_night → cross_country_dual_night
+  group: Vol sur campagne
+  transform: copy
+  inputs:
+    source: cross_country_dual_night
+  outputs:
+    target: cross_country_dual_night
+  params: {}
+  default: true
+- id: copy_cross_country_pic_night
+  name: Copie cross_country_pic_night → cross_country_pic_night
+  group: Vol sur campagne
+  transform: copy
+  inputs:
+    source: cross_country_pic_night
+  outputs:
+    target: cross_country_pic_night
+  params: {}
+  default: true
+- id: copy_landings_day
+  name: Copie landings_day → landings_day
+  group: Atterrissages
+  transform: copy
+  inputs:
+    source: landings_day
+  outputs:
+    target: landings_day
+  params: {}
+  default: true
+- id: copy_landings_night
+  name: Copie landings_night → landings_night
+  group: Atterrissages
+  transform: copy
+  inputs:
+    source: landings_night
+  outputs:
+    target: landings_night
+  params: {}
+  default: true
+- id: copy_instruction_day
+  name: Copie instruction_day → instruction_day
+  group: Instruction
+  transform: copy
+  inputs:
+    source: instruction_day
+  outputs:
+    target: instruction_day
+  params: {}
+  default: true
+- id: copy_instruction_night
+  name: Copie instruction_night → instruction_night
+  group: Instruction
+  transform: copy
+  inputs:
+    source: instruction_night
+  outputs:
+    target: instruction_night
+  params: {}
+  default: true
+- id: daynight_single_pic
+  name: Temps de bloc jour/nuit — monomoteur PIC
+  group: Jour / nuit
+  transform: day_night
+  inputs:
+    time: block_time
+    utc_ms: on_block_millis_utc
+    airport: arrival
+    registration: registration
+  outputs:
+    day: single_engine_pic_day
+    night: single_engine_pic_night
+  params:
+    engine: single
+    rounding: tc
+  default: false
+- id: daynight_multi_pic
+  name: Temps de bloc jour/nuit — multimoteur PIC
+  group: Jour / nuit
+  transform: day_night
+  inputs:
+    time: block_time
+    utc_ms: on_block_millis_utc
+    airport: arrival
+    registration: registration
+  outputs:
+    day: multi_engine_pic_day
+    night: multi_engine_pic_night
+  params:
+    engine: multi
+    rounding: tc
+  default: false

@@ -1,4 +1,4 @@
-"""Account management: a single global accounts.db shared by every user,
+"""Account management: a single global appdata/db/users.db shared by every user,
 independent from each user's own data (users/<username>/*.db)."""
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash

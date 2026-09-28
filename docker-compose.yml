@@ -9,6 +9,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - logger_storage:/app/storage
+      - logger_appdata:/app/appdata
+      - logger_users:/app/users
 volumes:
-  logger_storage:
+  logger_appdata:
+  logger_users:
