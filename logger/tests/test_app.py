@@ -49,7 +49,7 @@ def test_user_db_and_logbook_db_pages(client):
     login(client)
     assert client.get('/').status_code == 200
     assert client.get('/logbook').status_code == 200
-    assert 'user.db' in client.get('/').get_data(as_text=True)
+    assert 'Données brutes' in client.get('/').get_data(as_text=True)
     assert 'Logbook' in client.get('/logbook').get_data(as_text=True)
 
 
@@ -293,3 +293,73 @@ def test_concurrent_startup_is_safe(tmp_path):
     for proc in procs:
         _, err = proc.communicate(timeout=120)
         assert proc.returncode == 0, err.decode()
+
+
+# ---------------- grilles Données brutes / Données converties ----------------
+
+def test_data_grid_pagination_sort_filter_export(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg', 'arr'])
+    for i in range(5):
+        ws.append([2024, 1, i + 1, f'C-{i:03d}', 'YUL' if i % 2 else 'CYYZ'])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    r = client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    assert r.status_code == 302
+    r = client.get('/data/rows')
+    d = r.get_json()
+    assert d['last_page'] == 1 and len(d['data']) == 5
+
+    r = client.get('/data/rows?size=2&page=2')
+    d = r.get_json()
+    assert d['last_page'] == 3
+    assert [x['registration'] for x in d['data']] == ['C-002', 'C-003']
+
+    r = client.get('/data/rows?sort[0][field]=registration&sort[0][dir]=desc')
+    assert [x['registration'] for x in r.get_json()['data']] == ['C-004', 'C-003', 'C-002', 'C-001', 'C-000']
+
+    r = client.get('/data/rows?filter[0][field]=arrival&filter[0][value]=YUL')
+    assert [x['registration'] for x in r.get_json()['data']] == ['C-001', 'C-003']
+
+    r = client.get('/data/rows?filter[0][field]=arrival&filter[0][value]=%25')   # % littéral ne doit rien matcher
+    assert r.get_json()['data'] == []
+
+    r = client.get('/data/table-export.csv')
+    assert r.status_code == 200 and r.data.decode('utf-8-sig').count('\n') == 6   # en-tête + 5 lignes
+    r = client.get('/data/table-export.xlsx')
+    assert r.status_code == 200 and r.data[:2] == b'PK'
+
+
+def test_grid_rejects_unknown_columns_without_crashing(client, app):
+    login(client)
+    _import_flight(client, year=2024, month=1, day=1, reg='C-001')
+    r = client.get('/data/rows?sort[0][field]=registration; DROP TABLE users;--&sort[0][dir]=asc')
+    assert r.status_code == 200
+    assert len(client.get('/data/rows').get_json()['data']) == 1   # la table existe toujours
+    r = client.get('/data/rows?filter[0][field]=id; DROP TABLE users;--&filter[0][value]=x')
+    assert r.status_code == 200
+
+
+def test_logbook_db_grid_matches_converted_data(client, app):
+    login(client)
+    _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/logbook/refresh')
+    r = client.get('/logbook-db/rows')
+    assert r.get_json()['data'][0]['registration'] == 'C-GABC'
+    r = client.get('/logbook-db/table-export.csv')
+    assert r.status_code == 200 and 'C-GABC' in r.data.decode('utf-8-sig')
+
+
+def test_view_yaml_generated_with_sensible_defaults(client, app):
+    login(client)
+    client.get('/')          # génère <user>_data_view.yml
+    client.get('/logbook-db')  # génère <user>_logbook_view.yml
+    with app.app_context():
+        from app.config import load_data_view, load_logbook_view, load_config
+        data_view = load_data_view(load_config(username="admin"), username="admin")
+        logbook_view = load_logbook_view(username="admin")
+    assert data_view[0]['frozen'] is True                 # première colonne figée par défaut
+    assert all(not c['frozen'] for c in data_view[1:])
+    year_col = next(c for c in data_view if c['column'] == 'year')
+    assert year_col['align'] == 'right'                    # colonnes numériques alignées à droite
+    assert logbook_view[0]['column'] == 'date'

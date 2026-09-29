@@ -7,10 +7,11 @@ from .auth import login_required
 from .importer import importable_rows
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
-                      save_logbook_db_config, load_logbook_layout, save_logbook_layout,
-                      logbook_columns, technical_name)
+                      load_logbook_layout, save_logbook_layout,
+                      logbook_columns, technical_name, load_data_view, load_logbook_view)
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell
-from .models import import_rows, list_users, drop_unused_logbook_columns, drop_unused_columns
+from .models import import_rows, drop_unused_columns
+from .gridview import grid_data, grid_export
 
 main_bp = Blueprint("main", __name__)
 
@@ -64,8 +65,25 @@ def _prepare_pages(rows, layout):
 @main_bp.route("/")
 @login_required
 def index():
-    config=load_config(); columns,users=list_users(config)
-    return render_template("index.html",categories=_columns(config),columns=columns,users=users)
+    config=load_config()
+    return render_template("index.html",view=load_data_view(config))
+
+@main_bp.route("/data/rows")
+@login_required
+def data_rows():
+    columns=[c["column"] for c in configurable_columns(load_config())]
+    conn=connect()
+    try: return grid_data(conn,"users",columns)
+    finally: conn.close()
+
+@main_bp.route("/data/table-export.<fmt>")
+@login_required
+def data_table_export(fmt):
+    view=load_data_view(load_config())
+    conn=connect()
+    try: return grid_export(conn,"users",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_brutes")
+    except ValueError as exc: flash(str(exc)); return redirect(url_for("main.index"))
+    finally: conn.close()
 
 @main_bp.route("/export")
 @login_required
@@ -82,14 +100,48 @@ def export_user_data():
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
-    cols=logbook_columns(load_config())
-    conn=logbook_connect(); rows=conn.execute("SELECT * FROM logbook ORDER BY id").fetchall(); conn.close()
-    return render_template("logbook_db.html",categories=cols,rows=rows)
+    return render_template("logbook_db.html",view=load_logbook_view())
+
+@main_bp.route("/logbook-db/rows")
+@login_required
+def logbook_db_rows():
+    columns=[c["column"] for c in logbook_columns(load_config())]
+    conn=logbook_connect()
+    try: return grid_data(conn,"logbook",columns)
+    finally: conn.close()
+
+@main_bp.route("/logbook-db/table-export.<fmt>")
+@login_required
+def logbook_table_export(fmt):
+    view=load_logbook_view()
+    conn=logbook_connect()
+    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_converties")
+    except ValueError as exc: flash(str(exc)); return redirect(url_for("main.logbook_db_page"))
+    finally: conn.close()
+
+@main_bp.route("/logbook-db/export")
+@login_required
+def export_logbook_data():
+    from .db import logbook_db_path
+    from .config import logbook_db_config_path
+    username=current_username()
+    buf=io.BytesIO()
+    with zipfile.ZipFile(buf,"w",zipfile.ZIP_DEFLATED) as zf:
+        for f in (logbook_db_path(),logbook_db_config_path()):
+            if f.exists(): zf.write(f,arcname=f.name)
+    buf.seek(0)
+    stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
+    return send_file(buf,mimetype="application/zip",as_attachment=True,download_name=f"{username}_donnees_converties_{stamp}.zip")
 
 @main_bp.route("/logbook")
 @login_required
 def logbook():
-    rows=list_logbook_rows(); layout=load_logbook_layout(); dbcols=logbook_columns(load_config()); pages,grand=_prepare_pages(rows,layout)
+    all_rows=list_logbook_rows()
+    years=sorted({str(r["date"])[:4] for r in all_rows if r["date"]},reverse=True)
+    selected_year=request.args.get("year","")
+    if selected_year not in years: selected_year=years[0] if years else ""
+    rows=[r for r in all_rows if selected_year=="" or (r["date"] or "").startswith(selected_year)]
+    layout=load_logbook_layout(); dbcols=logbook_columns(load_config()); pages,grand=_prepare_pages(rows,layout)
     cols=layout["columns"]
     groups=[]; i=0
     while i < len(cols):
@@ -111,7 +163,7 @@ def logbook():
             subgroups.append({"span":j-i,"label":""})
             i=j
     label_colspan=next((i for i,c in enumerate(cols) if c.get("group") not in {"date","aircraft","crew","route","remarks","remarks_cont"}),len(cols))
-    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups,label_colspan=label_colspan)
+    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups,label_colspan=label_colspan,years=years,selected_year=selected_year)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
@@ -136,8 +188,8 @@ def edit_logbook_cell():
 @main_bp.route("/logbook/settings")
 @login_required
 def logbook_settings():
-    layout=load_logbook_layout(); dbcols=logbook_columns(load_config())
-    return render_template("logbook_settings.html",layout=layout,dbcols=dbcols)
+    layout=load_logbook_layout()
+    return render_template("logbook_settings.html",layout=layout)
 
 @main_bp.route("/logbook/settings/save",methods=["POST"])
 @login_required
@@ -171,41 +223,6 @@ def delete_layout_column(key):
     if len(layout["columns"])==before: flash("Colonne introuvable.")
     else: save_logbook_layout(layout); flash("Colonne retirée de l'affichage du Logbook.")
     return redirect(url_for("main.logbook_settings"))
-
-@main_bp.route("/logbook/settings/column/new",methods=["GET","POST"])
-@login_required
-def new_logbook_column():
-    cfg=load_logbook_db_config(); cols=[c for c in cfg["database"]["columns"] if c.get("group")!="system"]
-    if request.method=="POST":
-        try:
-            display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip()
-            if not display or not group: raise ValueError("Display name et groupe sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":len(cols)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1"}
-            if any(c["column"]==item["column"] for c in cols): raise ValueError("Cette colonne existe déjà.")
-            cols.append(item); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg); flash("Colonne logbook ajoutée."); return redirect(url_for("main.logbook_settings"))
-        except ValueError as exc: flash(str(exc))
-    return render_template("logbook_column_form.html",category=None,groups=sorted({c.get("group") for c in cols}),positions=[len(cols)+1],action=url_for("main.new_logbook_column"))
-
-@main_bp.route("/logbook/settings/column/<int:position>/edit",methods=["GET","POST"])
-@login_required
-def edit_logbook_column(position):
-    cfg=load_logbook_db_config(); cols=[c for c in cfg["database"]["columns"] if c.get("group")!="system"]; category=next((c for c in cols if int(c["position"])==position),None)
-    if not category: flash("Colonne introuvable."); return redirect(url_for("main.logbook_settings"))
-    if request.method=="POST":
-        try:
-            old=category; display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip()
-            if not display or not group: raise ValueError("Display name et groupe sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1"}; cols[cols.index(old)]=item; _reposition(cols); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg); flash("Colonne logbook modifiée."); return redirect(url_for("main.logbook_settings"))
-        except ValueError as exc: flash(str(exc))
-    return render_template("logbook_column_form.html",category=category,groups=sorted({c.get("group") for c in cols}),positions=list(range(1,len(cols)+1)),action=url_for("main.edit_logbook_column",position=position))
-
-@main_bp.route("/logbook/settings/column/<int:position>/delete",methods=["POST"])
-@login_required
-def delete_logbook_column(position):
-    cfg=load_logbook_db_config(); cols=[c for c in cfg["database"]["columns"] if c.get("group")!="system"]; target=next((c for c in cols if int(c["position"])==position),None)
-    if not target: flash("Colonne introuvable."); return redirect(url_for("main.logbook_settings"))
-    cols.remove(target); _reposition(cols); cfg["database"]["columns"]=cfg["database"]["columns"][:4]+cols; save_logbook_db_config(cfg)
-    conn=logbook_connect(); drop_unused_logbook_columns(conn,cfg); conn.commit(); conn.close(); flash("Colonne logbook supprimée."); return redirect(url_for("main.logbook_settings"))
 
 # Existing user database settings/import routes.
 @main_bp.route("/settings")

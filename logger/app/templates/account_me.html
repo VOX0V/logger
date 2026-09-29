@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block content %}
+<h2>Mon compte</h2>
+<div class="card"><p><strong>{{g.username}}</strong> — {{'administrateur' if g.role=='admin' else 'utilisateur'}}</p>
+<p><a class="btn secondary" href="{{url_for('main.export_user_data')}}">Exporter (sauvegarde du dossier utilisateur)</a></p></div>
+<div class="card"><h3>Changer le mot de passe</h3><form method="post"><div class="grid">
+<div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required></div>
+<div class="field"><label>Nouveau mot de passe</label><input type="password" name="new_password" required></div>
+<div class="field"><label>Confirmer</label><input type="password" name="confirm_password" required></div>
+</div><button class="btn">Enregistrer</button></form></div>
+{% if g.role=='admin' %}<div class="card"><h3>Administration</h3>
+<p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Gérer les comptes</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
+{% endblock %}

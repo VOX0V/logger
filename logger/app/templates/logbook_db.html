@@ -1,4 +1,27 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>logbook.db</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}"><button class="btn">Actualiser</button></form> <a class="btn secondary" href="{{url_for('main.logbook')}}">Logbook</a> <a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
-<div class="card"><p class="muted">{{rows|length}} ligne(s) dans logbook.db.</p><div class="db-view"><div class="db-table-wrap"><table class="data-table"><thead><tr>{% for c in categories if c.visible %}<th>{{c.display_name}}</th>{% endfor %}</tr></thead><tbody>{% for row in rows %}<tr>{% for c in categories if c.visible %}<td>{{row[c.column] if row[c.column] is not none else ''}}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{categories|selectattr('visible')|list|length}}">Aucune donnée. Cliquez sur Actualiser.</td></tr>{% endfor %}</tbody></table></div></div></div>
+<div class="page-head"><h2>Données converties</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}"><button class="btn">Actualiser</button></form> <a class="btn secondary" href="{{url_for('main.export_logbook_data')}}">Exporter</a> <a class="btn secondary" href="{{url_for('main.logbook_table_export',fmt='xlsx')}}">Export Excel</a> <a class="btn secondary" href="{{url_for('main.logbook_table_export',fmt='csv')}}">Export CSV</a></div></div>
+<div class="card"><div id="grid"></div></div>
+<link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+const view = {{view|tojson}};
+function remoteRequest(url, config, params){
+  const qs = new URLSearchParams();
+  qs.set('page', params.page || 1);
+  qs.set('size', params.size || 200);
+  (params.sorters||[]).forEach((s,i)=>{qs.set(`sort[${i}][field]`,s.field); qs.set(`sort[${i}][dir]`,s.dir);});
+  (params.filters||[]).forEach((f,i)=>{qs.set(`filter[${i}][field]`,f.field); qs.set(`filter[${i}][type]`,f.type); qs.set(`filter[${i}][value]`,f.value);});
+  return fetch(url+'?'+qs.toString()).then(r=>r.json());
+}
+new Tabulator("#grid", {
+  ajaxURL: "{{url_for('main.logbook_db_rows')}}",
+  ajaxRequestFunc: remoteRequest,
+  pagination: true, paginationMode: "remote", paginationSize: 200, paginationSizeSelector: [50,200,500,1000],
+  sortMode: "remote", filterMode: "remote",
+  layout: "fitDataFill", height: "70vh", placeholder: "Aucune donnée. Clique sur Actualiser.",
+  columns: view.map((c,i) => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align,
+    frozen: c.frozen, headerFilter: "input", headerFilterPlaceholder: "filtrer…",
+    sorter: (c.data_type === "integer" || c.data_type === "decimal") ? "number" : "string"}))
+});
+</script>
 {% endblock %}

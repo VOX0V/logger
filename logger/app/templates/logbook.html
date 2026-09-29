@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head"><h2>Logbook</h2><div><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
+<div class="page-head"><h2>Logbook</h2><div><form method="get" style="display:inline"><select name="year" onchange="this.form.submit()">{% for y in years %}<option value="{{y}}" {% if y==selected_year %}selected{% endif %}>{{y}}</option>{% endfor %}</select></form> <a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
 {% for page in pages %}
 <div class="card logbook-card">
   <div class="logbook-meta"><span>Page {{loop.index}} / {{pages|length}}</span><span>{{page.rows|length}} / {{layout.rows_per_page}} lignes</span></div>

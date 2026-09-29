@@ -1,9 +1,9 @@
 """Account management: a single global appdata/db/users.db shared by every user,
 independent from each user's own data (users/<username>/*.db)."""
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from .db import accounts_connect, valid_username
-from .auth import admin_required
+from .auth import admin_required, login_required
 from .models import init_user_db
 
 accounts_bp = Blueprint("accounts", __name__, url_prefix="/accounts")
@@ -105,6 +105,26 @@ def verify_password(account, password):
 
 
 # --- Routes (admin only) ---
+
+@accounts_bp.route("/me", methods=["GET", "POST"])
+@login_required
+def me():
+    if request.method == "POST":
+        current = request.form.get("current_password", "")
+        new = request.form.get("new_password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
+        if not verify_password(g.user, current):
+            flash("Mot de passe actuel incorrect.")
+        elif not new:
+            flash("Nouveau mot de passe obligatoire.")
+        elif new != confirm:
+            flash("La confirmation ne correspond pas au nouveau mot de passe.")
+        else:
+            set_password(g.user["id"], new)
+            flash("Mot de passe modifié.")
+        return redirect(url_for("accounts.me"))
+    return render_template("account_me.html")
+
 
 @accounts_bp.route("")
 @admin_required
