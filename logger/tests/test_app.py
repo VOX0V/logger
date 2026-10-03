@@ -71,8 +71,8 @@ def test_logbook_cell_edit(client, app):
         from app.db import logbook_connect
         c = logbook_connect(username="admin")
         c.execute("INSERT INTO logbook (date,registration) VALUES ('2026-09-27','OLD')"); c.commit(); c.close()
-    r = client.post('/logbook/cell', data={'row_id': 1, 'column': 'registration', 'value': 'NEW', 'page': 1}, follow_redirects=True)
-    assert r.status_code == 200
+    r = client.post('/logbook/cell', data={'row_id': 1, 'column': 'registration', 'value': 'NEW'})
+    assert r.status_code == 204
     with app.app_context():
         from app.db import logbook_connect
         c = logbook_connect(username="admin")
@@ -363,3 +363,25 @@ def test_view_yaml_generated_with_sensible_defaults(client, app):
     year_col = next(c for c in data_view if c['column'] == 'year')
     assert year_col['align'] == 'right'                    # colonnes numériques alignées à droite
     assert logbook_view[0]['column'] == 'date'
+
+
+def test_logbook_page_grid_has_no_spacer_or_total_column(client, app):
+    login(client)
+    _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/logbook/refresh')
+    r = client.get('/logbook')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert '"key": "spacer1"' not in body and '"key": "total"' not in body
+    assert '"registration"' in body and 'C-GABC' in body
+
+
+def test_edit_logbook_cell_rejects_invalid_column(client, app):
+    login(client)
+    with app.app_context():
+        from app.db import logbook_connect
+        c = logbook_connect(username="admin")
+        c.execute("INSERT INTO logbook (date) VALUES ('2026-09-27')"); c.commit(); c.close()
+    r = client.post('/logbook/cell', data={'row_id': 1, 'column': 'id', 'value': '999'})
+    assert r.status_code == 400

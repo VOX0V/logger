@@ -1,29 +1,61 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="page-head"><h2>Logbook</h2><div><form method="get" style="display:inline"><select name="year" onchange="this.form.submit()">{% for y in years %}<option value="{{y}}" {% if y==selected_year %}selected{% endif %}>{{y}}</option>{% endfor %}</select></form> <a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
-{% for page in pages %}
-<div class="card logbook-card">
-  <div class="logbook-meta"><span>Page {{loop.index}} / {{pages|length}}</span><span>{{page.rows|length}} / {{layout.rows_per_page}} lignes</span></div>
-  <div class="logbook-scroll">
-    <table class="logbook-table" style="font-family:{{layout.styles.font_family}};font-size:{{layout.styles.font_size}}px;--row-h:{{layout.row_height}}px;--h1:{{layout.header_heights[0]}}px;--h2:{{layout.header_heights[1]}}px;--h3:{{layout.header_heights[2]}}px;--header-size:{{layout.styles.header_font_size}}px;--header-bg:{{layout.styles.header_background}};--total-bg:{{layout.styles.total_background}};--border:{{layout.styles.border}};--text-align:{{layout.styles.text_align}};--vertical-align:{{layout.styles.vertical_align}}">
-      <colgroup>{% for c in layout.columns %}<col style="width:{{c.width}}ch"></colgroup>{% endfor %}</colgroup>
-      <thead>
-        <tr class="h1">{% for g in header_groups %}<th colspan="{{g.span}}">{{g.label}}</th>{% endfor %}</tr>
-        <tr class="h2">{% for g in header_subgroups %}<th colspan="{{g.span}}">{{g.label}}</th>{% endfor %}</tr>
-        <tr class="h3">{% for c in layout.columns %}<th>{{c.label}}</th>{% endfor %}</tr>
-      </thead>
-      <tbody>
-      {% for row in page.rows %}
-        <tr>{% for c in layout.columns %}{% if c.group in ['spacer','remarks_cont'] %}<td class="spacer"></td>{% elif c.group=='total' %}<td class="total-cell">{{'%.2f'|format(page.totals.get(c.key,0)) if page.totals.get(c.key,0) % 1 else '%.0f'|format(page.totals.get(c.key,0))}}</td>{% elif c.db_column and not c.date_part %}<td><form method="post" action="{{url_for('main.edit_logbook_cell')}}"><input type="hidden" name="row_id" value="{{row['id']}}"><input type="hidden" name="column" value="{{c.db_column}}"><input class="cell-input" name="value" value="{{read_value(row,c)}}"{% set d=(dbcols|selectattr('column','equalto',c.db_column)|list|first) %}{% if d and not d.editable %} disabled{% endif %}></form></td>{% else %}<td>{{read_value(row,c)}}</td>{% endif %}{% endfor %}</tr>
-      {% endfor %}
-      {% for n in range(page.rows|length,layout.rows_per_page) %}<tr class="empty-row">{% for c in layout.columns %}<td{% if c.group in ['spacer','remarks_cont'] %} class="spacer"{% endif %}></td>{% endfor %}</tr>{% endfor %}
-      <tr class="page-total"><td colspan="{{label_colspan}}">Page Totals</td>{% for c in layout.columns[label_colspan:] %}{% if c.group in ['spacer','remarks_cont'] %}<td></td>{% elif c.key=='total' %}<td>{{'%.2f'|format(page.totals.get(c.key,0))}}</td>{% else %}<td>{{'%.2f'|format(page.totals.get(c.key,0)) if c.key in page.totals else ''}}</td>{% endif %}{% endfor %}</tr>
-      <tr class="page-total"><td colspan="{{label_colspan}}">Totals forwarded</td>{% for c in layout.columns[label_colspan:] %}{% if c.group in ['spacer','remarks_cont'] %}<td></td>{% elif c.key=='total' %}<td>{{'%.2f'|format(page.forwarded.get(c.key,0))}}</td>{% else %}<td>{{'%.2f'|format(page.forwarded.get(c.key,0)) if c.key in page.forwarded else ''}}</td>{% endif %}{% endfor %}</tr>
-      <tr class="page-total"><td colspan="{{label_colspan}}">Totals to date</td>{% for c in layout.columns[label_colspan:] %}{% if c.group in ['spacer','remarks_cont'] %}<td></td>{% elif c.key=='total' %}<td>{{'%.2f'|format(page.to_date.get(c.key,0))}}</td>{% else %}<td>{{'%.2f'|format(page.to_date.get(c.key,0)) if c.key in page.to_date else ''}}</td>{% endif %}{% endfor %}</tr>
-      {% if loop.last %}<tr class="grand-total"><td colspan="{{label_colspan}}">GRAND TOTAL</td>{% for c in layout.columns[label_colspan:] %}{% if c.group in ['spacer','remarks_cont'] %}<td></td>{% elif c.key=='total' %}<td>{{'%.2f'|format(grand.get(c.key,0))}}</td>{% else %}<td>{{'%.2f'|format(grand.get(c.key,0)) if c.key in grand else ''}}</td>{% endif %}{% endfor %}</tr>{% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endfor %}
+{% extends "base.html" %}{% block content %}
+<div class="page-head"><h2>Logbook</h2><div><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
+<p class="muted">Lignes converties à partir de Données brutes, 30 par page. Le total en bas correspond à la page affichée. Les cellules modifiables s'enregistrent dès que tu quittes la cellule.</p>
+<div class="card"><div id="grid"></div></div>
+<link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+const layoutColumns = {{columns|tojson}};
+const rowData = {{data|tojson}};
+const groupLabels = {{layout.group_labels|tojson}};
+
+function columnDef(c){
+  const def = {field: c.key, title: c.label, width: Math.max(55, Math.round((c.width||13)*7)),
+    hozAlign: c.numeric ? "right" : "center", headerSort: true, headerFilter: c.editable ? false : "input"};
+  if (c.numeric) def.bottomCalc = "sum";
+  if (c.editable) {
+    def.editor = "input";
+    def.cellEdited = function(cell){
+      const data = new URLSearchParams({row_id: cell.getRow().getData().id, column: c.db_column, value: cell.getValue() ?? ""});
+      fetch("{{url_for('main.edit_logbook_cell')}}", {method:"POST", body:data}).then(r=>{
+        if(!r.ok) throw new Error();
+      }).catch(()=>{ alert("Échec de l'enregistrement — réessaie."); cell.restoreOldValue(); });
+    };
+  }
+  return def;
+}
+
+function buildColumns(cols){
+  const out = []; let i = 0;
+  while (i < cols.length) {
+    const group = cols[i].group; let j = i + 1;
+    while (j < cols.length && cols[j].group === group) j++;
+    const slice = cols.slice(i, j);
+    const hasSub = slice.some(c => c.subgroup);
+    if (hasSub) {
+      const subOut = []; let k = 0;
+      while (k < slice.length) {
+        const sub = slice[k].subgroup || "";
+        let m = k + 1;
+        while (m < slice.length && (slice[m].subgroup || "") === sub) m++;
+        subOut.push({title: sub, columns: slice.slice(k, m).map(columnDef)});
+        k = m;
+      }
+      out.push({title: groupLabels[group] || group, columns: subOut});
+    } else {
+      out.push({title: groupLabels[group] || group, columns: slice.map(columnDef)});
+    }
+    i = j;
+  }
+  return out;
+}
+
+new Tabulator("#grid", {
+  data: rowData,
+  columns: buildColumns(layoutColumns),
+  layout: "fitDataFill", placeholder: "Aucune donnée. Actualise depuis Données converties.",
+  columnDefaults: {resizable: true},
+  pagination: true, paginationSize: 30, paginationSizeSelector: false, paginationCounter: "rows"
+});
+</script>
 {% endblock %}

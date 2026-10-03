@@ -32,35 +32,8 @@ def _read_logbook_value(row, col):
     if not db or db not in row.keys(): return ""
     return row[db] if row[db] is not None else ""
 
-def _num(v):
-    try: return float(str(v).strip().replace(",",".")) if str(v).strip() else 0.0
-    except (ValueError,TypeError): return 0.0
-
 def _is_numeric_layout(col):
-    return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer"}
-
-def _prepare_pages(rows, layout):
-    cols=layout["columns"]; per_page=max(1,int(layout.get("rows_per_page",30))); pages=[]
-    numeric_cols=[c for c in cols if _is_numeric_layout(c)]
-    cumulative={c["key"]:0.0 for c in numeric_cols}
-    def _with_total(totals):
-        for c in cols:
-            if c.get("total"): totals[c["key"]]=sum(totals.get(x["key"],0) for x in numeric_cols)
-        return totals
-    for start in range(0,len(rows),per_page):
-        chunk=rows[start:start+per_page]
-        totals=_with_total({c["key"]:sum(_num(_read_logbook_value(r,c)) for r in chunk) for c in numeric_cols})
-        forwarded=_with_total(dict(cumulative))
-        to_date=_with_total({k:forwarded.get(k,0)+totals.get(k,0) for k in totals})
-        pages.append({"rows":chunk,"totals":totals,"forwarded":forwarded,"to_date":to_date,"number":start//per_page+1})
-        cumulative={k:to_date.get(k,cumulative[k]) for k in cumulative}
-    if not pages:
-        zero=_with_total({c["key"]:0 for c in numeric_cols})
-        pages=[{"rows":[],"totals":zero,"forwarded":dict(zero),"to_date":dict(zero),"number":1}]
-    grand={c["key"]:sum(_num(_read_logbook_value(r,c)) for r in rows) for c in cols if _is_numeric_layout(c)}
-    for c in cols:
-        if c.get("total"): grand[c["key"]]=sum(grand.get(x["key"],0) for x in cols if _is_numeric_layout(x))
-    return pages,grand
+    return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer","remarks_cont"}
 
 @main_bp.route("/")
 @login_required
@@ -136,34 +109,16 @@ def export_logbook_data():
 @main_bp.route("/logbook")
 @login_required
 def logbook():
-    all_rows=list_logbook_rows()
-    years=sorted({str(r["date"])[:4] for r in all_rows if r["date"]},reverse=True)
-    selected_year=request.args.get("year","")
-    if selected_year not in years: selected_year=years[0] if years else ""
-    rows=[r for r in all_rows if selected_year=="" or (r["date"] or "").startswith(selected_year)]
-    layout=load_logbook_layout(); dbcols=logbook_columns(load_config()); pages,grand=_prepare_pages(rows,layout)
-    cols=layout["columns"]
-    groups=[]; i=0
-    while i < len(cols):
-        g=cols[i].get("group"); j=i+1
-        while j < len(cols) and cols[j].get("group")==g: j+=1
-        groups.append({"group":g,"span":j-i,"label":layout.get("group_labels",{}).get(g,g)})
-        i=j
-    subgroups=[]; i=0
-    while i < len(cols):
-        g=cols[i].get("group")
-        if g in {"single_engine","multi_engine","cross_country"}:
-            sg=cols[i].get("subgroup"); j=i+1
-            while j < len(cols) and cols[j].get("group")==g and cols[j].get("subgroup")==sg: j+=1
-            subgroups.append({"span":j-i,"label":sg or ""})
-            i=j
-        else:
-            j=i+1
-            while j < len(cols) and cols[j].get("group")==g: j+=1
-            subgroups.append({"span":j-i,"label":""})
-            i=j
-    label_colspan=next((i for i,c in enumerate(cols) if c.get("group") not in {"date","aircraft","crew","route","remarks","remarks_cont"}),len(cols))
-    return render_template("logbook.html",layout=layout,pages=pages,grand=grand,dbcols=dbcols,read_value=_read_logbook_value,header_groups=groups,header_subgroups=subgroups,label_colspan=label_colspan,years=years,selected_year=selected_year)
+    rows=list_logbook_rows()
+    layout=load_logbook_layout()
+    dbcols=logbook_columns(load_config())
+    editable={d["column"]:d["editable"] for d in dbcols}
+    columns=[c for c in layout["columns"] if c.get("group") not in ("spacer","remarks_cont") and c.get("key")!="total"]
+    for c in columns:
+        c["numeric"]=_is_numeric_layout(c)
+        c["editable"]=bool(c.get("db_column")) and not c.get("date_part") and editable.get(c.get("db_column"),False)
+    data=[{"id":row["id"],**{c["key"]:_read_logbook_value(row,c) for c in columns}} for row in rows]
+    return render_template("logbook.html",layout=layout,columns=columns,data=data)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
@@ -181,9 +136,10 @@ def edit_logbook_cell():
         row_id=int(request.form.get("row_id","0")); column=safe_identifier(request.form.get("column","")); value=request.form.get("value","")
         allowed={c["column"] for c in logbook_columns(load_config())}
         if column not in allowed: raise ValueError("Colonne logbook invalide.")
-        update_logbook_cell(row_id,column,value if value != "" else None); flash("Modification enregistrée.")
-    except Exception as exc: flash(f"Modification impossible — {exc}")
-    return redirect(url_for("main.logbook"))
+        update_logbook_cell(row_id,column,value if value != "" else None)
+        return ("",204)
+    except Exception as exc:
+        return (str(exc),400)
 
 @main_bp.route("/logbook/settings")
 @login_required
