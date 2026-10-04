@@ -32,6 +32,12 @@ body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f7;color:#20242a}
 .tabulator .tabulator-calcs-holder .tabulator-cell{background:transparent}
 .tabulator .tabulator-header-filter input{border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:12px}
 .tabulator .tabulator-frozen{box-shadow:2px 0 4px rgba(0,0,0,.08)}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px}
+.pager button:disabled{opacity:.4;cursor:default}
+.year-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid #ddd}
+.year-tab{padding:8px 16px;border:1px solid #ddd;border-bottom:0;background:#eef1f4;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;color:#555}
+.year-tab.active{background:#fff;color:#2563eb;border-color:#2563eb}
+.year-panel.hidden{display:none}
 </style>
 </head>
 <body>

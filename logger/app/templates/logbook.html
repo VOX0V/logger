@@ -1,17 +1,22 @@
 {% extends "base.html" %}{% block content %}
 <div class="page-head"><h2>Logbook</h2><div><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
-<p class="muted">Lignes converties à partir de Données brutes, 30 par page. Le total en bas correspond à la page affichée. Les cellules modifiables s'enregistrent dès que tu quittes la cellule.</p>
-<div class="card"><div id="grid"></div></div>
+<div class="year-tabs">{% for y in years %}<button class="year-tab{% if loop.first %} active{% endif %}" data-year="{{y}}">{{y}}</button>{% endfor %}</div>
+{% for y in years %}
+<div class="year-panel{% if not loop.first %} hidden{% endif %}" data-year-panel="{{y}}">
+{% for page in year_pages[y] %}<div class="card"><div id="grid-{{y}}-{{loop.index0}}"></div></div>{% endfor %}
+</div>
+{% else %}<div class="card"><p class="muted">Aucune donnée. Actualise depuis Données converties.</p></div>
+{% endfor %}
 <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script>
 const layoutColumns = {{columns|tojson}};
-const rowData = {{data|tojson}};
+const yearPages = {{year_pages|tojson}};
 const groupLabels = {{layout.group_labels|tojson}};
 
 function columnDef(c){
   const def = {field: c.key, title: c.label, width: Math.max(55, Math.round((c.width||13)*7)),
-    hozAlign: c.numeric ? "right" : "center", headerSort: true, headerFilter: c.editable ? false : "input"};
+    hozAlign: c.numeric ? "right" : "center", headerSort: false};
   if (c.numeric) def.bottomCalc = "sum";
   if (c.editable) {
     def.editor = "input";
@@ -50,12 +55,23 @@ function buildColumns(cols){
   return out;
 }
 
-new Tabulator("#grid", {
-  data: rowData,
-  columns: buildColumns(layoutColumns),
-  layout: "fitDataFill", placeholder: "Aucune donnée. Actualise depuis Données converties.",
-  columnDefaults: {resizable: true},
-  pagination: true, paginationSize: 30, paginationSizeSelector: false, paginationCounter: "rows"
+const tableColumns = buildColumns(layoutColumns);
+for (const year in yearPages) {
+  yearPages[year].forEach((pageRows, i) => {
+    new Tabulator(`#grid-${year}-${i}`, {
+      data: pageRows, columns: tableColumns, layout: "fitDataFill",
+      columnDefaults: {resizable: true}
+    });
+  });
+}
+
+document.querySelectorAll(".year-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".year-tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".year-panel").forEach(p => p.classList.add("hidden"));
+    tab.classList.add("active");
+    document.querySelector(`.year-panel[data-year-panel="${tab.dataset.year}"]`).classList.remove("hidden");
+  });
 });
 </script>
 {% endblock %}

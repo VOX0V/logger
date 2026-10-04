@@ -1,4 +1,6 @@
 import io
+import json
+import re
 import tempfile
 from pathlib import Path
 import pytest
@@ -385,3 +387,24 @@ def test_edit_logbook_cell_rejects_invalid_column(client, app):
         c.execute("INSERT INTO logbook (date) VALUES ('2026-09-27')"); c.commit(); c.close()
     r = client.post('/logbook/cell', data={'row_id': 1, 'column': 'id', 'value': '999'})
     assert r.status_code == 400
+
+
+def test_logbook_page_uses_manual_pagination_not_table_wide_calc(client, app):
+    """Régression : Tabulator calcule bottomCalc sur TOUTES les données, pas sur la page
+    affichée — on doit donc paginer nous-mêmes et ne jamais utiliser pagination:true."""
+    login(client)
+    with app.app_context():
+        from app.refdata import save_aircraft
+        save_aircraft(None, {"registration": "C-GABC", "engine": "single"})
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg', 'block'])
+    for i in range(45):
+        ws.append([2024, 1, (i % 28) + 1, 'C-GABC', '01:00:00'])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook').get_data(as_text=True)
+    assert "pagination: true" not in body and "pagination:true" not in body
+    year_pages = json.loads(re.search(r'const yearPages = (\{.*?\});', body).group(1))
+    pages = year_pages["2024"]
+    assert [len(p) for p in pages] == [30, 15]

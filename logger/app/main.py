@@ -118,7 +118,13 @@ def logbook():
         c["numeric"]=_is_numeric_layout(c)
         c["editable"]=bool(c.get("db_column")) and not c.get("date_part") and editable.get(c.get("db_column"),False)
     data=[{"id":row["id"],**{c["key"]:_read_logbook_value(row,c) for c in columns}} for row in rows]
-    return render_template("logbook.html",layout=layout,columns=columns,data=data)
+    by_year={}
+    for item in data:
+        y=str(item.get("year") or "Sans date")
+        by_year.setdefault(y,[]).append(item)
+    years=sorted(by_year,reverse=True)
+    year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
