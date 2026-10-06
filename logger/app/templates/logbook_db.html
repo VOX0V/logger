@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <div class="page-head"><h2>Données converties</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}"><button class="btn">Actualiser</button></form> <a class="btn secondary" href="{{url_for('main.export_logbook_data')}}">Exporter</a> <a class="btn secondary" href="{{url_for('main.logbook_table_export',fmt='xlsx')}}">Export Excel</a> <a class="btn secondary" href="{{url_for('main.logbook_table_export',fmt='csv')}}">Export CSV</a></div></div>
-<div class="card"><div id="grid"></div></div>
+<div class="card grid-card"><div id="grid"></div></div>
 <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script>

@@ -35,6 +35,26 @@ def _read_logbook_value(row, col):
 def _is_numeric_layout(col):
     return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer","remarks_cont"}
 
+def _num(v):
+    try: return float(str(v).strip().replace(",",".")) if str(v).strip() not in ("","None") else 0.0
+    except (ValueError,TypeError): return 0.0
+
+def _page_summary_rows(pages,numeric_keys,label_key):
+    cumulative={k:0.0 for k in numeric_keys}
+    out=[]
+    for page in pages:
+        totals={k:round(sum(_num(row.get(k)) for row in page),1) for k in numeric_keys}
+        forwarded={k:round(cumulative[k],1) for k in numeric_keys}
+        to_date={k:round(forwarded[k]+totals[k],1) for k in numeric_keys}
+        cumulative=dict(to_date)
+        rows=[]
+        for kind,values in (("page_total",totals),("forwarded",forwarded),("to_date",to_date)):
+            row={k:"" for k in numeric_keys}; row.update(values); row["_kind"]=kind; row["id"]=None
+            row[label_key]={"page_total":"Page Totals","forwarded":"Totals forwarded","to_date":"Totals to date"}[kind]
+            rows.append(row)
+        out.append(rows)
+    return out
+
 @main_bp.route("/")
 @login_required
 def index():
@@ -124,7 +144,10 @@ def logbook():
         by_year.setdefault(y,[]).append(item)
     years=sorted(by_year,reverse=True)
     year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages)
+    numeric_keys=[c["key"] for c in columns if c["numeric"]]
+    label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
+    year_summaries={y:_page_summary_rows(year_pages[y],numeric_keys,label_key) for y in years}
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required

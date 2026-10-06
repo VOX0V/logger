@@ -408,3 +408,29 @@ def test_logbook_page_uses_manual_pagination_not_table_wide_calc(client, app):
     year_pages = json.loads(re.search(r'const yearPages = (\{.*?\});', body).group(1))
     pages = year_pages["2024"]
     assert [len(p) for p in pages] == [30, 15]
+
+
+def test_logbook_page_totals_forwarded_and_to_date(client, app):
+    login(client)
+    with app.app_context():
+        from app.refdata import save_aircraft
+        save_aircraft(None, {"registration": "C-GABC", "engine": "single"})
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg', 'arr', 'block', 'fcv_on_millis_utc'])
+    for i in range(35):
+        ws.append([2024, 1, (i % 28) + 1, 'C-GABC', 'YUL', '00:20:00', 1728680385000])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook').get_data(as_text=True)
+    summaries = json.loads(re.search(r'const yearSummaries = (\{.*?\});', body).group(1))["2024"]
+    page0 = {r['_kind']: r['se_pic_day'] for r in summaries[0]}
+    page1 = {r['_kind']: r['se_pic_day'] for r in summaries[1]}
+    assert page0 == {'page_total': 9.0, 'forwarded': 0.0, 'to_date': 9.0}
+    assert page1 == {'page_total': 1.5, 'forwarded': 9.0, 'to_date': 10.5}
+    assert "toFixed(1)" in body
+
+
+def test_logbook_summary_rows_not_editable(client, app):
+    login(client)
+    assert "cell.getRow().getData()._kind" in client.get('/logbook').get_data(as_text=True)

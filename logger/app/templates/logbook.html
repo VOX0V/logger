@@ -3,7 +3,7 @@
 <div class="year-tabs">{% for y in years %}<button class="year-tab{% if loop.first %} active{% endif %}" data-year="{{y}}">{{y}}</button>{% endfor %}</div>
 {% for y in years %}
 <div class="year-panel{% if not loop.first %} hidden{% endif %}" data-year-panel="{{y}}">
-{% for page in year_pages[y] %}<div class="card"><div id="grid-{{y}}-{{loop.index0}}"></div></div>{% endfor %}
+{% for page in year_pages[y] %}<div class="card grid-card"><div id="grid-{{y}}-{{loop.index0}}" data-page="{{loop.index0}}"></div></div>{% endfor %}
 </div>
 {% else %}<div class="card"><p class="muted">Aucune donnée. Actualise depuis Données converties.</p></div>
 {% endfor %}
@@ -12,14 +12,18 @@
 <script>
 const layoutColumns = {{columns|tojson}};
 const yearPages = {{year_pages|tojson}};
+const yearSummaries = {{year_summaries|tojson}};
 const groupLabels = {{layout.group_labels|tojson}};
 
 function columnDef(c){
   const def = {field: c.key, title: c.label, width: Math.max(55, Math.round((c.width||13)*7)),
     hozAlign: c.numeric ? "right" : "center", headerSort: false};
-  if (c.numeric) def.bottomCalc = "sum";
+  if (c.numeric) {
+    def.formatter = (cell) => { const v = cell.getValue(); return (v === "" || v === null || v === undefined) ? "" : Number(v).toFixed(1); };
+  }
   if (c.editable) {
     def.editor = "input";
+    def.editable = (cell) => !cell.getRow().getData()._kind;
     def.cellEdited = function(cell){
       const data = new URLSearchParams({row_id: cell.getRow().getData().id, column: c.db_column, value: cell.getValue() ?? ""});
       fetch("{{url_for('main.edit_logbook_cell')}}", {method:"POST", body:data}).then(r=>{
@@ -58,9 +62,14 @@ function buildColumns(cols){
 const tableColumns = buildColumns(layoutColumns);
 for (const year in yearPages) {
   yearPages[year].forEach((pageRows, i) => {
+    const summary = (yearSummaries[year] && yearSummaries[year][i]) || [];
     new Tabulator(`#grid-${year}-${i}`, {
-      data: pageRows, columns: tableColumns, layout: "fitDataFill",
-      columnDefaults: {resizable: true}
+      data: pageRows.concat(summary), columns: tableColumns, layout: "fitDataFill",
+      columnDefaults: {resizable: true},
+      rowFormatter: function(row){
+        const kind = row.getData()._kind;
+        if (kind) row.getElement().classList.add("totals-row", "totals-" + kind);
+      }
     });
   });
 }
