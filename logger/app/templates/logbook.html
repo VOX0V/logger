@@ -2,18 +2,20 @@
 <style>
 .logbook-wrap{overflow-x:auto;background:#fff}
 .logbook-page{margin:0 0 18px 0;background:#fff;page-break-after:always}
-.logbook-table{border-collapse:collapse;table-layout:fixed;font-family:Arial,sans-serif;font-size:10px;width:100%;min-width:1500px;border:2px solid #000}
-.logbook-table th,.logbook-table td{border:1px solid #777;padding:0 2px;height:21px;line-height:20px;text-align:center;vertical-align:middle;white-space:nowrap;overflow:hidden}
-.logbook-table th{background:#fff;font-size:10px;font-weight:700;color:#111}
+.logbook-table{border-collapse:collapse;table-layout:fixed;font-family:{{ layout.styles.get('font_family','Arial') }},sans-serif;font-size:{{ layout.styles.get('font_size',10) }}px;width:max-content;min-width:100%;border:2px solid #000}
+.logbook-table th,.logbook-table td{border:1px solid #777;padding:0 2px;height:{{ layout.row_height }}px;line-height:{{ layout.row_height }}px;text-align:{{ layout.styles.get('text_align','center') }};vertical-align:{{ layout.styles.get('vertical_align','middle') }};white-space:nowrap;overflow:hidden}
+.logbook-table th{background:{{ layout.styles.get('header_background','#ffffff') }};font-size:{{ layout.styles.get('header_font_size',9) }}px;font-weight:700;color:#111}
 .logbook-table .group{font-weight:700;height:25px;line-height:24px;border-bottom:1px solid #777}
 .logbook-table .subgroup{font-weight:700;background:#d9d9d9;height:22px;line-height:21px}
 .logbook-table .leaf{font-weight:400;height:22px;line-height:21px;background:#eee}
 .logbook-table .outer-left{border-left:2px solid #000!important}.logbook-table .outer-right{border-right:2px solid #000!important}
 .logbook-table .section-left{border-left:2px solid #000!important}.logbook-table .section-right{border-right:2px solid #000!important}
-.logbook-table .data-row.band1 td{background:#f1dddd}.logbook-table .data-row.band2 td{background:#dce7f2}.logbook-table .data-row.band3 td{background:#eaf1dc}
-.logbook-table .data-row td{height:21px;border-top:1px solid #999;border-bottom:1px solid #999}
+.logbook-table .data-row td{height:{{ layout.row_height }}px;border-top:1px solid #999;border-bottom:1px solid #999}
+.logbook-table .data-row.block1.shaded td{background:{{ layout.styles.get('data_blocks',[{'color':'#f1dddd'},{'color':'#dce7f2'},{'color':'#eaf1dc'}])[0].get('color','#f1dddd')}}}
+.logbook-table .data-row.block2.shaded td{background:{{ layout.styles.get('data_blocks',[{'color':'#f1dddd'},{'color':'#dce7f2'},{'color':'#eaf1dc'}])[1].get('color','#dce7f2')}}}
+.logbook-table .data-row.block3.shaded td{background:{{ layout.styles.get('data_blocks',[{'color':'#f1dddd'},{'color':'#dce7f2'},{'color':'#eaf1dc'}])[2].get('color','#eaf1dc')}}}
 .logbook-table .editable{cursor:text}.logbook-table .editable:focus{outline:2px solid #4a90e2;outline-offset:-2px;background:#fff}
-.logbook-table .total-row td{background:#fff;font-weight:700;height:20px;line-height:19px;border-color:#777}
+.logbook-table .total-row td{background:{{ layout.styles.get('total_background','#eeeeee') }};font-weight:700;height:20px;line-height:19px;border-color:#777}
 .logbook-table .total-row.total-first td{border-top:2px solid #000}.logbook-table .total-row.total-last td{border-bottom:2px solid #000}
 .logbook-table .grand-total{background:#d9d9d9!important;font-size:14px;font-weight:700}
 .logbook-table .period-cell{font-weight:700;text-align:center}
@@ -44,8 +46,7 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 <div class="logbook-layout-metadata" hidden>{{ columns|tojson }}</div>
 <table class="logbook-table">
 <colgroup>
-<col style="width:4.5%"><col style="width:2.8%"><col style="width:4.5%"><col style="width:4.8%"><col style="width:5.8%"><col style="width:5.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:17%"><col style="width:0.01%">
-{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<col style="width:2.8%">{% endfor %}
+{% for pc in layout.physical_columns %}<col style="width:{{ '%.2f'|format(pc.width * layout.styles.get('width_scale',4.7)) }}px">{% endfor %}
 </colgroup>
 <thead>
 <tr>
@@ -85,7 +86,7 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 </thead>
 <tbody>
 {% for row in pageRows %}
-<tr class="data-row band{{ ((loop.index0 // 7) % 3) + 1 }}">
+<tr class="data-row block{{ (loop.index0 // 10) + 1 }}{% if loop.index0 % 2 == 0 %} shaded{% endif %}">
 <td class="outer-left editable" data-row-id="{{row.id}}" data-column="date">{{row.get('month','')}}</td>
 <td>{{row.get('day','')}}</td>
 <td class="editable" data-row-id="{{row.id}}" data-column="aircraft_type">{{row.get('type','')}}</td>
