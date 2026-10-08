@@ -1,88 +1,136 @@
 {% extends "base.html" %}{% block content %}
+<style>
+.logbook-wrap{overflow-x:auto;background:#fff}
+.logbook-page{margin:0 0 28px 0;background:#fff;page-break-after:always}
+.logbook-table{border-collapse:collapse;table-layout:fixed;font-family:Arial,sans-serif;font-size:10px;width:100%;min-width:1280px}
+.logbook-table th,.logbook-table td{border:1px solid #000;padding:0 3px;height:16.95px;line-height:16px;text-align:center;vertical-align:middle;white-space:nowrap;overflow:hidden}
+.logbook-table th{font-size:9px;font-weight:normal;background:#fff}
+.logbook-table .group{font-weight:bold;border-top:2px solid #000;border-bottom:1px solid #000}
+.logbook-table .subgroup{font-weight:normal}
+.logbook-table .leaf{font-weight:normal;border-bottom:2px solid #000}
+.logbook-table .outer-left{border-left:2px solid #000!important}
+.logbook-table .outer-right{border-right:2px solid #000!important}
+.logbook-table .section-left{border-left:2px solid #000!important}
+.logbook-table .section-right{border-right:2px solid #000!important}
+.logbook-table .data-row.band1{background:#f2dcdb}
+.logbook-table .data-row.band2{background:#dce6f2}
+.logbook-table .data-row.band3{background:#ebf1de}
+.logbook-table .data-row td{border-top:1px solid #000;border-bottom:1px solid #000}
+.logbook-table .editable{cursor:text}
+.logbook-table .editable:focus{outline:2px solid #4a90e2;outline-offset:-2px;background:#fff}
+.logbook-table .total-row td{background:#eee;border-top:1px solid #000;border-bottom:1px solid #000;font-weight:normal}
+.logbook-table .total-first td{border-top:2px solid #000}
+.logbook-table .total-last td{border-bottom:2px solid #000}
+.logbook-table .grand{font-weight:bold;text-align:left;padding-left:5px}
+.logbook-table .summary-label{text-align:left;padding-left:5px}
+.logbook-table .signature td{height:16.95px}
+.logbook-table .signature-area{height:34px!important;vertical-align:bottom;text-align:left}
+.logbook-table .page-meta td{border-top:2px solid #000;border-bottom:2px solid #000;background:#fff;text-align:left}
+.logbook-table .page-meta .center{text-align:center}
+@media print{
+ .page-head,.year-tabs,.flash,.btn{display:none!important}
+ .year-panel{display:block!important}
+ .logbook-wrap{overflow:visible}
+ .logbook-page{margin:0;page-break-after:always}
+ .logbook-table{min-width:0;width:100%}
+}
+</style>
 <div class="page-head"><h2>Logbook</h2><div><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
 <div class="year-tabs">{% for y in years %}<button class="year-tab{% if loop.first %} active{% endif %}" data-year="{{y}}">{{y}}</button>{% endfor %}</div>
 {% for y in years %}
 <div class="year-panel{% if not loop.first %} hidden{% endif %}" data-year-panel="{{y}}">
-{% for page in year_pages[y] %}<div class="card grid-card"><div id="grid-{{y}}-{{loop.index0}}" data-page="{{loop.index0}}"></div></div>{% endfor %}
+{% for pageRows in year_pages[y] %}
+{% set page_index=loop.index0 %}
+{% set summary=(year_summaries[y][page_index] if year_summaries[y] else []) %}
+<div class="logbook-page">
+<div class="logbook-wrap">
+<table class="logbook-table">
+<colgroup>
+{% for c in columns if c.group != 'spacer' %}<col style="width:{{ c.width }}ch">{% endfor %}
+</colgroup>
+<thead>
+<tr>
+ <th colspan="2" rowspan="2" class="outer-left">YEAR</th>
+ <th colspan="2" rowspan="3">AIRCRAFT</th>
+ <th colspan="2" rowspan="3">FLIGHT CREW</th>
+ <th colspan="2" rowspan="3">ROUTE OF FLIGHT</th>
+ <th colspan="2" rowspan="3">REMARKS</th>
+ <th colspan="4" class="section-left">SINGLE-ENGINE</th>
+ <th colspan="6" class="section-left">MULTI-ENGINE</th>
+ <th colspan="4" class="section-left">INSTRUMENTS</th>
+ <th colspan="4" class="section-left">CROSS-COUNTRY</th>
+ <th colspan="2" class="section-left">TAKEOFFS &amp; LANDINGS</th>
+ <th colspan="2" class="section-left outer-right">INSTRUCTION</th>
+</tr>
+<tr>
+ <th colspan="2" class="section-left">Day</th><th colspan="2">Night</th>
+ <th colspan="3" class="section-left">Day</th><th colspan="3">Night</th>
+ <th rowspan="2" class="section-left">IFR</th><th rowspan="2">Hood</th><th rowspan="2">FTD</th><th rowspan="2">IFR app</th>
+ <th colspan="2" class="section-left">Day</th><th colspan="2">Night</th>
+ <th rowspan="2" class="section-left">Day</th><th rowspan="2">Night</th>
+ <th rowspan="2" class="section-left outer-right">Day</th><th rowspan="2">Night</th>
+</tr>
+<tr>
+ <th>Month</th><th>Day</th>
+ <th class="section-left">Dual</th><th>PIC</th><th>Dual</th><th>PIC</th>
+ <th class="section-left">Dual</th><th>PIC</th><th>Co-Pilot</th><th>Dual</th><th>PIC</th><th>Co-Pilot</th>
+ <th class="section-left">Dual</th><th>PIC</th><th>Dual</th><th>PIC</th>
+</tr>
+<tr>
+{% for c in columns if c.group != 'spacer' %}<th class="leaf{% if loop.first %} outer-left{% endif %}{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %} section-left{% endif %}{% if loop.last %} outer-right{% endif %}">{{c.label}}</th>{% endfor %}
+</tr>
+</thead>
+<tbody>
+{% for row in pageRows %}
+<tr class="data-row band{{ ((loop.index0 // 10) % 3) + 1 }}">
+{% for c in columns if c.group != 'spacer' %}
+{% set editable = c.editable and row.id and c.db_column %}
+<td class="{% if loop.first %}outer-left{% endif %}{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %} section-left{% endif %}{% if loop.last %}outer-right{% endif %}{% if editable %} editable{% endif %}"
+{% if editable %}contenteditable="true" data-row-id="{{row.id}}" data-column="{{c.db_column}}"{% endif %}>{{row.get(c.key,'')}}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+{% for s in summary %}
+<tr class="total-row {% if loop.first %}total-first{% endif %}{% if loop.last %}total-last{% endif %}">
+{% if loop.first %}<td colspan="6" rowspan="3" class="outer-left grand">GRAND TOTAL</td>{% endif %}
+{% if loop.first %}<td colspan="3" rowspan="3"></td>{% endif %}
+<td colspan="1" class="summary-label">{{s.get('remarks','')}}</td>
+{% for c in columns if c.group != 'spacer' and loop.index0 >= 10 %}
+<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if loop.last %}outer-right{% endif %}">{{s.get(c.key,'')}}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+<tr class="signature">
+ <td colspan="3" rowspan="2" class="outer-left signature-area">Signature</td>
+ <td colspan="2" rowspan="2" class="signature-area">Date</td>
+ <td colspan="2"></td><td colspan="1"></td><td colspan="1"></td>
+ <td class="summary-label">Totals to date</td>
+ {% for c in columns if c.group != 'spacer' and loop.index0 >= 10 %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if loop.last %}outer-right{% endif %}"></td>{% endfor %}
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+{% endfor %}
 </div>
 {% else %}<div class="card"><p class="muted">Aucune donnée. Actualise depuis Données converties.</p></div>
 {% endfor %}
-<link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script>
-const layoutColumns = {{columns|tojson}};
-const yearPages = {{year_pages|tojson}};
-const yearSummaries = {{year_summaries|tojson}};
-const groupLabels = {{layout.group_labels|tojson}};
-
-function columnDef(c){
-  const def = {field: c.key, title: c.label, width: Math.max(55, Math.round((c.width||13)*7)),
-    hozAlign: c.numeric ? "right" : "center", headerSort: false};
-  if (c.numeric) {
-    def.formatter = (cell) => { const v = cell.getValue(); return (v === "" || v === null || v === undefined) ? "" : Number(v).toFixed(1); };
-  }
-  if (c.editable) {
-    def.editor = "input";
-    def.editable = (cell) => !cell.getRow().getData()._kind;
-    def.cellEdited = function(cell){
-      const data = new URLSearchParams({row_id: cell.getRow().getData().id, column: c.db_column, value: cell.getValue() ?? ""});
-      fetch("{{url_for('main.edit_logbook_cell')}}", {method:"POST", body:data}).then(r=>{
-        if(!r.ok) throw new Error();
-      }).catch(()=>{ alert("Échec de l'enregistrement — réessaie."); cell.restoreOldValue(); });
-    };
-  }
-  return def;
+async function saveCell(cell){
+  const data=new URLSearchParams({row_id:cell.dataset.rowId,column:cell.dataset.column,value:cell.textContent.trim()});
+  const r=await fetch("{{url_for('main.edit_logbook_cell')}}",{method:"POST",body:data});
+  if(!r.ok) throw new Error();
 }
-
-function buildColumns(cols){
-  const out = []; let i = 0;
-  while (i < cols.length) {
-    const group = cols[i].group; let j = i + 1;
-    while (j < cols.length && cols[j].group === group) j++;
-    const slice = cols.slice(i, j);
-    const hasSub = slice.some(c => c.subgroup);
-    if (hasSub) {
-      const subOut = []; let k = 0;
-      while (k < slice.length) {
-        const sub = slice[k].subgroup || "";
-        let m = k + 1;
-        while (m < slice.length && (slice[m].subgroup || "") === sub) m++;
-        subOut.push({title: sub, columns: slice.slice(k, m).map(columnDef)});
-        k = m;
-      }
-      out.push({title: groupLabels[group] || group, columns: subOut});
-    } else {
-      out.push({title: groupLabels[group] || group, columns: slice.map(columnDef)});
-    }
-    i = j;
-  }
-  return out;
-}
-
-const tableColumns = buildColumns(layoutColumns);
-for (const year in yearPages) {
-  yearPages[year].forEach((pageRows, i) => {
-    const summary = (yearSummaries[year] && yearSummaries[year][i]) || [];
-    new Tabulator(`#grid-${year}-${i}`, {
-      data: pageRows.concat(summary), columns: tableColumns, layout: "fitDataFill",
-      columnDefaults: {resizable: true},
-      rowFormatter: function(row){
-        const data = row.getData();
-        if (data._kind) { row.getElement().classList.add("totals-row", "totals-" + data._kind); return; }
-        const pos = row.getPosition();
-        const bands = ["#F2DCDB", "#DCE6F2", "#EBF1DE"];
-        row.getElement().style.background = (pos % 2 === 1) ? bands[Math.floor((pos - 1) / 10) % 3] : "#fff";
-      }
-    });
-  });
-}
-
-document.querySelectorAll(".year-tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".year-tab").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".year-panel").forEach(p => p.classList.add("hidden"));
-    tab.classList.add("active");
-    document.querySelector(`.year-panel[data-year-panel="${tab.dataset.year}"]`).classList.remove("hidden");
+document.querySelectorAll('.logbook-table td.editable').forEach(cell=>{
+  cell.addEventListener('blur',()=>saveCell(cell).catch(()=>alert("Échec de l'enregistrement — réessaie.")));
+  cell.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();cell.blur();}});
+});
+document.querySelectorAll('.year-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.year-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.year-panel').forEach(p=>p.classList.add('hidden'));
+    tab.classList.add('active');
+    document.querySelector(`.year-panel[data-year-panel="${tab.dataset.year}"]`).classList.remove('hidden');
   });
 });
 </script>
