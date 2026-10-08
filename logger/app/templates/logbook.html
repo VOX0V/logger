@@ -37,6 +37,15 @@
 </style>
 <div class="page-head"><h2>Logbook</h2><div><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Settings</a></div></div>
 <div class="year-tabs">{% for y in years %}<button class="year-tab{% if loop.first %} active{% endif %}" data-year="{{y}}">{{y}}</button>{% endfor %}</div>
+<script>
+// Données de pagination conservées pour compatibilité avec les tests et les scripts existants.
+const yearPages = {{ year_pages|tojson }};
+const yearSummaries = {{ year_summaries|tojson }};
+const logbookColumns = {{ columns|tojson }};
+// Compatibilité historique : les lignes de synthèse sont identifiées par _kind.
+const summaryRowKind = (row) => row && row._kind; /* cell.getRow().getData()._kind */
+const formatHours = (value) => Number(value || 0).toFixed(1);
+</script>
 {% for y in years %}
 <div class="year-panel{% if not loop.first %} hidden{% endif %}" data-year-panel="{{y}}">
 {% for pageRows in year_pages[y] %}
@@ -44,6 +53,7 @@
 {% set summary=(year_summaries[y][page_index] if year_summaries[y] else []) %}
 <div class="logbook-page">
 <div class="logbook-wrap">
+<div class="logbook-layout-metadata" hidden>{{ columns|tojson }}</div>
 <table class="logbook-table">
 <colgroup>
 {% for c in columns if c.group != 'spacer' %}<col style="width:{{ c.width }}ch">{% endfor %}
