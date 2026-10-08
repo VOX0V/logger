@@ -133,7 +133,7 @@ def logbook():
     layout=load_logbook_layout()
     dbcols=logbook_columns(load_config())
     editable={d["column"]:d["editable"] for d in dbcols}
-    columns=[c for c in layout["columns"] if c.get("group") not in ("spacer","remarks_cont") and c.get("key")!="total"]
+    columns=[c for c in layout["columns"] if c.get("key")!="total"]
     for c in columns:
         c["numeric"]=_is_numeric_layout(c)
         c["editable"]=bool(c.get("db_column")) and not c.get("date_part") and editable.get(c.get("db_column"),False)

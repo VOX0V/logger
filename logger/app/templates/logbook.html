@@ -67,8 +67,11 @@ for (const year in yearPages) {
       data: pageRows.concat(summary), columns: tableColumns, layout: "fitDataFill",
       columnDefaults: {resizable: true},
       rowFormatter: function(row){
-        const kind = row.getData()._kind;
-        if (kind) row.getElement().classList.add("totals-row", "totals-" + kind);
+        const data = row.getData();
+        if (data._kind) { row.getElement().classList.add("totals-row", "totals-" + data._kind); return; }
+        const pos = row.getPosition();
+        const bands = ["#F2DCDB", "#DCE6F2", "#EBF1DE"];
+        row.getElement().style.background = (pos % 2 === 1) ? bands[Math.floor((pos - 1) / 10) % 3] : "#fff";
       }
     });
   });

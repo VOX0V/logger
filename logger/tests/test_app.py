@@ -367,7 +367,10 @@ def test_view_yaml_generated_with_sensible_defaults(client, app):
     assert logbook_view[0]['column'] == 'date'
 
 
-def test_logbook_page_grid_has_no_spacer_or_total_column(client, app):
+def test_logbook_page_matches_template_structure(client, app):
+    """Les colonnes spacer existent vraiment dans le modèle Excel (gap visuel entre
+    SINGLE-ENGINE et MULTI-ENGINE) ; seule la colonne "total" (sans équivalent dans
+    le modèle) est retirée. Remarks est une colonne unique et large (fusion J:K)."""
     login(client)
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
     client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
@@ -375,7 +378,13 @@ def test_logbook_page_grid_has_no_spacer_or_total_column(client, app):
     r = client.get('/logbook')
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert '"key": "spacer1"' not in body and '"key": "total"' not in body
+    assert '"key": "spacer1"' in body and '"key": "spacer2"' in body
+    assert '"key": "total"' not in body and '"key": "remarks_cont"' not in body
+    with app.app_context():
+        from app.config import load_logbook_layout
+        cols = load_logbook_layout(username="admin")["columns"]
+    remarks = next(c for c in cols if c["key"] == "remarks")
+    assert remarks["width"] == 37.11
     assert '"registration"' in body and 'C-GABC' in body
 
 
