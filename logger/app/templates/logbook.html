@@ -87,18 +87,24 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 <tbody>
 {% for row in pageRows %}
 <tr class="data-row block{{ (loop.index0 // 10) + 1 }}{% if loop.index0 % 2 == 0 %} shaded{% endif %}">
-<td class="outer-left editable" data-row-id="{{row.id}}" data-column="date">{{row.get('month','')}}</td>
+<td class="outer-left">{{row.get('month','')}}</td>
 <td>{{row.get('day','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="aircraft_type">{{row.get('type','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="registration">{{row.get('registration','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="pilot_in_command">{{row.get('pilot','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="copilot">{{row.get('copilot','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="departure">{{row.get('departure','')}}</td>
-<td class="editable" data-row-id="{{row.id}}" data-column="arrival">{{row.get('arrival','')}}</td>
-<td colspan="2" class="editable" data-row-id="{{row.id}}" data-column="remarks">{{row.get('remarks','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="aircraft_type">{{row.get('type','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="registration">{{row.get('registration','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="pilot_in_command">{{row.get('pilot','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="copilot">{{row.get('copilot','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="departure">{{row.get('departure','')}}</td>
+<td class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="arrival">{{row.get('arrival','')}}</td>
+<td colspan="2" class="editable" contenteditable="true" data-row-id="{{row.id}}" data-column="remarks">{{row.get('remarks','')}}</td>
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}
-<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}{% if c.editable and c.db_column %} editable{% endif %}"{% if c.editable and c.db_column %} contenteditable="true" data-row-id="{{row.id}}" data-column="{{c.db_column}}"{% endif %}>{{row.get(c.key,'')}}</td>
+<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}{% if c.editable and c.db_column %} editable{% endif %}"{% if c.editable and c.db_column %} contenteditable="true" data-numeric="1" data-row-id="{{row.id}}" data-column="{{c.db_column}}"{% endif %}>{{row.get(c.key,'')|hours1}}</td>
 {% endfor %}
+</tr>
+{% endfor %}
+{% for i in range(pageRows|length, layout.rows_per_page) %}
+<tr class="data-row block{{ (i // 10) + 1 }}{% if i % 2 == 0 %} shaded{% endif %}">
+<td class="outer-left"></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td colspan="2"></td>
+{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}"></td>{% endfor %}
 </tr>
 {% endfor %}
 {% set s1=summary[0] if summary|length>0 else {} %}{% set s2=summary[1] if summary|length>1 else {} %}{% set s3=summary[2] if summary|length>2 else {} %}
@@ -107,23 +113,23 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
  <td colspan="2" rowspan="2" class="period-cell">{{ns.last_date}}</td>
  <td colspan="2" rowspan="2" class="grand-total">GRAND TOTAL</td>
  <td colspan="2" class="summary-label">{{s1.get('remarks','Page Totals')}}</td>
-{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s1.get(c.key,'0.0')}}</td>{% endfor %}
+{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s1.get(c.key,0)|hours1}}</td>{% endfor %}
 </tr>
 <tr class="total-row">
  <td colspan="2" class="summary-label">{{s2.get('remarks','Totals forwarded')}}</td>
-{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s2.get(c.key,'0.0')}}</td>{% endfor %}
+{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s2.get(c.key,0)|hours1}}</td>{% endfor %}
 </tr>
 <tr class="total-row total-last">
- <td colspan="3" class="signature">Signature</td><td colspan="2" class="signature">Date</td><td colspan="3"></td>
+ <td colspan="3" class="signature">Signature</td><td class="signature"></td><td colspan="2" class="signature">Date</td><td colspan="2" class="grand-total">{{ year_grand[y][page_index]|hours1 }}</td>
  <td colspan="2" class="summary-label">{{s3.get('remarks','Totals to date')}}</td>
-{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s3.get(c.key,'0.0')}}</td>{% endfor %}
+{% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s3.get(c.key,0)|hours1}}</td>{% endfor %}
 </tr>
 <tr class="footer-row">
  <td colspan="3" class="page-label">Page : {{page_index + 1}}</td>
  <td colspan="4" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
  <td colspan="8"></td>
  <td colspan="3" class="page-label">Page : {{page_index + 2}}</td>
- <td colspan="11" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
+ <td colspan="14" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
 </tr>
 </tbody>
 </table>
@@ -135,6 +141,7 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 {% endfor %}
 <script>
 async function saveCell(cell){
+  if(cell.dataset.numeric){const t=cell.textContent.trim().replace(',','.'); if(t!==''&&!isNaN(t)) cell.textContent=formatHours(t);}
   const data=new URLSearchParams({row_id:cell.dataset.rowId,column:cell.dataset.column,value:cell.textContent.trim()});
   const r=await fetch("{{url_for('main.edit_logbook_cell')}}",{method:"POST",body:data});
   if(!r.ok) throw new Error();

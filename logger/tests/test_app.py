@@ -443,3 +443,79 @@ def test_logbook_page_totals_forwarded_and_to_date(client, app):
 def test_logbook_summary_rows_not_editable(client, app):
     login(client)
     assert "cell.getRow().getData()._kind" in client.get('/logbook').get_data(as_text=True)
+
+
+# ---------------- tableau Logbook (HTML fusionné, v3) ----------------
+
+def _logbook_html_rows(body):
+    from html.parser import HTMLParser
+
+    class P(HTMLParser):
+        def __init__(s):
+            super().__init__(); s.rows = []; s.cur = None; s.cell = None
+        def handle_starttag(s, t, a):
+            a = dict(a)
+            if t == 'tr': s.cur = {'cls': a.get('class', ''), 'cells': []}
+            if t in ('td', 'th') and s.cur is not None:
+                s.cell = {'span': int(a.get('colspan', 1)), 'ce': a.get('contenteditable'), 'txt': ''}
+        def handle_data(s, d):
+            if s.cell is not None: s.cell['txt'] += d
+        def handle_endtag(s, t):
+            if t in ('td', 'th') and s.cell is not None: s.cur['cells'].append(s.cell); s.cell = None
+            if t == 'tr' and s.cur is not None: s.rows.append(s.cur); s.cur = None
+    p = P(); p.feed(body)
+    return [r for r in p.rows if r['cells']]
+
+
+def test_logbook_table_is_30_rows_one_decimal_and_editable(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active
+    ws.append(['year', 'month', 'day', 'type', 'reg', 'pic', 'se pic day', 'se dual day'])
+    ws.append([2014, 3, 6, 'RH44', 'C-FARY', 'V.Fuzeau', 1, 1.25])
+    ws.append([2014, 3, 10, 'RH44', 'C-FARY', 'V.Fuzeau', 0.2, None])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_aircraft_type', 'copy_registration',
+                'copy_pilot_in_command', 'copy_single_engine_pic_day', 'copy_single_engine_dual_day']})
+    client.post('/logbook/refresh')
+    rows = _logbook_html_rows(client.get('/logbook').get_data(as_text=True))
+    data = [r for r in rows if 'data-row' in r['cls']]
+    assert len(data) == 30                                           # 2 vols + 28 lignes vides, comme le modèle
+    first = data[0]['cells']
+    assert first[9]['txt'].strip() == '1.3' and first[10]['txt'].strip() == '1.0'   # jamais "1" ni "1.25"
+    assert [c['ce'] for c in first[2:9]] == ['true'] * 7             # texte réellement éditable
+    assert first[0]['ce'] is None                                    # le mois (dérivé de la date) ne l'est pas
+    assert all(sum(c['span'] for c in r['cells']) == 32 for r in data)
+    footer = next(r for r in rows if 'footer-row' in r['cls'])
+    assert sum(c['span'] for c in footer['cells']) == 32
+    assert all(c['ce'] is None and c['txt'].strip() == '' for c in data[29]['cells'])   # lignes vides inertes
+
+
+def test_hours1_filter_always_one_decimal(app):
+    from app.main import _hours1
+    assert [_hours1(v) for v in (1, '1', 1.25, '6.38', '6,44', 0, '0.2', '', None)] == \
+           ['1.0', '1.0', '1.3', '6.4', '6.4', '0.0', '0.2', '', '']
+    assert _hours1('abc') == 'abc'
+
+
+def test_grand_total_is_totals_to_date_single_plus_multi_engine_only(client, app):
+    """GRAND TOTAL = SUM de "Totals to date" sur monomoteur + multimoteur (=SUM(L38:W38) du modèle).
+    Les heures aux instruments (et vol sur campagne, atterrissages, instruction) ne comptent pas."""
+    login(client)
+    wb = Workbook(); ws = wb.active
+    ws.append(['year', 'month', 'day', 'se pic day', 'me pic day', 'ifr', 'cc pic day', 'ldg day'])
+    for i in range(30):                                     # page 1 : 30 vols x 1.0 h monomoteur
+        ws.append([2024, 1, (i % 28) + 1, 1, None, None, None, None])
+    ws.append([2024, 2, 1, None, 2, 5, 4, 3])               # page 2 : 2.0 h multi + 5 IFR + 4 campagne + 3 atterrissages
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day',
+                'copy_multi_engine_pic_day', 'copy_ifr', 'copy_cross_country_pic_day', 'copy_landings_day']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook').get_data(as_text=True)
+    cells = re.findall(r'class="grand-total"[^>]*>([^<]*)<', body)
+    assert cells == ['GRAND TOTAL', '30.0', 'GRAND TOTAL', '32.0']      # 30.0 puis 30.0 + 2.0 ; les 5 h IFR ne comptent pas
+    rows = _logbook_html_rows(body)
+    last = [r for r in rows if 'total-last' in r['cls']]
+    assert len(last) == 2                                   # une ligne Signature/Date/GRAND TOTAL par page
+    assert all(sum(c['span'] for c in r['cells']) == 32 for r in last)

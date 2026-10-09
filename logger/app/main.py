@@ -32,12 +32,31 @@ def _read_logbook_value(row, col):
     if not db or db not in row.keys(): return ""
     return row[db] if row[db] is not None else ""
 
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+@main_bp.app_template_filter("hours1")
+def _hours1(value):
+    """Heures de vol toujours affichées avec une seule décimale (6.38 -> 6.4). Vide reste vide."""
+    if value is None or str(value).strip() in ("", "None"): return ""
+    try: return str(Decimal(str(value).strip().replace(",", ".")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError): return str(value)
+
 def _is_numeric_layout(col):
     return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer","remarks_cont"}
 
 def _num(v):
     try: return float(str(v).strip().replace(",",".")) if str(v).strip() not in ("","None") else 0.0
     except (ValueError,TypeError): return 0.0
+
+def _grand_totals(summaries,engine_keys):
+    """GRAND TOTAL de chaque page = somme de "Totals to date" sur les colonnes monomoteur et multimoteur
+    uniquement (=SUM(L38:W38) dans le modèle Excel) ; instruments, vol sur campagne, atterrissages et
+    instruction ne comptent pas."""
+    out=[]
+    for page in summaries:
+        to_date=next(r for r in page if r["_kind"]=="to_date")
+        out.append(round(sum(_num(to_date.get(k)) for k in engine_keys),1))
+    return out
 
 def _page_summary_rows(pages,numeric_keys,label_key):
     cumulative={k:0.0 for k in numeric_keys}
@@ -147,7 +166,9 @@ def logbook():
     numeric_keys=[c["key"] for c in columns if c["numeric"]]
     label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
     year_summaries={y:_page_summary_rows(year_pages[y],numeric_keys,label_key) for y in years}
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries)
+    engine_keys=[c["key"] for c in columns if c["numeric"] and c.get("group") in ("single_engine","multi_engine")]
+    year_grand={y:_grand_totals(year_summaries[y],engine_keys) for y in years}
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
