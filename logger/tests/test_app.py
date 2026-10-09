@@ -519,3 +519,71 @@ def test_grand_total_is_totals_to_date_single_plus_multi_engine_only(client, app
     last = [r for r in rows if 'total-last' in r['cls']]
     assert len(last) == 2                                   # une ligne Signature/Date/GRAND TOTAL par page
     assert all(sum(c['span'] for c in r['cells']) == 32 for r in last)
+
+
+def test_totals_forwarded_carry_over_from_year_to_year(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active
+    ws.append(['year', 'month', 'day', 'se pic day', 'ifr'])
+    for y, n in ((2015, 3), (2016, 0), (2017, 2)):          # pas de vol en 2016 : le cumul saute simplement l'année
+        for i in range(n): ws.append([y, 1, i + 1, 1, 7])
+    ws.append([2014, 5, 5, 2.5, None])                       # inséré après : l'ordre du fichier ne doit pas compter
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day', 'copy_ifr']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook').get_data(as_text=True)
+    sums = json.loads(re.search(r'const yearSummaries = (\{.*?\});', body).group(1))
+    def pick(year, key): return {r['_kind']: r[key] for r in sums[year][0]}
+    assert pick('2014', 'se_pic_day') == {'page_total': 2.5, 'forwarded': 0.0, 'to_date': 2.5}
+    assert pick('2015', 'se_pic_day') == {'page_total': 3.0, 'forwarded': 2.5, 'to_date': 5.5}
+    assert pick('2017', 'se_pic_day') == {'page_total': 2.0, 'forwarded': 5.5, 'to_date': 7.5}
+    assert pick('2017', 'ifr') == {'page_total': 14.0, 'forwarded': 21.0, 'to_date': 35.0}      # les colonnes IFR se cumulent aussi
+    # GRAND TOTAL (monomoteur + multimoteur) : cumul de toute la carrière, sans les 35 h d'IFR ; onglets de l'année la plus basse à la plus récente
+    assert re.findall(r'class="grand-total"[^>]*>([^<]*)<', body) == ['GRAND TOTAL', '2.5', 'GRAND TOTAL', '5.5', 'GRAND TOTAL', '7.5']
+
+
+def _logbook_with_years(client, years):
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'se pic day'])
+    for y in years: ws.append([y, 1, 1, 1])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    client.post('/logbook/refresh')
+    return client.get('/logbook').get_data(as_text=True)
+
+
+def test_year_tabs_ascending_with_most_recent_active_and_no_big_title(client, app):
+    login(client)
+    body = _logbook_with_years(client, [2017, 2014, 2015])
+    assert re.findall(r'<button class="year-tab[^"]*" data-year="(\d+)"', body) == ['2014', '2015', '2017']   # plus basse à gauche
+    assert re.search(r'class="year-tab active" data-year="2017"', body)                                       # la plus récente est affichée
+    assert 'class="year-panel" data-year-panel="2017"' in body and 'year-panel hidden" data-year-panel="2014"' in body
+    assert '<h2>Logbook</h2>' not in body                                                                     # gros titre retiré
+    assert 'Settings</a></div>' in body and body.index('year-tab') < body.index('Settings</a>')               # Settings sur la ligne des onglets
+
+
+def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
+    login(client)
+    header = re.search(r'<header>.*?</header>', client.get('/').get_data(as_text=True), re.S).group(0)
+    assert header.index('v1.') < header.index('class="header-btn"') < header.index('<nav>')        # bouton juste à droite de la version
+    assert header.count('>Logbook<') == 1
+    for gone in ('Données brutes', 'Convertisseur', 'Données converties'):
+        assert gone not in header                                                                  # retirés de la barre du haut
+    assert 'Logout' in header and 'admin' in header
+    account = client.get('/accounts/me').get_data(as_text=True)
+    for link in ('>Logbook<', '>Données brutes<', '>Convertisseur<', '>Données converties<'):
+        assert link in account                                                                     # ...et présents dans Mon compte
+
+
+def test_sans_date_tab_goes_left_and_never_active_when_dated_years_exist(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'se pic day'])
+    ws.append([2015, 1, 1, 1]); ws.append([None, None, None, 1])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook').get_data(as_text=True)
+    assert re.findall(r'<button class="year-tab[^"]*" data-year="([^"]+)"', body) == ['Sans date', '2015']
+    assert re.search(r'class="year-tab active" data-year="2015"', body)

@@ -1,5 +1,7 @@
 {% extends "base.html" %}{% block content %}
 <h2>Mon compte</h2>
+<div class="card"><h3>Mes pages</h3>
+<p><a class="btn" href="{{url_for('main.logbook')}}">Logbook</a> <a class="btn secondary" href="{{url_for('main.index')}}">Données brutes</a> <a class="btn secondary" href="{{url_for('converter.index')}}">Convertisseur</a> <a class="btn secondary" href="{{url_for('main.logbook_db_page')}}">Données converties</a></p></div>
 <div class="card"><p><strong>{{g.username}}</strong> — {{'administrateur' if g.role=='admin' else 'utilisateur'}}</p>
 <p><a class="btn secondary" href="{{url_for('main.export_user_data')}}">Exporter (sauvegarde du dossier utilisateur)</a></p></div>
 <div class="card"><h3>Changer le mot de passe</h3><form method="post"><div class="grid">

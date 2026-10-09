@@ -38,11 +38,13 @@ body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f7;color:#20242a}
 .year-tab{padding:8px 16px;border:1px solid #ddd;border-bottom:0;background:#eef1f4;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;color:#555}
 .year-tab.active{background:#fff;color:#2563eb;border-color:#2563eb}
 .year-panel.hidden{display:none}
+header a.header-btn{margin-left:16px;padding:5px 14px;border-radius:5px;background:#2563eb;font-weight:600;font-size:13px}
+header a.header-btn:hover{background:#1d4ed8}
 .tabulator-row.totals-row{font-weight:700;background:#eef1f4;border-top:2px solid #ddd}
 .tabulator-row.totals-row.totals-to_date{background:#e3ecff}
 </style>
 </head>
 <body>
-<header><div><strong>Logger</strong><span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span></div><nav>{% if g.user %}<a href="{{url_for('main.logbook')}}">Logbook</a><a href="{{url_for('main.index')}}">Données brutes</a><a href="{{url_for('converter.index')}}">Convertisseur</a><a href="{{url_for('main.logbook_db_page')}}">Données converties</a><a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
+<header><div style="display:flex;align-items:center"><strong>Logger</strong><span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span>{% if g.user %}<a class="header-btn" href="{{url_for('main.logbook')}}">Logbook</a>{% endif %}</div><nav>{% if g.user %}<a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
 <main>{% for message in get_flashed_messages() %}<div class="flash">{{message}}</div>{% endfor %}{% block content %}{% endblock %}</main>
 </body></html>

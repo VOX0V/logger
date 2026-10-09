@@ -58,8 +58,8 @@ def _grand_totals(summaries,engine_keys):
         out.append(round(sum(_num(to_date.get(k)) for k in engine_keys),1))
     return out
 
-def _page_summary_rows(pages,numeric_keys,label_key):
-    cumulative={k:0.0 for k in numeric_keys}
+def _page_summary_rows(pages,numeric_keys,label_key,start=None):
+    cumulative=dict(start) if start else {k:0.0 for k in numeric_keys}
     out=[]
     for page in pages:
         totals={k:round(sum(_num(row.get(k)) for row in page),1) for k in numeric_keys}
@@ -72,7 +72,7 @@ def _page_summary_rows(pages,numeric_keys,label_key):
             row[label_key]={"page_total":"Page Totals","forwarded":"Totals forwarded","to_date":"Totals to date"}[kind]
             rows.append(row)
         out.append(rows)
-    return out
+    return out,cumulative
 
 @main_bp.route("/")
 @login_required
@@ -161,14 +161,20 @@ def logbook():
     for item in data:
         y=str(item.get("year") or "Sans date")
         by_year.setdefault(y,[]).append(item)
-    years=sorted(by_year,reverse=True)
+    years=sorted(by_year,key=lambda v:(v.isdigit(),v))   # croissant ; "Sans date" en premier (à gauche)
+    active_year=years[-1] if years else ""                # l'année la plus récente est affichée par défaut
     year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
     numeric_keys=[c["key"] for c in columns if c["numeric"]]
     label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
-    year_summaries={y:_page_summary_rows(year_pages[y],numeric_keys,label_key) for y in years}
+    # Les totaux se suivent d'année en année : on parcourt les années dans l'ordre chronologique et le
+    # "forwarded" de la 1re page d'une année reprend le "to date" de la dernière page de l'année précédente.
+    year_summaries={}; carry=None
+    for y in sorted(years,key=lambda v:(not v.isdigit(),v)):
+        if not y.isdigit(): year_summaries[y],_=_page_summary_rows(year_pages[y],numeric_keys,label_key); continue   # "Sans date" : cumul à part
+        year_summaries[y],carry=_page_summary_rows(year_pages[y],numeric_keys,label_key,carry)
     engine_keys=[c["key"] for c in columns if c["numeric"] and c.get("group") in ("single_engine","multi_engine")]
     year_grand={y:_grand_totals(year_summaries[y],engine_keys) for y in years}
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand)
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand,active_year=active_year)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
