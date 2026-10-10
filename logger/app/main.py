@@ -34,6 +34,16 @@ def _read_logbook_value(row, col):
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+_MOIS = ("janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre")
+
+@main_bp.app_template_filter("fr_date")
+def _fr_date(row):
+    """Date d'une ligne du logbook en toutes lettres : 5 juin 2013 (1er janvier 2013). Vide si incomplète."""
+    try: y,m,d=int(row.get("year")),int(row.get("month")),int(row.get("day"))
+    except (TypeError,ValueError): return ""
+    if not 1<=m<=12: return ""
+    return f"{'1er' if d==1 else d} {_MOIS[m-1]} {y}"
+
 @main_bp.app_template_filter("hours1")
 def _hours1(value):
     """Heures de vol toujours affichées avec une seule décimale (6.38 -> 6.4). Vide reste vide."""
@@ -168,13 +178,16 @@ def logbook():
     label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
     # Les totaux se suivent d'année en année : on parcourt les années dans l'ordre chronologique et le
     # "forwarded" de la 1re page d'une année reprend le "to date" de la dernière page de l'année précédente.
-    year_summaries={}; carry=None
+    # La numérotation des pages suit aussi d'année en année : une année qui commence après 3 pages démarre à la 4e.
+    year_summaries={}; carry=None; year_page_offset={}; pages_before=0
     for y in sorted(years,key=lambda v:(not v.isdigit(),v)):
-        if not y.isdigit(): year_summaries[y],_=_page_summary_rows(year_pages[y],numeric_keys,label_key); continue   # "Sans date" : cumul à part
+        if not y.isdigit():   # "Sans date" : cumul et numérotation à part
+            year_summaries[y],_=_page_summary_rows(year_pages[y],numeric_keys,label_key); year_page_offset[y]=0; continue
         year_summaries[y],carry=_page_summary_rows(year_pages[y],numeric_keys,label_key,carry)
+        year_page_offset[y]=pages_before; pages_before+=len(year_pages[y])
     engine_keys=[c["key"] for c in columns if c["numeric"] and c.get("group") in ("single_engine","multi_engine")]
     year_grand={y:_grand_totals(year_summaries[y],engine_keys) for y in years}
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand,active_year=active_year)
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand,active_year=active_year,year_page_offset=year_page_offset)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required

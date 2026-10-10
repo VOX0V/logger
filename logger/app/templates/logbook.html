@@ -39,7 +39,7 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 {% set page_index=loop.index0 %}
 {% set summary=(year_summaries[y][page_index] if year_summaries[y] else []) %}
 {% set ns=namespace(first_date='',last_date='') %}
-{% for r in pageRows %}{% if loop.first %}{% set ns.first_date=(r.get('month','') ~ '/' ~ r.get('day','')) %}{% endif %}{% if loop.last %}{% set ns.last_date=(r.get('month','') ~ '/' ~ r.get('day','')) %}{% endif %}{% endfor %}
+{% for r in pageRows %}{% if loop.first %}{% set ns.first_date=(r|fr_date) %}{% endif %}{% if loop.last %}{% set ns.last_date=(r|fr_date) %}{% endif %}{% endfor %}
 <div class="logbook-page">
 <div class="logbook-wrap">
 <div class="logbook-layout-metadata" hidden>{{ columns|tojson }}</div>
@@ -66,8 +66,8 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
  <th colspan="2" class="subgroup section-left">Day</th><th colspan="2" class="subgroup">Night</th>
  <th colspan="3" class="subgroup section-left">Day</th><th colspan="3" class="subgroup">Night</th>
  <th colspan="2" class="subgroup section-left">Day</th><th colspan="2" class="subgroup">Night</th>
- <th class="subgroup section-left">Day</th><th class="subgroup">Night</th>
- <th class="subgroup section-left">Day</th><th class="subgroup outer-right">Night</th>
+ <th rowspan="2" class="subgroup section-left">Day</th><th rowspan="2" class="subgroup">Night</th>
+ <th rowspan="2" class="subgroup section-left">Day</th><th rowspan="2" class="subgroup outer-right">Night</th>
 </tr>
 <tr>
  <th class="leaf outer-left">Month</th><th class="leaf">Day</th>
@@ -79,8 +79,6 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
  <th class="leaf section-left">Dual</th><th class="leaf">PIC</th><th class="leaf">Co-Pilot</th><th class="leaf">Dual</th><th class="leaf">PIC</th><th class="leaf">Co-Pilot</th>
  <th class="leaf section-left">IFR</th><th class="leaf">Hood</th><th class="leaf">FTD</th><th class="leaf">IFR app</th>
  <th class="leaf section-left">Dual</th><th class="leaf">PIC</th><th class="leaf">Dual</th><th class="leaf">PIC</th>
- <th class="leaf section-left">Day</th><th class="leaf">Night</th>
- <th class="leaf section-left outer-right">Day</th><th class="leaf outer-right">Night</th>
 </tr>
 </thead>
 <tbody>
@@ -124,10 +122,10 @@ const formatHours = (value) => Number(value || 0).toFixed(1);
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s3.get(c.key,0)|hours1}}</td>{% endfor %}
 </tr>
 <tr class="footer-row">
- <td colspan="3" class="page-label">Page : {{page_index + 1}}</td>
- <td colspan="4" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
- <td colspan="8"></td>
- <td colspan="3" class="page-label">Page : {{page_index + 2}}</td>
+ <td colspan="3" class="page-label">Page : {{(year_page_offset[y] + page_index) * 2 + 1}}</td>
+ <td colspan="8" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
+ <td colspan="4"></td>
+ <td colspan="3" class="page-label">Page : {{(year_page_offset[y] + page_index) * 2 + 2}}</td>
  <td colspan="14" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
 </tr>
 </tbody>
