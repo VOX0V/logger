@@ -34,7 +34,7 @@ def login():
             session.clear()
             session["user_id"] = account["id"]
             init_user_db(account["username"])  # defensive: recreate data folder/dbs if missing
-            return redirect(url_for("main.index"))
+            return redirect(url_for("main.home"))
         error = "Identifiants invalides"
     return render_template("login.html", error=error)
 
@@ -60,6 +60,6 @@ def admin_required(view):
         if g.get("user") is None:
             return redirect(url_for("auth.login"))
         if g.get("role") != "admin":
-            return redirect(url_for("main.index"))
+            return redirect(url_for("main.home"))
         return view(*args, **kwargs)
     return wrapped

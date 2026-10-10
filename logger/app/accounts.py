@@ -1,5 +1,6 @@
 """Account management: a single global appdata/db/users.db shared by every user,
 independent from each user's own data (users/<username>/*.db)."""
+import re
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from .db import accounts_connect, valid_username
@@ -16,8 +17,11 @@ def init_accounts_db():
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        email TEXT
     )""")
+    if "email" not in {r[1] for r in conn.execute("PRAGMA table_info(accounts)")}:
+        conn.execute("ALTER TABLE accounts ADD COLUMN email TEXT")   # bases créées avant cette version
     conn.commit(); conn.close()
 
 
@@ -78,6 +82,16 @@ def set_password(account_id, new_password):
     conn.commit(); conn.close()
 
 
+def set_email(account_id, email):
+    """Adresse e-mail du propriétaire du logbook (imprimée en bas des pages). Vide = effacer."""
+    email = (email or "").strip()
+    if email and (len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email)):
+        raise ValueError("Adresse e-mail invalide.")
+    conn = accounts_connect()
+    conn.execute("UPDATE accounts SET email=? WHERE id=?", (email or None, account_id))
+    conn.commit(); conn.close()
+
+
 def set_role(account_id, role):
     if role not in ("admin", "user"):
         raise ValueError("Rôle invalide.")
@@ -110,6 +124,13 @@ def verify_password(account, password):
 @login_required
 def me():
     if request.method == "POST":
+        if request.form.get("action") == "email":
+            try:
+                set_email(g.user["id"], request.form.get("email", ""))
+                flash("Adresse e-mail enregistrée.")
+            except ValueError as exc:
+                flash(str(exc))
+            return redirect(url_for("accounts.me"))
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "").strip()
         confirm = request.form.get("confirm_password", "").strip()

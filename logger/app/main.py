@@ -44,6 +44,12 @@ def _fr_date(row):
     if not 1<=m<=12: return ""
     return f"{'1er' if d==1 else d} {_MOIS[m-1]} {y}"
 
+@main_bp.app_template_filter("two")
+def _two(value):
+    """Mois et jours toujours sur 2 chiffres : 5 -> 05. Vide reste vide."""
+    try: return f"{int(value):02d}"
+    except (TypeError, ValueError): return "" if value in (None,"") else str(value)
+
 @main_bp.app_template_filter("hours1")
 def _hours1(value):
     """Heures de vol toujours affichées avec une seule décimale (6.38 -> 6.4). Vide reste vide."""
@@ -85,6 +91,12 @@ def _page_summary_rows(pages,numeric_keys,label_key,start=None):
     return out,cumulative
 
 @main_bp.route("/")
+@login_required
+def home():
+    """Page d'accueil : le Logbook, sur l'année actuelle (ou la plus récente qui contient des vols)."""
+    return redirect(url_for("main.logbook"))
+
+@main_bp.route("/data")
 @login_required
 def index():
     config=load_config()
@@ -172,7 +184,9 @@ def logbook():
         y=str(item.get("year") or "Sans date")
         by_year.setdefault(y,[]).append(item)
     years=sorted(by_year,key=lambda v:(v.isdigit(),v))   # croissant ; "Sans date" en premier (à gauche)
-    active_year=years[-1] if years else ""                # l'année la plus récente est affichée par défaut
+    requested=request.args.get("year","")
+    current=str(datetime.now().year)
+    active_year=requested if requested in years else (current if current in years else (years[-1] if years else ""))
     year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
     numeric_keys=[c["key"] for c in columns if c["numeric"]]
     label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
@@ -187,7 +201,8 @@ def logbook():
         year_page_offset[y]=pages_before; pages_before+=len(year_pages[y])
     engine_keys=[c["key"] for c in columns if c["numeric"] and c.get("group") in ("single_engine","multi_engine")]
     year_grand={y:_grand_totals(year_summaries[y],engine_keys) for y in years}
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand,active_year=active_year,year_page_offset=year_page_offset)
+    only=lambda d:{active_year:d[active_year]} if active_year in d else {}   # on n'envoie au navigateur que l'année affichée
+    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=only(year_pages),year_summaries=only(year_summaries),year_grand=only(year_grand),active_year=active_year,year_page_offset=year_page_offset)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required

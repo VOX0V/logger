@@ -49,9 +49,9 @@ def test_three_yaml_files_exist(client, app):
 
 def test_user_db_and_logbook_db_pages(client):
     login(client)
-    assert client.get('/').status_code == 200
+    assert client.get('/data').status_code == 200
     assert client.get('/logbook').status_code == 200
-    assert 'Données brutes' in client.get('/').get_data(as_text=True)
+    assert 'Données brutes' in client.get('/data').get_data(as_text=True)
     assert 'Logbook' in client.get('/logbook').get_data(as_text=True)
 
 
@@ -354,7 +354,7 @@ def test_logbook_db_grid_matches_converted_data(client, app):
 
 def test_view_yaml_generated_with_sensible_defaults(client, app):
     login(client)
-    client.get('/')          # génère <user>_data_view.yml
+    client.get('/data')      # génère <user>_data_view.yml
     client.get('/logbook-db')  # génère <user>_logbook_view.yml
     with app.app_context():
         from app.config import load_data_view, load_logbook_view, load_config
@@ -532,15 +532,17 @@ def test_totals_forwarded_carry_over_from_year_to_year(client, app):
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
     client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day', 'copy_ifr']})
     client.post('/logbook/refresh')
-    body = client.get('/logbook').get_data(as_text=True)
-    sums = json.loads(re.search(r'const yearSummaries = (\{.*?\});', body).group(1))
-    def pick(year, key): return {r['_kind']: r[key] for r in sums[year][0]}
+    def page(year): return client.get(f'/logbook?year={year}').get_data(as_text=True)
+    def pick(year, key):
+        sums = json.loads(re.search(r'const yearSummaries = (\{.*?\});', page(year)).group(1))
+        return {r['_kind']: r[key] for r in sums[year][0]}
     assert pick('2014', 'se_pic_day') == {'page_total': 2.5, 'forwarded': 0.0, 'to_date': 2.5}
     assert pick('2015', 'se_pic_day') == {'page_total': 3.0, 'forwarded': 2.5, 'to_date': 5.5}
     assert pick('2017', 'se_pic_day') == {'page_total': 2.0, 'forwarded': 5.5, 'to_date': 7.5}
     assert pick('2017', 'ifr') == {'page_total': 14.0, 'forwarded': 21.0, 'to_date': 35.0}      # les colonnes IFR se cumulent aussi
     # GRAND TOTAL (monomoteur + multimoteur) : cumul de toute la carrière, sans les 35 h d'IFR ; onglets de l'année la plus basse à la plus récente
-    assert re.findall(r'class="grand-total"[^>]*>([^<]*)<', body) == ['GRAND TOTAL', '2.5', 'GRAND TOTAL', '5.5', 'GRAND TOTAL', '7.5']
+    grand = lambda year: re.findall(r'class="grand-total"[^>]*>([^<]*)<', page(year))
+    assert (grand('2014'), grand('2015'), grand('2017')) == (['GRAND TOTAL', '2.5'], ['GRAND TOTAL', '5.5'], ['GRAND TOTAL', '7.5'])
 
 
 def _logbook_with_years(client, years):
@@ -556,16 +558,20 @@ def _logbook_with_years(client, years):
 def test_year_tabs_ascending_with_most_recent_active_and_no_big_title(client, app):
     login(client)
     body = _logbook_with_years(client, [2017, 2014, 2015])
-    assert re.findall(r'<button class="year-tab[^"]*" data-year="(\d+)"', body) == ['2014', '2015', '2017']   # plus basse à gauche
+    assert re.findall(r'<a class="year-tab[^"]*" data-year="(\d+)"', body) == ['2014', '2015', '2017']        # plus basse à gauche
     assert re.search(r'class="year-tab active" data-year="2017"', body)                                       # la plus récente est affichée
-    assert 'class="year-panel" data-year-panel="2017"' in body and 'year-panel hidden" data-year-panel="2014"' in body
+    assert 'data-year-panel="2017"' in body and 'data-year-panel="2014"' not in body                           # une seule année rendue (page légère)
+    assert 'href="/logbook?year=2014"' in body
+    other = client.get('/logbook?year=2014').get_data(as_text=True)
+    assert 'data-year-panel="2014"' in other and 'data-year-panel="2017"' not in other
+    assert re.search(r'class="year-tab active" data-year="2014"', other)
     assert '<h2>Logbook</h2>' not in body                                                                     # gros titre retiré
     assert 'Settings</a></div>' in body and body.index('year-tab') < body.index('Settings</a>')               # Settings sur la ligne des onglets
 
 
 def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     login(client)
-    header = re.search(r'<header>.*?</header>', client.get('/').get_data(as_text=True), re.S).group(0)
+    header = re.search(r'<header>.*?</header>', client.get('/data').get_data(as_text=True), re.S).group(0)
     assert header.index('v1.') < header.index('class="header-btn"') < header.index('<nav>')        # bouton juste à droite de la version
     assert header.count('>Logbook<') == 1
     for gone in ('Données brutes', 'Convertisseur', 'Données converties'):
@@ -585,5 +591,88 @@ def test_sans_date_tab_goes_left_and_never_active_when_dated_years_exist(client,
     client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
-    assert re.findall(r'<button class="year-tab[^"]*" data-year="([^"]+)"', body) == ['Sans date', '2015']
+    assert re.findall(r'<a class="year-tab[^"]*" data-year="([^"]+)"', body) == ['Sans date', '2015']
     assert re.search(r'class="year-tab active" data-year="2015"', body)
+
+
+# ---------------- accueil, numéros de page, dates, e-mail, espace entre les deux pages ----------------
+
+def test_home_opens_logbook_on_current_year_else_most_recent(client, app):
+    from datetime import datetime
+    assert client.get('/').status_code == 302                       # non connecté : on passe par la connexion
+    login(client)
+    r = client.get('/')
+    assert r.status_code == 302 and r.headers['Location'].endswith('/logbook')   # l'accueil, c'est le Logbook
+    _logbook_with_years(client, [2014, 2015])                         # aucun vol cette année : la plus récente
+    body = client.get('/', follow_redirects=True).get_data(as_text=True)
+    assert re.search(r'class="year-tab active" data-year="2015"', body)
+    now = datetime.now().year
+    _logbook_with_years(client, [2014, now])                          # un vol cette année : c'est elle qui s'ouvre
+    body = client.get('/', follow_redirects=True).get_data(as_text=True)
+    assert re.search(rf'class="year-tab active" data-year="{now}"', body)
+    assert client.post('/login', data={'username': 'admin', 'password': 'admin'}).headers['Location'].endswith('/')   # après connexion -> accueil
+    assert client.get('/data').status_code == 200                      # Données brutes, ailleurs
+
+
+def test_page_numbers_start_at_2_and_3_and_follow_across_years(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'se pic day'])
+    for i in range(31): ws.append([2014, 1, (i % 28) + 1, 1])         # 2014 : 2 feuilles (30 + 1)
+    ws.append([2015, 1, 1, 1])                                         # 2015 : la feuille suivante
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    client.post('/logbook/refresh')
+    pages = lambda year: re.findall(r'Page : (\d+)<', client.get(f'/logbook?year={year}').get_data(as_text=True))
+    assert pages('2014') == ['2', '3', '4', '5']                       # comme C39=2 et S39=C39+1 du modèle, puis +2 par feuille
+    assert pages('2015') == ['6', '7']
+
+
+def test_month_and_day_always_two_digits_and_dates_in_words(client, app):
+    login(client)
+    _logbook_with_years(client, [2014])
+    body = client.get('/logbook?year=2014').get_data(as_text=True)
+    first = [r for r in _logbook_html_rows(body) if 'data-row' in r['cls']][0]['cells']
+    assert first[0]['txt'].strip() == '01' and first[1]['txt'].strip() == '01'
+    assert 'Période du : 1er janvier 2014 au : 1er janvier 2014' in body
+    from app.main import _two
+    assert [_two(v) for v in (5, '5', 12, '', None)] == ['05', '05', '12', '', '']
+
+
+def test_gap_between_single_and_multi_engine_is_not_a_column(client, app):
+    login(client)
+    body = _logbook_with_years(client, [2014])
+    assert body.count('page-gap') >= 3 + 5 * 1                         # 3 en-têtes + les lignes (données, vides, 3 totaux)
+    assert 'page-gap{border-left:14px solid #fff' in body
+    rows = _logbook_html_rows(body)
+    assert all(sum(c['span'] for c in r['cells']) == 32 for r in rows if 'data-row' in r['cls'])   # toujours 32 colonnes
+
+
+def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, app):
+    login(client)
+    r = client.post('/accounts/me', data={'action': 'email', 'email': 'pas un mail'}, follow_redirects=True)
+    assert 'Adresse e-mail invalide' in r.get_data(as_text=True)
+    r = client.post('/accounts/me', data={'action': 'email', 'email': 'pilote@example.com'}, follow_redirects=True)
+    assert 'Adresse e-mail enregistrée' in r.get_data(as_text=True)
+    assert 'value="pilote@example.com"' in client.get('/accounts/me').get_data(as_text=True)
+    body = _logbook_with_years(client, [2014])
+    assert body.count('class="email">pilote@example.com<') == 2        # pied de la page de gauche et de droite, comme L39 / AF39
+    footer = next(r for r in _logbook_html_rows(body) if 'footer-row' in r['cls'])
+    assert sum(c['span'] for c in footer['cells']) == 32
+    client.post('/accounts/me', data={'action': 'email', 'email': ''})   # vider l'adresse l'efface
+    assert 'pilote@example.com' not in client.get('/logbook').get_data(as_text=True)
+    # le mot de passe se change toujours avec l'ancien formulaire (sans champ "action")
+    r = client.post('/accounts/me', data={'current_password': 'admin', 'new_password': 'x1', 'confirm_password': 'x1'}, follow_redirects=True)
+    assert 'Mot de passe modifié' in r.get_data(as_text=True)
+
+
+def test_accounts_db_without_email_column_is_migrated(tmp_path):
+    import os, sqlite3, subprocess, sys
+    appdata = tmp_path / "appdata"; (appdata / "db").mkdir(parents=True)
+    conn = sqlite3.connect(appdata / "db" / "users.db")           # base d'avant cette version : pas de colonne email
+    conn.execute("CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+    conn.execute("INSERT INTO accounts (username, password_hash, role) VALUES ('voxov', 'x', 'admin')"); conn.commit(); conn.close()
+    env = {**os.environ, "APPDATA_DIR": str(appdata), "USERS_DIR": str(tmp_path / "users"), "PYTHONPATH": str(Path(__file__).parent.parent)}
+    subprocess.run([sys.executable, "-c", "from app import create_app; create_app()"], env=env, check=True, cwd=str(Path(__file__).parent.parent))
+    cols = [r[1] for r in sqlite3.connect(appdata / "db" / "users.db").execute("PRAGMA table_info(accounts)")]
+    assert "email" in cols
