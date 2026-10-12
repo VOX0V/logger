@@ -1,4 +1,7 @@
 title: Logbook
+gap_widths:
+- 3.88671875
+- 4.88671875
 rows_per_page: 30
 row_height: 16.95
 header_heights:

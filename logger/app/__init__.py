@@ -20,6 +20,7 @@ def create_app():
     from .auth import auth_bp, load_logged_in_user
     from .accounts import accounts_bp, init_accounts_db, count_accounts, create_account
     from .converter.views import converter_bp
+    from .yamledit import yaml_bp
     from .converter.catalog import ensure_defaults
     from .refdata import init_airport_db, init_aircrafts_db
     from .db import startup_lock
@@ -38,5 +39,6 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(accounts_bp)
     app.register_blueprint(converter_bp)
+    app.register_blueprint(yaml_bp)
     app.register_blueprint(main_bp)
     return app

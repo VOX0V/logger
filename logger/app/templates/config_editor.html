@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block content %}
+<style>
+.cfg{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start}
+.cfg-files a{display:block;padding:8px 10px;margin-bottom:4px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#20242a;text-decoration:none;font-size:13px}
+.cfg-files a.active{border-color:#2563eb;background:#eef5ff;font-weight:600}
+.cfg textarea{width:100%;height:62vh;font:13px/1.45 ui-monospace,Consolas,monospace;tab-size:2;white-space:pre;overflow:auto;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box}
+.cfg-error{background:#fdecec;border:1px solid #e0a3a3;color:#7a1f1f;padding:8px 12px;border-radius:6px;margin-bottom:10px;white-space:pre-wrap}
+@media(max-width:800px){.cfg{grid-template-columns:1fr}}
+</style>
+<div class="page-head"><h2>Configuration (YAML)</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">Mon compte</a></div></div>
+<div class="cfg">
+  <div class="cfg-files">{% for k, f in files.items() %}<a class="{% if k==key %}active{% endif %}" href="{{url_for('yamledit.editor', file=k)}}">{{f[0]}}</a>{% endfor %}</div>
+  <div class="card">
+    <h3>{{label}} <span class="muted" style="font-weight:400">— {{filename}}</span></h3>
+    {% if error %}<div class="cfg-error"><strong>Non enregistré.</strong> {{error}}</div>{% endif %}
+    <form method="post" id="cfgform"><input type="hidden" name="file" value="{{key}}">
+      <textarea name="content" id="cfgtext" spellcheck="false" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>{{content}}</textarea>
+      <p><button class="btn" name="action" value="save" id="cfgsave">Enregistrer</button>
+         <button class="btn secondary" name="action" value="validate">Vérifier sans enregistrer</button>
+         {% if has_backup %}<button class="btn secondary" name="action" value="restore">Restaurer la sauvegarde précédente</button>{% endif %}
+         <span class="muted">Ctrl+S pour enregistrer</span></p>
+    </form>
+  </div>
+</div>
+<script>
+const ta=document.getElementById('cfgtext');
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=ta.selectionStart;ta.setRangeText('  ',s,ta.selectionEnd,'end');}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();document.getElementById('cfgsave').click();}
+});
+</script>
+{% endblock %}

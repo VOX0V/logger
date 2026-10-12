@@ -364,7 +364,7 @@ def test_view_yaml_generated_with_sensible_defaults(client, app):
     assert all(not c['frozen'] for c in data_view[1:])
     year_col = next(c for c in data_view if c['column'] == 'year')
     assert year_col['align'] == 'right'                    # colonnes numériques alignées à droite
-    assert logbook_view[0]['column'] == 'date'
+    assert [c['column'] for c in logbook_view[:3]] == ['year', 'month', 'day']      # la date est séparée en 3 colonnes
 
 
 def test_logbook_page_matches_template_structure(client, app):
@@ -457,7 +457,7 @@ def _logbook_html_rows(body):
             a = dict(a)
             if t == 'tr': s.cur = {'cls': a.get('class', ''), 'cells': []}
             if t in ('td', 'th') and s.cur is not None:
-                s.cell = {'span': int(a.get('colspan', 1)), 'ce': a.get('contenteditable'), 'txt': ''}
+                s.cell = {'span': int(a.get('colspan', 1)), 'ce': a.get('contenteditable'), 'txt': '', 'cls': a.get('class', '')}
         def handle_data(s, d):
             if s.cell is not None: s.cell['txt'] += d
         def handle_endtag(s, t):
@@ -482,19 +482,21 @@ def test_logbook_table_is_30_rows_one_decimal_and_editable(client, app):
     data = [r for r in rows if 'data-row' in r['cls']]
     assert len(data) == 30                                           # 2 vols + 28 lignes vides, comme le modèle
     first = data[0]['cells']
-    assert first[9]['txt'].strip() == '1.3' and first[10]['txt'].strip() == '1.0'   # jamais "1" ni "1.25"
+    assert first[9]['txt'].strip() == '1,3' and first[10]['txt'].strip() == '1,0'   # jamais "1" ni "1.25" : virgule décimale
     assert [c['ce'] for c in first[2:9]] == ['true'] * 7             # texte réellement éditable
     assert first[0]['ce'] is None                                    # le mois (dérivé de la date) ne l'est pas
-    assert all(sum(c['span'] for c in r['cells']) == 32 for r in data)
+    assert all(sum(c['span'] for c in r['cells']) == 34 for r in data)
     footer = next(r for r in rows if 'footer-row' in r['cls'])
-    assert sum(c['span'] for c in footer['cells']) == 32
+    assert sum(c['span'] for c in footer['cells']) == 34
     assert all(c['ce'] is None and c['txt'].strip() == '' for c in data[29]['cells'])   # lignes vides inertes
 
 
 def test_hours1_filter_always_one_decimal(app):
     from app.main import _hours1
     assert [_hours1(v) for v in (1, '1', 1.25, '6.38', '6,44', 0, '0.2', '', None)] == \
-           ['1.0', '1.0', '1.3', '6.4', '6.4', '0.0', '0.2', '', '']
+           ['1,0', '1,0', '1,3', '6,4', '6,4', '0,0', '0,2', '', '']
+    assert [_hours1(v) for v in ('1234.5', 12345.67, '1 234,5', 999.95, 1000000)] == \
+           ['1\u00a0234,5', '12\u00a0345,7', '1\u00a0234,5', '1\u00a0000,0', '1\u00a0000\u00a0000,0']
     assert _hours1('abc') == 'abc'
 
 
@@ -514,11 +516,11 @@ def test_grand_total_is_totals_to_date_single_plus_multi_engine_only(client, app
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     cells = re.findall(r'class="grand-total"[^>]*>([^<]*)<', body)
-    assert cells == ['GRAND TOTAL', '30.0', 'GRAND TOTAL', '32.0']      # 30.0 puis 30.0 + 2.0 ; les 5 h IFR ne comptent pas
+    assert cells == ['GRAND TOTAL', '30,0', 'GRAND TOTAL', '32,0']      # 30.0 puis 30.0 + 2.0 ; les 5 h IFR ne comptent pas
     rows = _logbook_html_rows(body)
     last = [r for r in rows if 'total-last' in r['cls']]
     assert len(last) == 2                                   # une ligne Signature/Date/GRAND TOTAL par page
-    assert all(sum(c['span'] for c in r['cells']) == 32 for r in last)
+    assert all(sum(c['span'] for c in r['cells']) == 34 for r in last)
 
 
 def test_totals_forwarded_carry_over_from_year_to_year(client, app):
@@ -542,7 +544,7 @@ def test_totals_forwarded_carry_over_from_year_to_year(client, app):
     assert pick('2017', 'ifr') == {'page_total': 14.0, 'forwarded': 21.0, 'to_date': 35.0}      # les colonnes IFR se cumulent aussi
     # GRAND TOTAL (monomoteur + multimoteur) : cumul de toute la carrière, sans les 35 h d'IFR ; onglets de l'année la plus basse à la plus récente
     grand = lambda year: re.findall(r'class="grand-total"[^>]*>([^<]*)<', page(year))
-    assert (grand('2014'), grand('2015'), grand('2017')) == (['GRAND TOTAL', '2.5'], ['GRAND TOTAL', '5.5'], ['GRAND TOTAL', '7.5'])
+    assert (grand('2014'), grand('2015'), grand('2017')) == (['GRAND TOTAL', '2,5'], ['GRAND TOTAL', '5,5'], ['GRAND TOTAL', '7,5'])
 
 
 def _logbook_with_years(client, years):
@@ -566,7 +568,7 @@ def test_year_tabs_ascending_with_most_recent_active_and_no_big_title(client, ap
     assert 'data-year-panel="2014"' in other and 'data-year-panel="2017"' not in other
     assert re.search(r'class="year-tab active" data-year="2014"', other)
     assert '<h2>Logbook</h2>' not in body                                                                     # gros titre retiré
-    assert 'Settings</a></div>' in body and body.index('year-tab') < body.index('Settings</a>')               # Settings sur la ligne des onglets
+    assert 'Settings' not in body                                                                             # bouton Settings retiré
 
 
 def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
@@ -639,13 +641,22 @@ def test_month_and_day_always_two_digits_and_dates_in_words(client, app):
     assert [_two(v) for v in (5, '5', 12, '', None)] == ['05', '05', '12', '', '']
 
 
-def test_gap_between_single_and_multi_engine_is_not_a_column(client, app):
+def test_two_empty_borderless_columns_between_single_and_multi_engine(client, app):
+    """Comme P et Q dans le modèle Excel : deux vraies colonnes vides, sans bordures, entre SINGLE et MULTI-ENGINE."""
     login(client)
     body = _logbook_with_years(client, [2014])
-    assert body.count('page-gap') >= 3 + 5 * 1                         # 3 en-têtes + les lignes (données, vides, 3 totaux)
-    assert 'page-gap{border-left:14px solid #fff' in body
+    assert body.count('<col style=') == 34                                  # 32 colonnes + 2 colonnes vides
+    widths = re.findall(r'<col style="width:([\d.]+)px">', body)
+    assert widths[14:16] == ['18.27', '22.97']                              # 3,89 et 4,89 du modèle x 4,7
     rows = _logbook_html_rows(body)
-    assert all(sum(c['span'] for c in r['cells']) == 32 for r in rows if 'data-row' in r['cls'])   # toujours 32 colonnes
+    for r in [r for r in rows if 'data-row' in r['cls']]:
+        cells = r['cells']
+        assert [c['cls'] for c in cells[13:15]] == ['gap', 'gap']            # juste après la 4e colonne monomoteur
+        assert all(c['txt'].strip() == '' and c['ce'] is None for c in cells[13:15])
+        assert sum(c['span'] for c in cells) == 34
+    assert body.count('<th rowspan="3" class="gap"></th>') == 2             # en-tête : les deux colonnes couvrent les 3 lignes
+    assert '.logbook-table .gap{border:0!important' in body                 # sans aucune bordure
+    assert 'page-gap' not in body                                           # l'ancienne bordure blanche a disparu
 
 
 def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, app):
@@ -658,7 +669,7 @@ def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, ap
     body = _logbook_with_years(client, [2014])
     assert body.count('class="email">pilote@example.com<') == 2        # pied de la page de gauche et de droite, comme L39 / AF39
     footer = next(r for r in _logbook_html_rows(body) if 'footer-row' in r['cls'])
-    assert sum(c['span'] for c in footer['cells']) == 32
+    assert sum(c['span'] for c in footer['cells']) == 34
     client.post('/accounts/me', data={'action': 'email', 'email': ''})   # vider l'adresse l'efface
     assert 'pilote@example.com' not in client.get('/logbook').get_data(as_text=True)
     # le mot de passe se change toujours avec l'ancien formulaire (sans champ "action")
@@ -676,3 +687,164 @@ def test_accounts_db_without_email_column_is_migrated(tmp_path):
     subprocess.run([sys.executable, "-c", "from app import create_app; create_app()"], env=env, check=True, cwd=str(Path(__file__).parent.parent))
     cols = [r[1] for r in sqlite3.connect(appdata / "db" / "users.db").execute("PRAGMA table_info(accounts)")]
     assert "email" in cols
+
+
+# ---------------- 1 234,5 · barre commune · Données converties éditables · éditeur YAML ----------------
+
+def test_numbers_use_thousands_space_and_decimal_comma_everywhere(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'se pic day'])
+    ws.append([2014, 1, 1, 1234.5])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    client.post('/logbook/refresh')
+    body = client.get('/logbook?year=2014').get_data(as_text=True)
+    first = [r for r in _logbook_html_rows(body) if 'data-row' in r['cls']][0]['cells']
+    assert first[10]['txt'].strip() == '1\u00a0234,5'                       # cellule de vol
+    assert re.findall(r'class="grand-total"[^>]*>([^<]*)<', body)[1] == '1\u00a0234,5'   # GRAND TOTAL
+    assert 'parseHours' in body and 'formatHours' in body                    # même format après une modification à l'écran
+
+
+def test_single_horizontal_scrollbar_drives_every_table(client, app):
+    login(client)
+    body = _logbook_with_years(client, [2014])
+    assert body.count('id="hbar"') == 1                                      # une seule barre...
+    assert '.logbook-wrap{overflow-x:auto;background:#fff;scrollbar-width:none}' in body   # ...les barres propres à chaque tableau sont masquées
+    assert '.hbar{position:sticky;bottom:0' in body                          # collée en bas de la fenêtre
+    assert "all.forEach(el=>el.addEventListener('scroll'" in body            # défilement synchronisé
+
+
+def test_converted_data_splits_date_and_is_editable(client, app):
+    login(client)
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg'])
+    for y, m, d, r in ((2014, 1, 5, 'C-AAA'), (2014, 3, 9, 'C-BBB'), (2015, 3, 12, 'C-CCC')): ws.append([y, m, d, r])
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/logbook/refresh')
+    rows = client.get('/logbook-db/rows').get_json()['data']
+    assert [(r['year'], r['month'], r['day']) for r in rows] == [('2014', '01', '05'), ('2014', '03', '09'), ('2015', '03', '12')]
+    assert 'date' not in rows[0]                                             # la date est remplacée par 3 colonnes
+    # filtres et tri par partie de date
+    assert [r['registration'] for r in client.get('/logbook-db/rows?filter[0][field]=month&filter[0][value]=03').get_json()['data']] == ['C-BBB', 'C-CCC']
+    assert [r['registration'] for r in client.get('/logbook-db/rows?filter[0][field]=year&filter[0][value]=2015').get_json()['data']] == ['C-CCC']
+    assert [r['registration'] for r in client.get('/logbook-db/rows?sort[0][field]=day&sort[0][dir]=desc').get_json()['data']] == ['C-CCC', 'C-BBB', 'C-AAA']
+    csv = client.get('/logbook-db/table-export.csv').data.decode('utf-8-sig').splitlines()[0].split(',')
+    assert csv[:3] == ['year', 'month', 'day'] and 'date' not in csv        # l'export suit les mêmes colonnes
+    # modification : une partie de date recompose la date ; une date impossible est refusée
+    rid = rows[1]['id']
+    assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'month', 'value': '2'}).status_code == 204
+    assert client.get('/logbook-db/rows?filter[0][field]=registration&filter[0][value]=BBB').get_json()['data'][0]['month'] == '02'
+    r = client.post('/logbook/cell', data={'row_id': rid, 'column': 'day', 'value': '31'})
+    assert r.status_code == 400 and 'Date impossible' in r.get_data(as_text=True)         # 31 février
+    assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'year', 'value': 'abc'}).status_code == 400
+    # une colonne ordinaire s'édite aussi, et la page l'annonce (éditeur + avertissement avant Actualiser)
+    assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'registration', 'value': 'C-ZZZ'}).status_code == 204
+    page = client.get('/logbook-db').get_data(as_text=True)
+    assert 'editor: "input"' in page and 'confirm(' in page and 'efface les modifications' in page
+
+
+def test_yaml_editor_lists_files_and_rejects_unknown_ones(client, app):
+    assert client.get('/config').status_code == 302                          # connexion obligatoire
+    login(client)
+    page = client.get('/config').get_data(as_text=True)
+    for label in ('Données brutes — structure', 'Données brutes — affichage', 'Données converties — structure',
+                  'Données converties — affichage', 'Logbook — mise en page'):
+        assert label in page
+    for key in ('data', 'data_view', 'logbook', 'logbook_view', 'layout'):
+        assert client.get(f'/config?file={key}').status_code == 200
+    assert client.get('/config?file=../../etc/passwd').status_code == 404    # aucun chemin ne vient de la requête
+    assert client.get('/config?file=rules').status_code == 404
+    assert 'Configuration (YAML)' in client.get('/accounts/me').get_data(as_text=True)
+
+
+def test_yaml_editor_validates_before_saving_and_keeps_a_backup(client, app):
+    login(client)
+    path = Path(app.config["USERS_DIR"]) / "admin" / "admin_data.yml"
+    original = path.read_text(encoding="utf-8")
+    save = lambda text, key='data', action='save': client.post('/config', data={'file': key, 'content': text, 'action': action}, follow_redirects=True).get_data(as_text=True)
+    # YAML invalide : message avec la ligne, rien n'est écrit
+    assert 'YAML invalide' in save("database:\n  columns:\n  - column: x\n   bad: [")
+    assert 'doit commencer par des clés' in save("- juste\n- une liste")
+    assert 'liste non vide' in save("database:\n  columns: 3")
+    assert 'en double' in save(original + "  - column: year\n    display_name: encore year\n    data_type: text\n")
+    assert 'réservé' in save(original + "  - column: id2\n    display_name: x\n    data_type: text\n  - column: import_source\n    display_name: x\n    data_type: text\n")
+    assert 'data_type doit être' in save(original + "  - column: nouvelle\n    display_name: n\n    data_type: pourcentage\n")
+    assert path.read_text(encoding="utf-8") == original                       # aucun enregistrement refusé n'a touché le fichier
+    assert not path.with_name(path.name + ".bak").exists()
+    assert 'Fichier valide' in save(original, action='validate')
+    # enregistrement valable : nouvelle colonne, sauvegarde de l'ancienne version, base mise à jour
+    new = original + "  - column: extra_note\n    display_name: extra note\n    position: 99\n    group: misc\n    data_type: text\n    nullable: true\n    visible: true\n    editable: true\n    import_rules:\n    - extra\n"
+    assert 'Fichier enregistré' in save(new)
+    assert path.read_text(encoding="utf-8") == new
+    assert path.with_name(path.name + ".bak").read_text(encoding="utf-8") == original
+    assert client.get('/data/rows').status_code == 200                       # la colonne existe déjà dans la base
+    with app.app_context():
+        from app.db import connect
+        conn = connect(username="admin")
+        assert 'extra_note' in {r[1] for r in conn.execute("PRAGMA table_info(users)")}   # la base a reçu la nouvelle colonne
+        conn.close()
+    assert client.get('/data').status_code == 200
+    # restauration : l'ancienne version est chargée dans l'éditeur sans rien appliquer
+    page = client.post('/config', data={'file': 'data', 'content': new, 'action': 'restore'}).get_data(as_text=True)
+    assert 'Sauvegarde précédente chargée' in page and 'extra_note' not in page.split('<textarea')[1].split('</textarea>')[0]
+    assert path.read_text(encoding="utf-8") == new
+
+
+def test_yaml_editor_checks_layout_and_view_files_and_keeps_each_user_apart(client, app):
+    login(client)
+    layout_path = Path(app.config["USERS_DIR"]) / "admin" / "admin_layout.yml"
+    layout = layout_path.read_text(encoding="utf-8")
+    post = lambda key, text, action='save': client.post('/config', data={'file': key, 'content': text, 'action': action}, follow_redirects=True).get_data(as_text=True)
+    assert 'rows_per_page doit être un nombre' in post('layout', layout + "\nrows_per_page: abc\n")
+    assert 'gap_widths doit contenir exactement 2' in post('layout', layout + "\ngap_widths: [1]\n")
+    assert 'align doit être' in post('data_view', "columns:\n- column: year\n  align: haut\n")
+    assert 'frozen doit être' in post('logbook_view', "columns:\n- column: year\n  frozen: oui\n")
+    assert 'Fichier enregistré' in post('layout', layout.replace("row_height: 16.95", "row_height: 20"))
+    assert 'row_height: 20' in layout_path.read_text(encoding="utf-8")
+    assert _logbook_with_years(client, [2014])                               # la page Logbook s'affiche avec le fichier modifié
+    # un autre compte ne voit que ses propres fichiers
+    with app.app_context():
+        from app.accounts import create_account
+        create_account("pilot9", "pilot9pass", role="user")
+    client.get('/logout'); login(client, 'pilot9', 'pilot9pass')
+    other = client.get('/config?file=layout').get_data(as_text=True)
+    assert 'pilot9_layout.yml' in other and 'row_height: 20' not in other
+
+
+def test_logbook_table_grid_is_rectangular_with_closed_frame(client, app):
+    """Simule la grille colspan/rowspan : 34 colonnes sur chaque ligne, aucun trou ni chevauchement, cadre noir
+    fermé à gauche et à droite (le cadre vient des cellules, pas du tableau, pour garder les 2 colonnes vides ouvertes)."""
+    from html.parser import HTMLParser
+    login(client)
+    body = _logbook_with_years(client, [2014])
+    table = body[body.index('<table'):body.index('</table>')]
+
+    class P(HTMLParser):
+        def __init__(s): super().__init__(); s.rows = []; s.cur = None
+        def handle_starttag(s, t, a):
+            a = dict(a)
+            if t == 'tr': s.cur = {'cls': a.get('class', ''), 'cells': []}
+            if t in ('td', 'th') and s.cur is not None:
+                s.cur['cells'].append({'cs': int(a.get('colspan', 1)), 'rs': int(a.get('rowspan', 1)), 'cls': a.get('class', '')})
+        def handle_endtag(s, t):
+            if t == 'tr' and s.cur is not None: s.rows.append(s.cur); s.cur = None
+    p = P(); p.feed(table)
+    occ = {}
+    for ri, row in enumerate(p.rows):
+        col = 0
+        for cell in row['cells']:
+            while (ri, col) in occ: col += 1
+            for dr in range(cell['rs']):
+                for dc in range(cell['cs']):
+                    assert (ri + dr, col + dc) not in occ, f"chevauchement ligne {ri} colonne {col + dc}"
+                    occ[(ri + dr, col + dc)] = cell
+            col += cell['cs']
+    assert len(p.rows) >= 37                                                  # 3 lignes d'en-tête + 30 + 3 totaux + signature + pied de page
+    for ri, row in enumerate(p.rows):
+        assert all((ri, c) in occ for c in range(34)), f"trou dans la ligne {ri}"
+        assert max(c for (r, c) in occ if r == ri) == 33
+        if row['cls'].startswith('footer'): continue
+        assert 'outer-left' in occ[(ri, 0)]['cls'] and 'outer-right' in occ[(ri, 33)]['cls'], f"cadre ouvert ligne {ri}"
+        assert 'gap' in occ[(ri, 14)]['cls'] and 'gap' in occ[(ri, 15)]['cls'], f"colonnes vides absentes ligne {ri}"

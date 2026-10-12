@@ -9,7 +9,7 @@ from .db import safe_identifier, connect, logbook_connect, user_root, current_us
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       load_logbook_layout, save_logbook_layout,
                       logbook_columns, technical_name, load_data_view, load_logbook_view)
-from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell
+from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
 from .models import import_rows, drop_unused_columns
 from .gridview import grid_data, grid_export
 
@@ -52,10 +52,11 @@ def _two(value):
 
 @main_bp.app_template_filter("hours1")
 def _hours1(value):
-    """Heures de vol toujours affichées avec une seule décimale (6.38 -> 6.4). Vide reste vide."""
+    """Heures de vol à la française, toujours une décimale : 6.38 -> 6,4 ; 1234.5 -> 1 234,5. Vide reste vide."""
     if value is None or str(value).strip() in ("", "None"): return ""
-    try: return str(Decimal(str(value).strip().replace(",", ".")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+    try: d = Decimal(str(value).strip().replace("\u00a0", "").replace(" ", "").replace(",", ".")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError): return str(value)
+    return f"{d:,.1f}".replace(",", "\u00a0").replace(".", ",")      # 1234.5 -> 1 234,5 (espace insécable, virgule)
 
 def _is_numeric_layout(col):
     return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer","remarks_cont"}
@@ -131,6 +132,9 @@ def export_user_data():
     stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
     return send_file(buf,mimetype="application/zip",as_attachment=True,download_name=f"{username}_backup_{stamp}.zip")
 
+# année / mois / jour extraits de la date ISO (AAAA-MM-JJ) : colonnes calculées de la grille Données converties
+DATE_EXPR={"year":'substr("date",1,4)',"month":'substr("date",6,2)',"day":'substr("date",9,2)'}
+
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
@@ -139,9 +143,9 @@ def logbook_db_page():
 @main_bp.route("/logbook-db/rows")
 @login_required
 def logbook_db_rows():
-    columns=[c["column"] for c in logbook_columns(load_config())]
+    columns=[v["column"] for v in load_logbook_view()]
     conn=logbook_connect()
-    try: return grid_data(conn,"logbook",columns)
+    try: return grid_data(conn,"logbook",columns,expressions=DATE_EXPR)
     finally: conn.close()
 
 @main_bp.route("/logbook-db/table-export.<fmt>")
@@ -149,7 +153,7 @@ def logbook_db_rows():
 def logbook_table_export(fmt):
     view=load_logbook_view()
     conn=logbook_connect()
-    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_converties")
+    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_converties",expressions=DATE_EXPR)
     except ValueError as exc: flash(str(exc)); return redirect(url_for("main.logbook_db_page"))
     finally: conn.close()
 
@@ -218,6 +222,8 @@ def refresh_logbook_data():
 def edit_logbook_cell():
     try:
         row_id=int(request.form.get("row_id","0")); column=safe_identifier(request.form.get("column","")); value=request.form.get("value","")
+        if column in DATE_EXPR:
+            update_logbook_date_part(row_id,column,value); return ("",204)
         allowed={c["column"] for c in logbook_columns(load_config())}
         if column not in allowed: raise ValueError("Colonne logbook invalide.")
         update_logbook_cell(row_id,column,value if value != "" else None)

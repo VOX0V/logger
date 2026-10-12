@@ -70,6 +70,27 @@ def list_logbook_rows(username=None):
     return rows
 
 
+def update_logbook_date_part(row_id, part, value, username=None):
+    """Change l'année, le mois ou le jour d'une ligne et recompose la date ISO (refuse une date impossible)."""
+    from datetime import date
+    if part not in ("year", "month", "day"): raise ValueError("Partie de date invalide.")
+    conn = logbook_connect(username)
+    try:
+        row = conn.execute('SELECT "date" FROM logbook WHERE id=?', (row_id,)).fetchone()
+        if not row: raise ValueError("Ligne introuvable.")
+        try: y, m, d = (int(x) for x in str(row["date"] or "")[:10].split("-"))
+        except ValueError: raise ValueError("Cette ligne n'a pas de date à modifier.")
+        try: n = int(str(value).strip())
+        except ValueError: raise ValueError("Valeur numérique attendue.")
+        y, m, d = (n, m, d) if part == "year" else (y, n, d) if part == "month" else (y, m, n)
+        try: new = date(y, m, d).isoformat()
+        except ValueError: raise ValueError(f"Date impossible : {y:04d}-{m:02d}-{d:02d}.")
+        conn.execute('UPDATE logbook SET "date"=?, updated_at=CURRENT_TIMESTAMP WHERE id=?', (new, row_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def update_logbook_cell(row_id, column, value, username=None):
     safe_identifier(column)
     conn = logbook_connect(username)
