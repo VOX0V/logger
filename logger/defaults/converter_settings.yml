@@ -38,3 +38,8 @@ tc_rounding:
     max: 60
     decimal: 0.0
     add_hour: true
+airline_prefix: AC
+aircraft_types:
+  CRJ9: CRJ
+  CRJ7: CRJ
+  CRJ2: CRJ

@@ -9,6 +9,7 @@
 {% else %}<div class="card"><p class="muted">Aucune règle dans le catalogue.</p></div>{% endfor %}
 <p><button class="btn">Enregistrer la sélection</button></p>
 </form>
+<div class="card"><h3>Mon nom de famille</h3><form method="post" action="{{url_for('converter.save_pilot')}}"><div class="grid"><div class="field"><label>Nom de famille tel qu'il apparaît dans la liste d'équipage (règle « Équipage »)</label><input type="text" name="pilot_name" maxlength="60" value="{{pilot_name}}"></div></div><p><button class="btn">Enregistrer</button></p></form></div>
 {% if g.role=='admin' %}
 {% for group, items in groups.items() %}{% for it in items %}<form id="delete-rule-{{it.rule.id}}" method="post" action="{{url_for('converter.rule_delete',rule_id=it.rule.id)}}"></form>{% endfor %}{% endfor %}
 <div class="card"><h3>Réglages (admin)</h3><form method="post" action="{{url_for('converter.save_settings_route')}}"><div class="grid">

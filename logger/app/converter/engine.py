@@ -7,7 +7,7 @@ from collections import Counter
 from ..db import connect, logbook_connect, safe_identifier
 from ..config import load_logbook_db_config, configurable_columns
 from ..models import sync_logbook_columns, drop_unused_logbook_columns
-from .catalog import active_rules, load_settings, rule_missing_columns
+from .catalog import active_rules, load_settings, pilot_name, rule_missing_columns
 from .transforms import FUNCTIONS, Skip, Problem, blank
 
 
@@ -17,6 +17,7 @@ def refresh_logbook(config, username=None):
     b_columns = [c["column"] for c in lcfg["database"]["columns"] if c.get("group") != "system"]
     a_columns = [c["column"] for c in configurable_columns(config)]
     settings = load_settings()
+    settings["pilot_name"] = pilot_name(username)
     warnings = Counter()
 
     usable = []

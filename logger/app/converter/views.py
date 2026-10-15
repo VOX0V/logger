@@ -37,7 +37,7 @@ def index():
             "missing": catalog.rule_missing_columns(rule, a, b), "summary": _summary(rule),
             "label": TRANSFORMS.get(rule["transform"], {}).get("label", rule["transform"])})
     settings = catalog.load_settings()
-    return render_template("converter.html", groups=groups, settings=settings,
+    return render_template("converter.html", groups=groups, settings=settings, pilot_name=catalog.pilot_name(),
                            rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
 
 
@@ -46,6 +46,14 @@ def index():
 def select():
     catalog.save_selection(request.form.getlist("enabled"))
     flash("Sélection des règles enregistrée. Clique sur Actualiser dans logbook.db pour l'appliquer.")
+    return redirect(url_for("converter.index"))
+
+
+@converter_bp.route("/pilot", methods=["POST"])
+@login_required
+def save_pilot():
+    catalog.save_pilot_name(request.form.get("pilot_name", ""))
+    flash("Nom de famille enregistré. Clique sur Actualiser dans logbook.db pour l'appliquer.")
     return redirect(url_for("converter.index"))
 
 
@@ -59,7 +67,7 @@ def save_settings_route():
             raise ValueError("Les marges de nuit doivent être entre 0 et 180 minutes.")
         rules = catalog.rounding_from_text(request.form.get("tc_rounding", ""))
         current = catalog.load_settings()
-        catalog.save_settings({"night": {"after_sunset_minutes": after, "before_sunrise_minutes": before},
+        catalog.save_settings({**current, "night": {"after_sunset_minutes": after, "before_sunrise_minutes": before},
                                "tc_rounding": {"comment": current["tc_rounding"].get("comment", ""), "rules": rules}})
         flash("Réglages du convertisseur enregistrés.")
     except ValueError as exc:

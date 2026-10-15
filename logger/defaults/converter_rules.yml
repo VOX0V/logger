@@ -21,20 +21,20 @@ rules:
     target: date
   params: {}
   default: true
-- id: copy_aircraft_type
-  name: Copie type → aircraft_type
+- id: aircraft_type_normalize
+  name: Type d'appareil normalisé (CRJ9 → CRJ…) → aircraft_type
   group: Avion
-  transform: copy
+  transform: aircraft_type
   inputs:
     source: type
   outputs:
     target: aircraft_type
   params: {}
   default: true
-- id: copy_registration
-  name: Copie registration → registration
+- id: registration_format
+  name: Immatriculation formatée (C-FABC) → registration
   group: Avion
-  transform: copy
+  transform: registration
   inputs:
     source: registration
   outputs:
@@ -61,20 +61,31 @@ rules:
     target: copilot
   params: {}
   default: true
-- id: copy_departure
-  name: Copie departure → departure
+- id: crew_from_list
+  name: Équipage depuis crew_list → pilot_in_command, copilot
+  group: Équipage
+  transform: crew
+  inputs:
+    crew: crew_list
+  outputs:
+    captain: pilot_in_command
+    copilot: copilot
+  params: {}
+  default: true
+- id: departure_icao
+  name: Départ en ICAO → departure
   group: Route
-  transform: copy
+  transform: icao_code
   inputs:
     source: departure
   outputs:
     target: departure
   params: {}
   default: true
-- id: copy_arrival
-  name: Copie arrival → arrival
+- id: arrival_icao
+  name: Arrivée en ICAO → arrival
   group: Route
-  transform: copy
+  transform: icao_code
   inputs:
     source: arrival
   outputs:
@@ -87,6 +98,16 @@ rules:
   transform: copy
   inputs:
     source: remarks
+  outputs:
+    target: remarks
+  params: {}
+  default: true
+- id: remarks_flight_number
+  name: 'Remarques : préfixe + flight_number → remarks'
+  group: Remarques
+  transform: flight_remarks
+  inputs:
+    source: flight_number
   outputs:
     target: remarks
   params: {}
@@ -343,3 +364,41 @@ rules:
     engine: multi
     rounding: tc
   default: false
+- id: ifr_block_time
+  name: Temps de bloc → ifr
+  group: Instruments
+  transform: tc_round
+  inputs:
+    time: block_time
+  outputs:
+    target: ifr
+  params:
+    rounding: tc
+  default: true
+- id: daynight_multi_copi
+  name: Temps de bloc jour/nuit — multimoteur copilote
+  group: Jour / nuit
+  transform: day_night
+  inputs: &id001
+    time: block_time
+    utc_ms: arrival_millis_utc
+    airport: arrival
+  outputs:
+    day: multi_engine_copi_day
+    night: multi_engine_copi_night
+  params:
+    engine: any
+    rounding: tc
+  default: true
+- id: daynight_xc_pic
+  name: Temps de bloc jour/nuit — vol sur campagne PIC
+  group: Jour / nuit
+  transform: day_night
+  inputs: *id001
+  outputs:
+    day: cross_country_pic_day
+    night: cross_country_pic_night
+  params:
+    engine: any
+    rounding: tc
+  default: true

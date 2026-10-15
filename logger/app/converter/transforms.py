@@ -50,6 +50,36 @@ TRANSFORMS = {
         "outputs": [("day", "Colonne de B pour le jour", True), ("night", "Colonne de B pour la nuit", True)],
         "params": [("engine", "Filtre moteur", ENGINE_CHOICES), ("rounding", "Arrondi", ROUNDING_CHOICES)],
     },
+    "registration": {
+        "label": "Immatriculation (majuscules, tiret ajouté)",
+        "inputs": [("source", "Colonne immatriculation (A)", True)],
+        "outputs": [("target", "Colonne de B", True)],
+        "params": [],
+    },
+    "aircraft_type": {
+        "label": "Type d'appareil (table de correspondance)",
+        "inputs": [("source", "Colonne type (A)", True)],
+        "outputs": [("target", "Colonne de B", True)],
+        "params": [],
+    },
+    "icao_code": {
+        "label": "Aéroport en code ICAO",
+        "inputs": [("source", "Colonne aéroport (A), IATA ou ICAO", True)],
+        "outputs": [("target", "Colonne de B", True)],
+        "params": [],
+    },
+    "crew": {
+        "label": "Équipage à partir de la liste d'équipage",
+        "inputs": [("crew", "Colonne liste d'équipage (A)", True)],
+        "outputs": [("captain", "Colonne de B pour le capitaine", True), ("copilot", "Colonne de B pour le copilote", True)],
+        "params": [],
+    },
+    "flight_remarks": {
+        "label": "Remarques : préfixe + numéro de vol",
+        "inputs": [("source", "Colonne numéro de vol (A)", True)],
+        "outputs": [("target", "Colonne de B", True)],
+        "params": [],
+    },
 }
 
 
@@ -196,5 +226,63 @@ def day_night(row, rule, settings):
     return {o["day"]: None if night else value, o["night"]: value if night else None}
 
 
+# ---------------- aircraft / airports / crew / remarks ----------------
+
+def format_registration(row, rule, settings):
+    raw = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
+    if raw and "-" not in raw and len(raw) == 5:
+        raw = raw[0] + "-" + raw[1:]
+    return {rule["outputs"]["target"]: raw or None}
+
+
+def normalize_type(row, rule, settings):
+    raw = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
+    mapping = {str(k).strip().upper(): str(v).strip() for k, v in (settings.get("aircraft_types") or {}).items()}
+    return {rule["outputs"]["target"]: mapping.get(raw, raw) or None}
+
+
+def to_icao(row, rule, settings):
+    code = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
+    if not code:
+        return {rule["outputs"]["target"]: None}
+    airport = find_airport(code)
+    icao = airport["icao_code"] if airport is not None and airport["icao_code"] else code
+    return {rule["outputs"]["target"]: icao}
+
+
+CREW_PATTERN = re.compile(r"(CA|FO|CP|SO)\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+),\s*([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+)")
+
+
+def _person(first, last):
+    return f"{first[0]}.{last.capitalize()}" if first else last.capitalize()
+
+
+def crew_from_list(row, rule, settings):
+    """Captain = the CA line; copilot = the FO/CP/SO line matching the user's family name.
+    No crew list or no match: captain 'NAME' and the user as copilot (as in the earlier project)."""
+    pilot = str(settings.get("pilot_name") or "").strip()
+    if not pilot:
+        raise Problem("Nom de famille du pilote non renseigné (page Convertisseur) : liste d'équipage non lue")
+    crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
+    captain, copilot = "NAME", f"{pilot[0].upper()}.{pilot.capitalize()}"
+    for role, last, first in CREW_PATTERN.findall(crew):
+        if role == "CA":
+            captain = _person(first, last)
+        elif pilot.upper() in last:
+            copilot = _person(first, last)
+    o = rule["outputs"]
+    return {o["captain"]: captain, o["copilot"]: copilot}
+
+
+def flight_remarks(row, rule, settings):
+    number = str(row.get(rule["inputs"]["source"]) or "").strip()
+    if re.fullmatch(r"\d+\.0+", number):
+        number = number.split(".")[0]
+    prefix = str(settings.get("airline_prefix") or "")
+    return {rule["outputs"]["target"]: f"{prefix}{number}" if number else None}
+
+
 FUNCTIONS = {"copy": copy, "date_parts": date_parts, "datetime_date": datetime_date,
-             "tc_round": tc_round, "day_night": day_night}
+             "tc_round": tc_round, "day_night": day_night, "registration": format_registration,
+             "aircraft_type": normalize_type, "icao_code": to_icao, "crew": crew_from_list,
+             "flight_remarks": flight_remarks}

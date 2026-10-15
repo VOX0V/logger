@@ -14,6 +14,8 @@ from .transforms import TRANSFORMS
 DEFAULT_SETTINGS = {
     "night": {"after_sunset_minutes": 30, "before_sunrise_minutes": 30},
     "tc_rounding": {"comment": "", "rules": []},
+    "airline_prefix": "AC",
+    "aircraft_types": {"CRJ9": "CRJ", "CRJ7": "CRJ", "CRJ2": "CRJ"},
 }
 
 
@@ -120,7 +122,9 @@ def load_settings():
     data = yaml.safe_load(settings_path().read_text(encoding="utf-8")) or {}
     night = {**DEFAULT_SETTINGS["night"], **(data.get("night") or {})}
     return {"night": {k: int(v) for k, v in night.items()},
-            "tc_rounding": data.get("tc_rounding") or DEFAULT_SETTINGS["tc_rounding"]}
+            "tc_rounding": data.get("tc_rounding") or DEFAULT_SETTINGS["tc_rounding"],
+            "airline_prefix": str(data.get("airline_prefix", DEFAULT_SETTINGS["airline_prefix"])).strip(),
+            "aircraft_types": data.get("aircraft_types") or DEFAULT_SETTINGS["aircraft_types"]}
 
 
 def save_settings(settings):
@@ -179,10 +183,33 @@ def load_selection(username=None):
     return [i for i in (data.get("enabled") or []) if i in known]
 
 
+def _selection_data(username=None):
+    path = selection_path(username)
+    return (yaml.safe_load(path.read_text(encoding="utf-8")) or {}) if path.exists() else {}
+
+
+def _write_selection(data, username=None):
+    selection_path(username).write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
 def save_selection(ids, username=None):
     known = {r["id"] for r in load_rules()}
-    enabled = [i for i in ids if i in known]
-    selection_path(username).write_text(yaml.safe_dump({"enabled": enabled}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    data = _selection_data(username)
+    data["enabled"] = [i for i in ids if i in known]
+    _write_selection(data, username)
+
+
+def pilot_name(username=None):
+    """The user's family name, used to find them in the crew list (stored with their rule selection)."""
+    ensure_user_selection(username or current_username())
+    return str(_selection_data(username).get("pilot_name") or "").strip()
+
+
+def save_pilot_name(name, username=None):
+    ensure_user_selection(username or current_username())
+    data = _selection_data(username)
+    data["pilot_name"] = str(name).strip()[:60]
+    _write_selection(data, username)
 
 
 def active_rules(username=None):
