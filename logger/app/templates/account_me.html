@@ -8,6 +8,10 @@
 <form method="post"><input type="hidden" name="action" value="email"><div class="grid">
 <div class="field"><label>E-mail</label><input type="email" name="email" value="{{g.user.email or ''}}" autocomplete="email" placeholder="prenom.nom@exemple.com"></div>
 </div><button class="btn">Enregistrer</button></form></div>
+<div class="card"><h3>Nom de famille</h3><p class="muted">Sert au convertisseur à te retrouver dans la liste d'équipage. Indique seulement ton nom de famille.</p>
+<form method="post"><input type="hidden" name="action" value="pilot"><div class="grid">
+<div class="field"><label>Nom de famille</label><input type="text" name="pilot_name" maxlength="60" value="{{pilot_name}}"></div>
+</div><button class="btn">Enregistrer</button></form></div>
 <div class="card"><h3>Changer le mot de passe</h3><form method="post"><div class="grid">
 <div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required></div>
 <div class="field"><label>Nouveau mot de passe</label><input type="password" name="new_password" required></div>

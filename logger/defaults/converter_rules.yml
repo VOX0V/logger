@@ -1,4 +1,14 @@
 rules:
+- id: skip_not_flying
+  name: Ignorer les vols où je ne suis pas aux commandes (deadhead, formation…)
+  group: Filtres
+  transform: not_flying
+  inputs:
+    crew: crew_list
+    deadhead: deadhead
+  outputs: {}
+  params: {}
+  default: true
 - id: date_from_parts
   name: Date à partir de année / mois / jour
   group: Date

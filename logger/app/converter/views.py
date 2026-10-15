@@ -37,7 +37,7 @@ def index():
             "missing": catalog.rule_missing_columns(rule, a, b), "summary": _summary(rule),
             "label": TRANSFORMS.get(rule["transform"], {}).get("label", rule["transform"])})
     settings = catalog.load_settings()
-    return render_template("converter.html", groups=groups, settings=settings, pilot_name=catalog.pilot_name(),
+    return render_template("converter.html", groups=groups, settings=settings,
                            rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
 
 
@@ -46,14 +46,6 @@ def index():
 def select():
     catalog.save_selection(request.form.getlist("enabled"))
     flash("Sélection des règles enregistrée. Clique sur Actualiser dans logbook.db pour l'appliquer.")
-    return redirect(url_for("converter.index"))
-
-
-@converter_bp.route("/pilot", methods=["POST"])
-@login_required
-def save_pilot():
-    catalog.save_pilot_name(request.form.get("pilot_name", ""))
-    flash("Nom de famille enregistré. Clique sur Actualiser dans logbook.db pour l'appliquer.")
     return redirect(url_for("converter.index"))
 
 

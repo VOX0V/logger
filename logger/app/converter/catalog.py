@@ -37,42 +37,51 @@ def ensure_defaults():
     _migrate_shared()
 
 
-# ---------------- one-time migration (1.7.1) ----------------
-# Adds the new default rules to an existing catalog and switches the users over,
-# without overwriting or deleting anything. Markers keep it from running twice.
+# ---------------- one-time migrations ----------------
+# Each step adds the new default rules to an existing catalog and switches the users over,
+# without overwriting or deleting anything. Markers keep a step from running twice.
 
-MIGRATION = "1.7.1"
-NEW_RULE_IDS = ["aircraft_type_normalize", "registration_format", "departure_icao", "arrival_icao",
-                "crew_from_list", "remarks_flight_number", "ifr_block_time", "daynight_multi_copi",
-                "daynight_xc_pic"]
-OLD_COPY_IDS = ["copy_aircraft_type", "copy_registration", "copy_departure", "copy_arrival"]
+MIGRATIONS = [
+    {"id": "1.7.1", "disable": ["copy_aircraft_type", "copy_registration", "copy_departure", "copy_arrival"],
+     "front": [], "append": ["aircraft_type_normalize", "registration_format", "departure_icao", "arrival_icao",
+                             "crew_from_list", "remarks_flight_number", "ifr_block_time", "daynight_multi_copi",
+                             "daynight_xc_pic"]},
+    {"id": "1.7.2", "disable": [], "front": ["skip_not_flying"], "append": []},   # filter: first in the catalog
+]
 
 
 def _migrate_shared():
     marker = converter_dir() / "migrations.yml"
     done = (yaml.safe_load(marker.read_text(encoding="utf-8")) or []) if marker.exists() else []
-    if MIGRATION in done:
+    todo = [m for m in MIGRATIONS if m["id"] not in done]
+    if not todo:
         return
     rules = (yaml.safe_load(rules_path().read_text(encoding="utf-8")) or {}).get("rules", [])
-    present = {r.get("id") for r in rules}
     bundled = (yaml.safe_load((defaults_dir() / "converter_rules.yml").read_text(encoding="utf-8")) or {}).get("rules", [])
-    rules += [r for r in bundled if r.get("id") in NEW_RULE_IDS and r["id"] not in present]
-    for r in rules:
-        if r.get("id") in OLD_COPY_IDS:
-            r["default"] = False          # replaced by the new rules, kept in the catalog
+    bundled = {r["id"]: r for r in bundled if r.get("id")}
+    for m in todo:
+        present = {r.get("id") for r in rules}
+        rules[:0] = [bundled[i] for i in m["front"] if i in bundled and i not in present]
+        rules += [bundled[i] for i in m["append"] if i in bundled and i not in present]
+        for r in rules:
+            if r.get("id") in m["disable"]:
+                r["default"] = False          # replaced by the new rules, kept in the catalog
     save_rules(rules)
-    marker.write_text(yaml.safe_dump(done + [MIGRATION]), encoding="utf-8")
+    marker.write_text(yaml.safe_dump(done + [m["id"] for m in todo]), encoding="utf-8")
 
 
 def _migrate_user(username=None):
     data = _selection_data(username)
     done = data.get("migrations") or []
-    if MIGRATION in done:
+    todo = [m for m in MIGRATIONS if m["id"] not in done]
+    if not todo:
         return
     known = {r["id"] for r in load_rules()}
-    enabled = [i for i in (data.get("enabled") or []) if i not in OLD_COPY_IDS]
-    enabled += [i for i in NEW_RULE_IDS if i in known and i not in enabled]
-    data["enabled"], data["migrations"] = enabled, done + [MIGRATION]
+    enabled = list(data.get("enabled") or [])
+    for m in todo:
+        enabled = [i for i in enabled if i not in m["disable"]]
+        enabled += [i for i in m["front"] + m["append"] if i in known and i not in enabled]
+    data["enabled"], data["migrations"] = enabled, done + [m["id"] for m in todo]
     _write_selection(data, username)
 
 
@@ -213,7 +222,7 @@ def ensure_user_selection(username):
     path = selection_path(username)
     if not path.exists():
         enabled = [r["id"] for r in load_rules() if r["default"]]
-        path.write_text(yaml.safe_dump({"enabled": enabled, "migrations": [MIGRATION]}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        path.write_text(yaml.safe_dump({"enabled": enabled, "migrations": [m["id"] for m in MIGRATIONS]}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def load_selection(username=None):

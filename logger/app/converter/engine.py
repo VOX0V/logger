@@ -8,7 +8,7 @@ from ..db import connect, logbook_connect, safe_identifier
 from ..config import load_logbook_db_config, configurable_columns
 from ..models import sync_logbook_columns, drop_unused_logbook_columns
 from .catalog import active_rules, load_settings, pilot_name, rule_missing_columns
-from .transforms import FUNCTIONS, Skip, Problem, blank
+from .transforms import FUNCTIONS, Skip, SkipRow, Problem, blank
 
 
 def refresh_logbook(config, username=None):
@@ -38,12 +38,17 @@ def refresh_logbook(config, username=None):
         rows = uc.execute(f"SELECT {select} FROM users ORDER BY id").fetchall()
         conn.execute("DELETE FROM logbook")
         names = [safe_identifier(n) for n in b_columns]
+        ignored = 0
         for row in rows:
             source = dict(row)
             out = {}
+            skipped = False
             for rule in usable:
                 try:
                     result = FUNCTIONS[rule["transform"]](source, rule, settings)
+                except SkipRow:
+                    skipped = True
+                    break
                 except Skip:
                     continue
                 except Problem as exc:
@@ -52,6 +57,9 @@ def refresh_logbook(config, username=None):
                 for column, value in result.items():
                     if not blank(value) and blank(out.get(column)):
                         out[column] = value
+            if skipped:
+                ignored += 1
+                continue
             if names:
                 conn.execute(
                     f'INSERT INTO logbook (import_source,{",".join(chr(34) + n + chr(34) for n in names)}) VALUES (?,{",".join("?" for _ in names)})',
@@ -60,8 +68,10 @@ def refresh_logbook(config, username=None):
     finally:
         uc.close(); conn.close()
 
+    if ignored:
+        warnings["Lignes ignorées (pas aux commandes)"] += ignored
     messages = [msg if count == 0 else f"{msg} — {count} ligne(s)" for msg, count in sorted(warnings.items())]
-    return {"rows": len(rows), "warnings": messages}
+    return {"rows": len(rows) - ignored, "warnings": messages}
 
 
 def list_logbook_rows(username=None):

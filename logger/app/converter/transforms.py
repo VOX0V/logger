@@ -74,6 +74,12 @@ TRANSFORMS = {
         "outputs": [("captain", "Colonne de B pour le capitaine", True), ("copilot", "Colonne de B pour le copilote", True)],
         "params": [],
     },
+    "not_flying": {
+        "label": "Ignorer les vols où je ne suis pas aux commandes",
+        "inputs": [("crew", "Colonne liste d'équipage (A)", True), ("deadhead", "Colonne deadhead (A)", True)],
+        "outputs": [],
+        "params": [],
+    },
     "flight_remarks": {
         "label": "Remarques : préfixe + numéro de vol",
         "inputs": [("source", "Colonne numéro de vol (A)", True)],
@@ -85,6 +91,10 @@ TRANSFORMS = {
 
 class Skip(Exception):
     """The rule does not apply to this row (not a problem)."""
+
+
+class SkipRow(Exception):
+    """The whole row is left out of the logbook (not a flight the user piloted)."""
 
 
 class Problem(Exception):
@@ -262,7 +272,7 @@ def crew_from_list(row, rule, settings):
     No crew list or no match: captain 'NAME' and the user as copilot (as in the earlier project)."""
     pilot = str(settings.get("pilot_name") or "").strip()
     if not pilot:
-        raise Problem("Nom de famille du pilote non renseigné (page Convertisseur) : liste d'équipage non lue")
+        raise Problem("Nom de famille du pilote non renseigné (page Mon compte) : liste d'équipage non lue")
     crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
     captain, copilot = "NAME", f"{pilot[0].upper()}.{pilot.capitalize()}"
     for role, last, first in CREW_PATTERN.findall(crew):
@@ -272,6 +282,18 @@ def crew_from_list(row, rule, settings):
             copilot = _person(first, last)
     o = rule["outputs"]
     return {o["captain"]: captain, o["copilot"]: copilot}
+
+
+def skip_not_flying(row, rule, settings):
+    """Leave out deadhead / training lines (deadhead column filled) and flights whose crew list
+    does not contain the user's family name."""
+    if not blank(row.get(rule["inputs"]["deadhead"])):
+        raise SkipRow()
+    pilot = str(settings.get("pilot_name") or "").strip().upper()
+    crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
+    if pilot and crew and not any(pilot in last for _role, last, _first in CREW_PATTERN.findall(crew)):
+        raise SkipRow()
+    return {}
 
 
 def flight_remarks(row, rule, settings):
@@ -285,4 +307,5 @@ def flight_remarks(row, rule, settings):
 FUNCTIONS = {"copy": copy, "date_parts": date_parts, "datetime_date": datetime_date,
              "tc_round": tc_round, "day_night": day_night, "registration": format_registration,
              "aircraft_type": normalize_type, "icao_code": to_icao, "crew": crew_from_list,
-             "flight_remarks": flight_remarks}
+             "flight_remarks": flight_remarks,
+             "not_flying": skip_not_flying}
