@@ -34,6 +34,46 @@ def ensure_defaults():
         target = converter_dir() / name
         if not target.exists():
             shutil.copyfile(defaults_dir() / source, target)
+    _migrate_shared()
+
+
+# ---------------- one-time migration (1.7.1) ----------------
+# Adds the new default rules to an existing catalog and switches the users over,
+# without overwriting or deleting anything. Markers keep it from running twice.
+
+MIGRATION = "1.7.1"
+NEW_RULE_IDS = ["aircraft_type_normalize", "registration_format", "departure_icao", "arrival_icao",
+                "crew_from_list", "remarks_flight_number", "ifr_block_time", "daynight_multi_copi",
+                "daynight_xc_pic"]
+OLD_COPY_IDS = ["copy_aircraft_type", "copy_registration", "copy_departure", "copy_arrival"]
+
+
+def _migrate_shared():
+    marker = converter_dir() / "migrations.yml"
+    done = (yaml.safe_load(marker.read_text(encoding="utf-8")) or []) if marker.exists() else []
+    if MIGRATION in done:
+        return
+    rules = (yaml.safe_load(rules_path().read_text(encoding="utf-8")) or {}).get("rules", [])
+    present = {r.get("id") for r in rules}
+    bundled = (yaml.safe_load((defaults_dir() / "converter_rules.yml").read_text(encoding="utf-8")) or {}).get("rules", [])
+    rules += [r for r in bundled if r.get("id") in NEW_RULE_IDS and r["id"] not in present]
+    for r in rules:
+        if r.get("id") in OLD_COPY_IDS:
+            r["default"] = False          # replaced by the new rules, kept in the catalog
+    save_rules(rules)
+    marker.write_text(yaml.safe_dump(done + [MIGRATION]), encoding="utf-8")
+
+
+def _migrate_user(username=None):
+    data = _selection_data(username)
+    done = data.get("migrations") or []
+    if MIGRATION in done:
+        return
+    known = {r["id"] for r in load_rules()}
+    enabled = [i for i in (data.get("enabled") or []) if i not in OLD_COPY_IDS]
+    enabled += [i for i in NEW_RULE_IDS if i in known and i not in enabled]
+    data["enabled"], data["migrations"] = enabled, done + [MIGRATION]
+    _write_selection(data, username)
 
 
 # ---------------- rules ----------------
@@ -173,11 +213,12 @@ def ensure_user_selection(username):
     path = selection_path(username)
     if not path.exists():
         enabled = [r["id"] for r in load_rules() if r["default"]]
-        path.write_text(yaml.safe_dump({"enabled": enabled}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        path.write_text(yaml.safe_dump({"enabled": enabled, "migrations": [MIGRATION]}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def load_selection(username=None):
     ensure_user_selection(username or current_username())
+    _migrate_user(username)
     data = yaml.safe_load(selection_path(username).read_text(encoding="utf-8")) or {}
     known = {r["id"] for r in load_rules()}
     return [i for i in (data.get("enabled") or []) if i in known]
