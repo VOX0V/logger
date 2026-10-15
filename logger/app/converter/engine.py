@@ -39,6 +39,7 @@ def refresh_logbook(config, username=None):
         conn.execute("DELETE FROM logbook")
         names = [safe_identifier(n) for n in b_columns]
         ignored = 0
+        built = []
         for row in rows:
             source = dict(row)
             out = {}
@@ -60,7 +61,12 @@ def refresh_logbook(config, username=None):
             if skipped:
                 ignored += 1
                 continue
-            if names:
+            built.append((source, out))
+        # chronological order whatever the import order (rows without a date last)
+        built.sort(key=lambda t: (not t[1].get("date"), str(t[1].get("date") or ""),
+                                  str(t[0].get("departure_local") or ""), t[0]["id"]))
+        if names:
+            for source, out in built:
                 conn.execute(
                     f'INSERT INTO logbook (import_source,{",".join(chr(34) + n + chr(34) for n in names)}) VALUES (?,{",".join("?" for _ in names)})',
                     [source["import_source"]] + [out.get(n) for n in names])

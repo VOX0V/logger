@@ -1,4 +1,13 @@
 rules:
+- id: skip_zero_block
+  name: Ignorer les vols au temps de bloc 0:00 (non opérés)
+  group: Filtres
+  transform: zero_block
+  inputs:
+    time: block_time
+  outputs: {}
+  params: {}
+  default: true
 - id: skip_not_flying
   name: Ignorer les vols où je ne suis pas aux commandes (deadhead, formation…)
   group: Filtres

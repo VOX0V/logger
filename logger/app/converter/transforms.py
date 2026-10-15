@@ -74,6 +74,12 @@ TRANSFORMS = {
         "outputs": [("captain", "Colonne de B pour le capitaine", True), ("copilot", "Colonne de B pour le copilote", True)],
         "params": [],
     },
+    "zero_block": {
+        "label": "Ignorer les vols au temps de bloc 0:00 (non opérés)",
+        "inputs": [("time", "Colonne temps de bloc (A)", True)],
+        "outputs": [],
+        "params": [],
+    },
     "not_flying": {
         "label": "Ignorer les vols où je ne suis pas aux commandes",
         "inputs": [("crew", "Colonne liste d'équipage (A)", True), ("deadhead", "Colonne deadhead (A)", True)],
@@ -284,6 +290,20 @@ def crew_from_list(row, rule, settings):
     return {o["captain"]: captain, o["copilot"]: copilot}
 
 
+def skip_zero_block(row, rule, settings):
+    """A block time that is filled but equal to zero means the flight was not operated."""
+    value = row.get(rule["inputs"]["time"])
+    if blank(value):
+        return {}
+    try:
+        parsed = parse_block(value)
+    except Problem:
+        return {}
+    if parsed is None:
+        raise SkipRow()
+    return {}
+
+
 def skip_not_flying(row, rule, settings):
     """Leave out deadhead / training lines (deadhead column filled) and flights whose crew list
     does not contain the user's family name."""
@@ -308,4 +328,4 @@ FUNCTIONS = {"copy": copy, "date_parts": date_parts, "datetime_date": datetime_d
              "tc_round": tc_round, "day_night": day_night, "registration": format_registration,
              "aircraft_type": normalize_type, "icao_code": to_icao, "crew": crew_from_list,
              "flight_remarks": flight_remarks,
-             "not_flying": skip_not_flying}
+             "not_flying": skip_not_flying, "zero_block": skip_zero_block}

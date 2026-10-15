@@ -47,6 +47,7 @@ MIGRATIONS = [
                              "crew_from_list", "remarks_flight_number", "ifr_block_time", "daynight_multi_copi",
                              "daynight_xc_pic"]},
     {"id": "1.7.2", "disable": [], "front": ["skip_not_flying"], "append": []},   # filter: first in the catalog
+    {"id": "1.7.3", "disable": [], "front": ["skip_zero_block"], "append": []},
 ]
 
 
