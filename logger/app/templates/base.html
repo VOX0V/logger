@@ -46,6 +46,6 @@ header a.header-btn:hover{background:#1d4ed8}
 </style>
 </head>
 <body>
-<header><div style="display:flex;align-items:center"><strong>Logger</strong><span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span>{% if g.user %}<a class="header-btn" href="{{url_for('main.logbook')}}">Logbook</a><a class="header-btn" href="{{url_for('audit.index')}}">Audit</a>{% endif %}</div><nav>{% if g.user %}<a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
+<header><div style="display:flex;align-items:center"><strong>Logger</strong><span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span>{% if g.user %}<a class="header-btn" href="{{url_for('main.logbook')}}">Logbook</a><a class="header-btn" href="{{url_for('audit.index')}}">Audit</a><a class="header-btn" href="{{url_for('reports.index')}}">Reports</a>{% endif %}</div><nav>{% if g.user %}<a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a><a href="{{url_for('auth.logout')}}">Logout</a>{% endif %}</nav></header>
 <main>{% for message in get_flashed_messages() %}<div class="flash">{{message}}</div>{% endfor %}{% block content %}{% endblock %}</main>
 </body></html>

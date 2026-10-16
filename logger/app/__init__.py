@@ -26,6 +26,7 @@ def create_app():
     from .db import startup_lock
     from .main import main_bp
     from .audit import audit_bp
+    from .reports import reports_bp
 
     app.before_request(load_logged_in_user)
 
@@ -43,4 +44,5 @@ def create_app():
     app.register_blueprint(yaml_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(audit_bp)
+    app.register_blueprint(reports_bp)
     return app

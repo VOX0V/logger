@@ -133,8 +133,9 @@ def me():
             return redirect(url_for("accounts.me"))
         if request.form.get("action") == "pilot":
             from .converter import catalog
-            catalog.save_pilot_name(request.form.get("pilot_name", ""), g.username)
-            flash("Nom de famille enregistré. Clique sur Actualiser dans logbook.db pour l'appliquer.")
+            catalog.save_profile(request.form.get("pilot_name", ""), request.form.get("first_name", ""),
+                                 request.form.get("employee_number", ""), g.username)
+            flash("Identité enregistrée. Clique sur Actualiser dans logbook.db pour appliquer le nom de famille.")
             return redirect(url_for("accounts.me"))
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "").strip()
@@ -150,7 +151,7 @@ def me():
             flash("Mot de passe modifié.")
         return redirect(url_for("accounts.me"))
     from .converter import catalog
-    return render_template("account_me.html", pilot_name=catalog.pilot_name(g.username))
+    return render_template("account_me.html", profile=catalog.load_profile(g.username))
 
 
 @accounts_bp.route("")

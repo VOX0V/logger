@@ -256,6 +256,21 @@ def pilot_name(username=None):
     return str(_selection_data(username).get("pilot_name") or "").strip()
 
 
+def load_profile(username=None):
+    """Identity used by the converter (family name) and by the PDF reports (first name, employee number)."""
+    ensure_user_selection(username or current_username())
+    data = _selection_data(username)
+    return {k: str(data.get(k) or "").strip() for k in ("pilot_name", "first_name", "employee_number")}
+
+
+def save_profile(pilot_name, first_name, employee_number, username=None):
+    ensure_user_selection(username or current_username())
+    data = _selection_data(username)
+    data["pilot_name"], data["first_name"] = str(pilot_name).strip()[:60], str(first_name).strip()[:60]
+    data["employee_number"] = str(employee_number).strip()[:20]
+    _write_selection(data, username)
+
+
 def save_pilot_name(name, username=None):
     ensure_user_selection(username or current_username())
     data = _selection_data(username)

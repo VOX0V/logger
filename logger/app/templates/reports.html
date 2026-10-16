@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Rapports mensuels — vols de ligne CRJ</h2>
+<p class="muted">{{total}} vol(s) · <a href="{{url_for('main.logbook')}}">Retour au logbook</a></p>
+{% if not profile.pilot_name %}<div class="card muted">Renseigne ton nom, ton prénom et ton numéro d'employé dans <a href="{{url_for('accounts.me')}}">Mon compte</a> pour les afficher dans l'en-tête des PDF.</div>{% endif %}
+{% if not groups %}<div class="card">Aucun vol CRJ à rapporter dans le logbook (les vols à date future et les lignes sans temps sont ignorés).</div>{% endif %}
+{% if groups %}<p><a class="btn" href="{{zip_all}}">Tout télécharger (zip)</a></p>{% endif %}
+{% for year, months, zip_url in groups %}
+<div class="card"><h3>{{year}} <a class="muted" style="font-size:13px;margin-left:8px" href="{{zip_url}}">année en zip</a></h3>
+<table style="width:100%;font-size:14px"><tr><th style="text-align:left">Mois</th><th style="text-align:right">Vols</th><th style="text-align:right">Bloc (h)</th><th></th></tr>
+{% for m in months %}<tr><td>{{m.label}}</td><td style="text-align:right">{{m.flights}}</td><td style="text-align:right">{{'%.1f'|format(m.block)}}</td><td style="text-align:right"><a href="{{m.url}}" target="_blank">PDF</a></td></tr>{% endfor %}
+</table></div>
+{% endfor %}
+{% endblock %}

@@ -8,9 +8,11 @@
 <form method="post"><input type="hidden" name="action" value="email"><div class="grid">
 <div class="field"><label>E-mail</label><input type="email" name="email" value="{{g.user.email or ''}}" autocomplete="email" placeholder="prenom.nom@exemple.com"></div>
 </div><button class="btn">Enregistrer</button></form></div>
-<div class="card"><h3>Nom de famille</h3><p class="muted">Sert au convertisseur à te retrouver dans la liste d'équipage. Indique seulement ton nom de famille.</p>
+<div class="card"><h3>Identité de pilote</h3><p class="muted">Le nom de famille sert au convertisseur à te retrouver dans la liste d'équipage (indique seulement le nom). Le prénom et le numéro d'employé apparaissent dans l'en-tête des rapports PDF.</p>
 <form method="post"><input type="hidden" name="action" value="pilot"><div class="grid">
-<div class="field"><label>Nom de famille</label><input type="text" name="pilot_name" maxlength="60" value="{{pilot_name}}"></div>
+<div class="field"><label>Nom de famille</label><input type="text" name="pilot_name" maxlength="60" value="{{profile.pilot_name}}"></div>
+<div class="field"><label>Prénom</label><input type="text" name="first_name" maxlength="60" value="{{profile.first_name}}"></div>
+<div class="field"><label>Numéro d'employé</label><input type="text" name="employee_number" maxlength="20" value="{{profile.employee_number}}"></div>
 </div><button class="btn">Enregistrer</button></form></div>
 <div class="card"><h3>Changer le mot de passe</h3><form method="post"><div class="grid">
 <div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required></div>
