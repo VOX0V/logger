@@ -1,10 +1,38 @@
 """Shared reference databases: airports (airport.db) and aircraft (aircrafts.db)."""
 from pathlib import Path
 from flask import current_app
-from openpyxl import load_workbook
+import io
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from .db import airport_connect, aircrafts_connect
 
 ENGINES = ("single", "multi")
+ENGINE_LABELS = {"single": "Monomoteur", "multi": "Multimoteur"}
+CATEGORIES = (("airplane", "Avion"), ("helicopter", "Hélicoptère"), ("simulator", "Simulateur"))
+ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turbopropulseur"), ("turbine", "Turbine (hélicoptère)"),
+                ("turbofan", "Turbofan"))
+
+# Starting list of aircraft types (inserted once, when the table is created). To be checked by the user.
+SEED_TYPES = [
+    ("RH22", "Robinson", "R22", "helicopter", "single", "piston"),
+    ("RH44", "Robinson", "R44", "helicopter", "single", "piston"),
+    ("RH66", "Robinson", "R66", "helicopter", "single", "turbine"),
+    ("AS350", "Airbus Helicopters", "AS350 Écureuil", "helicopter", "single", "turbine"),
+    ("EC120", "Airbus Helicopters", "EC120 Colibri", "helicopter", "single", "turbine"),
+    ("B505", "Bell", "505 Jet Ranger X", "helicopter", "single", "turbine"),
+    ("BH06", "Bell", "206 JetRanger", "helicopter", "single", "turbine"),
+    ("C150", "Cessna", "150", "airplane", "single", "piston"),
+    ("C152", "Cessna", "152", "airplane", "single", "piston"),
+    ("A152", "Cessna", "A152 Aerobat", "airplane", "single", "piston"),
+    ("C172", "Cessna", "172", "airplane", "single", "piston"),
+    ("TB10", "Socata", "TB 10 Tobago", "airplane", "single", "piston"),
+    ("PA28", "Piper", "PA-28", "airplane", "single", "piston"),
+    ("PA30", "Piper", "PA-30 Twin Comanche", "airplane", "multi", "piston"),
+    ("PA31", "Piper", "PA-31 Navajo", "airplane", "multi", "piston"),
+    ("CRJ", "Bombardier", "CRJ", "airplane", "multi", "turbofan"),
+    ("SIM", None, "Simulateur", "simulator", None, None),
+]
 
 
 def _clean(value):
@@ -143,7 +171,21 @@ def init_aircrafts_db():
         type TEXT,
         engine TEXT CHECK (engine IN ('single','multi')),
         notes TEXT
+    )""")   # legacy table by registration: kept as is, no longer used
+    existed = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='aircraft_types'").fetchone()
+    conn.execute("""CREATE TABLE IF NOT EXISTS aircraft_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        make TEXT,
+        model TEXT,
+        category TEXT CHECK (category IN ('airplane','helicopter','simulator')),
+        engines TEXT CHECK (engines IN ('single','multi')),
+        engine_type TEXT,
+        notes TEXT
     )""")
+    if not existed:
+        conn.executemany("INSERT INTO aircraft_types (code, make, model, category, engines, engine_type) VALUES (?,?,?,?,?,?)",
+                         SEED_TYPES)
     conn.commit(); conn.close()
 
 
@@ -196,3 +238,100 @@ def delete_aircraft(aircraft_id):
     conn = aircrafts_connect()
     conn.execute("DELETE FROM aircrafts WHERE id=?", (aircraft_id,))
     conn.commit(); conn.close()
+
+
+# ---------------- aircraft types (global: one row per type, never per registration) ----------------
+
+def find_aircraft_type(code):
+    code = (code or "").strip().upper()
+    if not code:
+        return None
+    conn = aircrafts_connect()
+    row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(code)=?", (code,)).fetchone()
+    conn.close(); return row
+
+
+def list_aircraft_types():
+    conn = aircrafts_connect()
+    rows = conn.execute("SELECT * FROM aircraft_types ORDER BY category, code").fetchall()
+    conn.close(); return rows
+
+
+def get_aircraft_type(type_id):
+    conn = aircrafts_connect()
+    row = conn.execute("SELECT * FROM aircraft_types WHERE id=?", (type_id,)).fetchone()
+    conn.close(); return row
+
+
+def save_aircraft_type(type_id, form):
+    code = (_clean(form.get("code")) or "").upper()
+    if not code:
+        raise ValueError("Code du type obligatoire.")
+    category, engines, engine_type = _clean(form.get("category")), _clean(form.get("engines")), _clean(form.get("engine_type"))
+    if category not in (None,) + tuple(c for c, _ in CATEGORIES):
+        raise ValueError("Catégorie invalide.")
+    if engines not in (None,) + ENGINES:
+        raise ValueError("Nombre de moteurs invalide.")
+    if engine_type not in (None,) + tuple(c for c, _ in ENGINE_TYPES):
+        raise ValueError("Type de moteur invalide.")
+    values = (code, _clean(form.get("make")), _clean(form.get("model")), category, engines, engine_type, _clean(form.get("notes")))
+    conn = aircrafts_connect()
+    try:
+        if type_id:
+            conn.execute("UPDATE aircraft_types SET code=?, make=?, model=?, category=?, engines=?, engine_type=?, notes=? WHERE id=?",
+                         values + (type_id,))
+        else:
+            conn.execute("INSERT INTO aircraft_types (code, make, model, category, engines, engine_type, notes) VALUES (?,?,?,?,?,?,?)", values)
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        if "UNIQUE" in str(exc):
+            raise ValueError("Ce type existe déjà.")
+        raise
+    finally:
+        conn.close()
+
+
+def delete_aircraft_type(type_id):
+    conn = aircrafts_connect()
+    conn.execute("DELETE FROM aircraft_types WHERE id=?", (type_id,))
+    conn.commit(); conn.close()
+
+
+# ---------------- Excel export ----------------
+
+def _xlsx(sheet, headers, rows):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet
+    ws.append(headers)
+    for row in rows:
+        ws.append(list(row))
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for index, header in enumerate(headers, 1):
+        longest = max([len(str(header))] + [len(str(r[index - 1] if r[index - 1] is not None else "")) for r in rows])
+        ws.column_dimensions[get_column_letter(index)].width = min(max(12, longest + 2), 60)
+    ws.freeze_panes = "A2"
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def export_aircraft_types_xlsx():
+    categories, engine_types = dict(CATEGORIES), dict(ENGINE_TYPES)
+    rows = [(t["code"], t["make"], t["model"], categories.get(t["category"], ""), ENGINE_LABELS.get(t["engines"], ""),
+             engine_types.get(t["engine_type"], ""), t["notes"]) for t in list_aircraft_types()]
+    return _xlsx("Types d'appareils", ["Code", "Marque", "Modèle", "Catégorie", "Moteurs", "Type de moteur", "Notes"], rows)
+
+
+def export_airports_xlsx():
+    labels = {"icao_code": "ICAO", "iata_code": "IATA", "full_name": "Nom", "country": "Pays",
+              "latitude": "Latitude", "longitude": "Longitude"}
+    conn = airport_connect()
+    cursor = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, '')")
+    columns = [d[0] for d in cursor.description]
+    keep = [c for c in columns if c != "id"]
+    rows = [tuple(r[c] for c in keep) for r in cursor.fetchall()]
+    conn.close()
+    return _xlsx("Aéroports", [labels.get(c, c) for c in keep], rows)

@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import ephem
 
-from ..refdata import find_airport, find_aircraft
+from ..refdata import find_airport, find_aircraft_type
 
 ENGINE_CHOICES = [("any", "Tous les avions"), ("single", "Monomoteur seulement"), ("multi", "Multimoteur seulement")]
 ROUNDING_CHOICES = [("tc", "Arrondi Transport Canada"), ("none", "Aucun arrondi (heures + minutes/60)")]
@@ -46,7 +46,7 @@ TRANSFORMS = {
         "inputs": [("time", "Colonne temps de bloc (A)", True),
                    ("utc_ms", "Colonne heure UTC d'arrivée (A)", True),
                    ("airport", "Colonne aéroport d'arrivée (A)", True),
-                   ("registration", "Colonne immatriculation (A) — requise si filtre moteur", False)],
+                   ("type", "Colonne type d'appareil (A) — filtre moteur (par défaut : colonne « type »)", False)],
         "outputs": [("day", "Colonne de B pour le jour", True), ("night", "Colonne de B pour la nuit", True)],
         "params": [("engine", "Filtre moteur", ENGINE_CHOICES), ("rounding", "Arrondi", ROUNDING_CHOICES)],
     },
@@ -219,13 +219,17 @@ def day_night(row, rule, settings):
     i, o, p = rule["inputs"], rule["outputs"], rule["params"]
     engine = p.get("engine", "any")
     if engine in ("single", "multi"):
-        registration = row.get(i.get("registration"))
-        aircraft = find_aircraft(registration)
-        if aircraft is None:
-            raise Problem(f"Avion inconnu : {str(registration or '').strip() or '(vide)'}")
-        if not aircraft["engine"]:
-            raise Problem(f"Type de moteur non renseigné pour l'avion : {aircraft['registration']}")
-        if aircraft["engine"] != engine:
+        raw = str(row.get(i.get("type") or "type") or "").strip().upper()
+        mapping = {str(k).strip().upper(): str(v).strip().upper() for k, v in (settings.get("aircraft_types") or {}).items()}
+        code = mapping.get(raw, raw)
+        aircraft_type = find_aircraft_type(code)
+        if aircraft_type is None:
+            raise Problem(f"Type d'appareil inconnu : {code or '(vide)'}")
+        if not aircraft_type["engines"]:
+            if aircraft_type["category"] == "simulator":
+                raise Skip()                    # a simulator has no engine filter to match
+            raise Problem(f"Nombre de moteurs non renseigné pour le type : {code}")
+        if aircraft_type["engines"] != engine:
             raise Skip()
     value = block_to_decimal(parse_block(row.get(i["time"])), p.get("rounding", "tc"), settings["tc_rounding"]["rules"])
     if value is None:

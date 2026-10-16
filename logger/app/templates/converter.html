@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">Nouvelle règle</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a>{% endif %}</div></div>
+<div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">Nouvelle règle</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Types d'appareils</a>{% endif %}</div></div>
 <p class="muted">Règles qui transforment user.db en logbook.db. Coche celles que tu veux appliquer, puis clique sur Actualiser dans logbook.db. Pour une même colonne de logbook.db, la première règle cochée qui donne une valeur l'emporte.</p>
 <form method="post" action="{{url_for('converter.select')}}">
 {% for group, items in groups.items() %}

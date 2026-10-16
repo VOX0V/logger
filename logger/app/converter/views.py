@@ -1,11 +1,12 @@
 """The "Convertisseur" tab: rule catalog (admins edit, everyone ticks their own
 rules), converter settings, and the shared airport / aircraft reference data."""
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
 
 from ..auth import login_required, admin_required
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
-                       list_aircrafts, get_aircraft, save_aircraft, delete_aircraft, ENGINES)
+                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
+    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, export_aircraft_types_xlsx, export_airports_xlsx)
 from . import catalog
 from .transforms import TRANSFORMS
 
@@ -169,30 +170,49 @@ def airport_delete(airport_id):
 @converter_bp.route("/aircrafts")
 @admin_required
 def aircrafts():
-    return render_template("aircrafts.html", aircrafts=list_aircrafts())
+    return render_template("aircrafts.html", aircrafts=list_aircraft_types(), category_labels=dict(CATEGORIES),
+                           engine_labels=ENGINE_LABELS, engine_type_labels=dict(ENGINE_TYPES))
 
 
 @converter_bp.route("/aircrafts/new", methods=["GET", "POST"])
 @converter_bp.route("/aircrafts/<int:aircraft_id>/edit", methods=["GET", "POST"])
 @admin_required
 def aircraft_form(aircraft_id=None):
-    aircraft = get_aircraft(aircraft_id) if aircraft_id else None
+    aircraft = get_aircraft_type(aircraft_id) if aircraft_id else None
     if aircraft_id and not aircraft:
-        flash("Avion introuvable."); return redirect(url_for("converter.aircrafts"))
+        flash("Type introuvable."); return redirect(url_for("converter.aircrafts"))
     if request.method == "POST":
         try:
-            save_aircraft(aircraft_id, request.form)
-            flash("Avion enregistré.")
+            save_aircraft_type(aircraft_id, request.form)
+            flash("Type enregistré.")
             return redirect(url_for("converter.aircrafts"))
         except ValueError as exc:
             flash(str(exc))
-    return render_template("aircraft_form.html", aircraft=aircraft, engines=ENGINES,
+    return render_template("aircraft_form.html", aircraft=aircraft, engines=ENGINES, categories=CATEGORIES,
+                           engine_types=ENGINE_TYPES, engine_labels=ENGINE_LABELS,
                            form=request.form if request.method == "POST" else None)
 
 
 @converter_bp.route("/aircrafts/<int:aircraft_id>/delete", methods=["POST"])
 @admin_required
 def aircraft_delete(aircraft_id):
-    delete_aircraft(aircraft_id)
-    flash("Avion supprimé.")
+    delete_aircraft_type(aircraft_id)
+    flash("Type supprimé.")
     return redirect(url_for("converter.aircrafts"))
+
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@converter_bp.route("/aircrafts/export")
+@admin_required
+def aircrafts_export():
+    return Response(export_aircraft_types_xlsx(), mimetype=XLSX,
+                    headers={"Content-Disposition": 'attachment; filename="types_appareils.xlsx"'})
+
+
+@converter_bp.route("/airports/export")
+@admin_required
+def airports_export():
+    return Response(export_airports_xlsx(), mimetype=XLSX,
+                    headers={"Content-Disposition": 'attachment; filename="aeroports.xlsx"'})

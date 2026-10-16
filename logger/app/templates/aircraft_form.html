@@ -1,9 +1,12 @@
 {% extends "base.html" %}{% block content %}
 {% set v = form if form else aircraft %}
-<h2>{{'Modifier' if aircraft else 'Nouvel'}} avion</h2>
+<h2>{{'Modifier' if aircraft else 'Nouveau'}} type d'appareil</h2>
 <form class="card" method="post"><div class="grid">
-<div class="field"><label>Immatriculation</label><input name="registration" value="{{v.registration if v and v.registration is not none else ''}}" required></div>
-<div class="field"><label>Type</label><input name="type" value="{{v.type if v and v.type is not none else ''}}"></div>
-<div class="field"><label>Moteur</label><select name="engine"><option value="">-- non renseigné --</option>{% for e in engines %}<option value="{{e}}" {% if v and v.engine==e %}selected{% endif %}>{{'monomoteur' if e=='single' else 'multimoteur'}}</option>{% endfor %}</select></div>
-</div><div class="field"><label>Notes</label><input name="notes" value="{{v.notes if v and v.notes is not none else ''}}"></div>
-<p><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Annuler</a></p></form>{% endblock %}
+<div class="field"><label>Code du type (comme dans le logbook, ex. RH44)</label><input name="code" value="{{v.code if v and v.code is not none else ''}}" required></div>
+<div class="field"><label>Marque</label><input name="make" value="{{v.make if v and v.make is not none else ''}}"></div>
+<div class="field"><label>Modèle</label><input name="model" value="{{v.model if v and v.model is not none else ''}}"></div>
+<div class="field"><label>Catégorie</label><select name="category"><option value="">-- non renseignée --</option>{% for c, l in categories %}<option value="{{c}}" {% if v and v.category==c %}selected{% endif %}>{{l}}</option>{% endfor %}</select></div>
+<div class="field"><label>Moteurs</label><select name="engines"><option value="">-- non renseigné --</option>{% for e in engines %}<option value="{{e}}" {% if v and v.engines==e %}selected{% endif %}>{{engine_labels[e]}}</option>{% endfor %}</select></div>
+<div class="field"><label>Type de moteur</label><select name="engine_type"><option value="">-- non renseigné --</option>{% for c, l in engine_types %}<option value="{{c}}" {% if v and v.engine_type==c %}selected{% endif %}>{{l}}</option>{% endfor %}</select></div>
+<div class="field"><label>Notes</label><input name="notes" value="{{v.notes if v and v.notes is not none else ''}}"></div>
+</div><p><button class="btn">Enregistrer</button> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Annuler</a></p></form>{% endblock %}
