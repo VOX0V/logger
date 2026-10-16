@@ -281,11 +281,16 @@ def crew_from_list(row, rule, settings):
         raise Problem("Nom de famille du pilote non renseigné (page Mon compte) : liste d'équipage non lue")
     crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
     captain, copilot = "NAME", f"{pilot[0].upper()}.{pilot.capitalize()}"
+    found = False
     for role, last, first in CREW_PATTERN.findall(crew):
         if role == "CA":
             captain = _person(first, last)
         elif pilot.upper() in last:
-            copilot = _person(first, last)
+            copilot, found = _person(first, last), True
+    if not found:   # listed as "?? FIRSTNAME FAMILYNAME" (no role, no comma): take the initial from the first name
+        m = re.search(rf"([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+)\s+{re.escape(pilot.upper())}\b", crew)
+        if m and m.group(1) not in ("CA", "FO", "CP", "SO", "PU", "FA"):
+            copilot = _person(m.group(1), pilot)
     o = rule["outputs"]
     return {o["captain"]: captain, o["copilot"]: copilot}
 
@@ -306,12 +311,12 @@ def skip_zero_block(row, rule, settings):
 
 def skip_not_flying(row, rule, settings):
     """Leave out deadhead / training lines (deadhead column filled) and flights whose crew list
-    does not contain the user's family name."""
+    does not contain the user's family name anywhere (whatever the role or the name format)."""
     if not blank(row.get(rule["inputs"]["deadhead"])):
         raise SkipRow()
     pilot = str(settings.get("pilot_name") or "").strip().upper()
     crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
-    if pilot and crew and not any(pilot in last for _role, last, _first in CREW_PATTERN.findall(crew)):
+    if pilot and crew and not re.search(rf"\b{re.escape(pilot)}\b", crew):
         raise SkipRow()
     return {}
 
