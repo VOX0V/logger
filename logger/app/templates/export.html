@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Export vers ton logbook Excel</h2>
+<div class="card"><p class="muted">Envoie ton logbook Excel actuel : l'app y ajoute les vols de ta base de logbook qui n'y sont pas encore, dans les lignes de vol vides de chaque onglet d'année. Les lignes déjà remplies, les formules, les totaux et la mise en forme ne sont jamais modifiés ; les calculs restent faits par Excel à l'ouverture. Ton fichier d'origine n'est pas touché : tu télécharges une copie mise à jour. La copie est supprimée du serveur après le téléchargement (au plus tard au bout d'une heure) et ton fichier envoyé n'est pas conservé.</p>
+<form method="post" enctype="multipart/form-data"><div class="grid"><div class="field"><label>Logbook Excel (.xlsx)</label><input type="file" name="logbook" accept=".xlsx" required></div></div>
+<p><button class="btn">Mettre à jour</button> <a class="btn secondary" href="{{url_for('main.logbook')}}">Retour au logbook</a></p></form></div>
+{% if report %}
+<div class="card"><h3>Résultat : {{report.added_total}} vol(s) ajouté(s)</h3>
+<p><a class="btn" href="{{url_for('export.download', token=token, name=filename)}}">Télécharger {{filename}}</a></p>
+<table style="width:100%;font-size:14px"><tr><th style="text-align:left">Onglet</th><th style="text-align:right">Vols dans la base</th><th style="text-align:right">Déjà dans l'Excel</th><th style="text-align:right">Ajoutés</th><th style="text-align:right">Sans emplacement</th><th style="text-align:right">Hors ordre</th><th style="text-align:right">Lignes Excel absentes de la base</th></tr>
+{% for s in report.sheets %}<tr><td>{{s.sheet}}</td><td style="text-align:right">{{s.in_db}}</td><td style="text-align:right">{{s.present}}</td><td style="text-align:right">{{s.added}}</td><td style="text-align:right">{{s.no_slot}}</td><td style="text-align:right">{{s.out_of_order}}</td><td style="text-align:right">{{s.not_in_db}}</td></tr>{% endfor %}</table>
+<p class="muted">« Sans emplacement » : plus de ligne libre dans l'onglet (ajoute une page dans Excel puis relance). « Hors ordre » : vols ajoutés dont la date précède la dernière ligne déjà remplie de l'onglet. « Lignes Excel absentes de la base » : lignes de ton Excel qui n'ont pas d'équivalent dans la base (laissées telles quelles).</p>
+{% if report.no_sheet %}<p>Années sans onglet dans ton fichier (vols non écrits) : {% for y, n in report.no_sheet.items() %}{{y}} ({{n}}){% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+{% if report.invalid_dates %}<p>{{report.invalid_dates}} ligne(s) de la base sans date valide ont été ignorées.</p>{% endif %}
+{% for s in report.sheets if s.samples %}<details><summary>Premiers vols ajoutés — {{s.sheet}}</summary><ul>{% for x in s.samples %}<li>{{x}}</li>{% endfor %}</ul></details>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}
