@@ -34,16 +34,26 @@ def drop_unused_logbook_columns(conn, config, username=None):
 
 
 def import_rows(source, rows, config, username=None):
+    """Merge `rows` into the raw database: never replaces or deletes anything (see merge.py)."""
+    from .merge import merge_context, plan_merge
     conn = connect(username)
     sync_user_columns(conn, config)
     drop_unused_columns(conn, config)
     cols = [safe_identifier(c["column"]) for c in configurable_columns(config)]
-    conn.execute("DELETE FROM users WHERE import_source=?", (source,))
-    if rows and cols:
-        sql = f'INSERT INTO users (import_source,{",".join(chr(34) + c + chr(34) for c in cols)}) VALUES (?,{",".join("?" for _ in cols)})'
-        for row in rows:
+    quoted = ",".join(chr(34) + c + chr(34) for c in cols)
+    cursor = conn.execute(f"SELECT id,{quoted} FROM users ORDER BY id") if cols else None
+    names = [d[0] for d in cursor.description] if cursor else []
+    existing = [dict(zip(names, row)) for row in cursor.fetchall()] if cursor else []
+    inserts, updates, stats = plan_merge(existing, rows, cols, merge_context())
+    for row_id, changes in updates:
+        sets = ",".join(f'"{c}"=?' for c in changes)
+        conn.execute(f"UPDATE users SET {sets}, updated_at=CURRENT_TIMESTAMP WHERE id=?", list(changes.values()) + [row_id])
+    if inserts and cols:
+        sql = f'INSERT INTO users (import_source,{quoted}) VALUES (?,{",".join("?" for _ in cols)})'
+        for row in inserts:
             conn.execute(sql, [source] + [row.get(c) for c in cols])
     conn.commit(); conn.close()
+    return stats
 
 
 def list_users(config, username=None):

@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for, send_file
 from .auth import login_required
 from .importer import importable_rows
+from .merge import read_logbook_workbook
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       load_logbook_layout, save_logbook_layout,
@@ -323,7 +324,13 @@ def import_files():
         total=0
         for file in files:
             try:
-                rows,matched=importable_rows(file.filename,file.read(),categories); import_rows(file.filename,rows,config); total+=len(rows); flash(f"{file.filename}: {len(rows)} ligne(s) importée(s), {matched} colonne(s) reconnue(s).")
+                data=file.read(); rows=read_logbook_workbook(file.filename,data)
+                if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
+                else: rows,matched=importable_rows(file.filename,data,categories)
+                stats=import_rows(file.filename,rows,config); total+=len(rows)
+                flash(f"{file.filename}: {stats['read']} ligne(s) lue(s), {matched} colonne(s) reconnue(s) — {stats['added']} vol(s) ajouté(s), {stats['completed']} vol(s) complété(s) ({sum(stats['filled'].values())} champ(s) rempli(s)), {stats['unchanged']} inchangé(s), {stats['disagreements']} désaccord(s).")
+                if stats["filled"]: flash("Champs complétés : "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
+                for d,c,old,new in stats["samples"][:3]: flash(f"Désaccord (valeur de la base conservée) — {d}, {c} : base « {old} », fichier « {new} ».")
             except Exception as exc: flash(f"{file.filename}: import impossible — {exc}")
-        flash(f"Import terminé: {total} ligne(s)."); return redirect(url_for("main.index"))
+        flash(f"Import terminé: {total} ligne(s) lue(s)."); return redirect(url_for("main.index"))
     return render_template("import.html",categories=categories)
