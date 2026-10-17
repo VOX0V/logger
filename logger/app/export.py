@@ -12,6 +12,7 @@ from pathlib import Path
 
 from flask import Blueprint, after_this_request, flash, g, redirect, render_template, request, send_file, url_for
 from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
 
 from .auth import login_required
 from .db import logbook_connect, user_file
@@ -58,6 +59,11 @@ def flight_rows(ws):
     return rows
 
 
+def row_is_writable(ws, r):
+    """False when a cell we would write to is the hidden part of a merged range (read-only in openpyxl)."""
+    return not any(isinstance(ws.cell(r, c), MergedCell) for c in INPUT_COLUMNS)
+
+
 def line_is_empty(ws, r):
     return all(ws.cell(r, c).value in (None, "") for c in INPUT_COLUMNS)
 
@@ -94,7 +100,8 @@ def update_workbook(wb, rows):
         if not re.fullmatch(r"\d{4}", ws.title):
             continue
         year = int(ws.title)
-        slots = flight_rows(ws)
+        all_slots = flight_rows(ws)
+        slots = [r for r in all_slots if row_is_writable(ws, r)]      # lines with merged cells are left alone
         existing, last_date = Counter(), None
         for r in slots:
             if not line_is_empty(ws, r):
@@ -126,7 +133,7 @@ def update_workbook(wb, rows):
                 if value is not None:
                     ws.cell(r, c).value = value
         report["sheets"].append({
-            "sheet": ws.title, "slots": len(slots), "filled": filled, "in_db": len(by_year.get(year, [])),
+            "sheet": ws.title, "slots": len(slots), "merged_skipped": len(all_slots) - len(slots), "filled": filled, "in_db": len(by_year.get(year, [])),
             "present": present, "added": len(added), "no_slot": len(pending) - len(added),
             "out_of_order": sum(1 for f in added if last_date and f["_date"] < last_date),
             "not_in_db": sum(v for v in existing.values() if v > 0),
