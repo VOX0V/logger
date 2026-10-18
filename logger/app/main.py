@@ -2,7 +2,7 @@ import re
 import io
 import zipfile
 from datetime import datetime
-from flask import Blueprint, flash, redirect, render_template, request, url_for, send_file
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for, send_file
 from .auth import login_required
 from .importer import importable_rows
 from .merge import read_logbook_workbook
@@ -13,6 +13,7 @@ from .config import (load_config, save_config, configurable_columns, load_logboo
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
 from .models import import_rows, drop_unused_columns
 from .gridview import grid_data, grid_export
+from .logbook_pdf import build_logbook_pdf
 
 main_bp = Blueprint("main", __name__)
 
@@ -172,9 +173,8 @@ def export_logbook_data():
     stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
     return send_file(buf,mimetype="application/zip",as_attachment=True,download_name=f"{username}_donnees_converties_{stamp}.zip")
 
-@main_bp.route("/logbook")
-@login_required
-def logbook():
+def _logbook_context():
+    """Données du logbook (toutes les années) partagées par l'affichage et l'export PDF."""
     rows=list_logbook_rows()
     layout=load_logbook_layout()
     dbcols=logbook_columns(load_config())
@@ -189,9 +189,6 @@ def logbook():
         y=str(item.get("year") or "Sans date")
         by_year.setdefault(y,[]).append(item)
     years=sorted(by_year,key=lambda v:(v.isdigit(),v))   # croissant ; "Sans date" en premier (à gauche)
-    requested=request.args.get("year","")
-    current=str(datetime.now().year)
-    active_year=requested if requested in years else (current if current in years else (years[-1] if years else ""))
     year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
     numeric_keys=[c["key"] for c in columns if c["numeric"]]
     label_key=next((c["key"] for c in columns if c["key"]=="remarks"),columns[-1]["key"] if columns else "id")
@@ -206,8 +203,33 @@ def logbook():
         year_page_offset[y]=pages_before; pages_before+=len(year_pages[y])
     engine_keys=[c["key"] for c in columns if c["numeric"] and c.get("group") in ("single_engine","multi_engine")]
     year_grand={y:_grand_totals(year_summaries[y],engine_keys) for y in years}
+    return dict(layout=layout,columns=columns,years=years,year_pages=year_pages,year_summaries=year_summaries,year_grand=year_grand,year_page_offset=year_page_offset)
+
+@main_bp.route("/logbook")
+@login_required
+def logbook():
+    ctx=_logbook_context(); years=ctx["years"]
+    requested=request.args.get("year","")
+    current=str(datetime.now().year)
+    active_year=requested if requested in years else (current if current in years else (years[-1] if years else ""))
     only=lambda d:{active_year:d[active_year]} if active_year in d else {}   # on n'envoie au navigateur que l'année affichée
-    return render_template("logbook.html",layout=layout,columns=columns,years=years,year_pages=only(year_pages),year_summaries=only(year_summaries),year_grand=only(year_grand),active_year=active_year,year_page_offset=year_page_offset)
+    return render_template("logbook.html",layout=ctx["layout"],columns=ctx["columns"],years=years,year_pages=only(ctx["year_pages"]),year_summaries=only(ctx["year_summaries"]),year_grand=only(ctx["year_grand"]),active_year=active_year,year_page_offset=ctx["year_page_offset"])
+
+@main_bp.route("/logbook/pdf")
+@login_required
+def logbook_pdf():
+    """Export PDF : une année (?year=2019) ou toutes (?year=all). Réglages : section pdf: du layout YAML."""
+    ctx=_logbook_context(); requested=request.args.get("year","")
+    years=ctx["years"] if requested=="all" else ([requested] if requested in ctx["years"] else [])
+    if not years:
+        flash("Aucune donnée à exporter pour cette année."); return redirect(url_for("main.logbook"))
+    user=g.user
+    email=(user["email"] if hasattr(user,"keys") and "email" in user.keys() else getattr(user,"email","")) if user else ""
+    try: pdf=build_logbook_pdf(ctx,years,email or "")
+    except ValueError as exc:
+        flash(str(exc)); return redirect(url_for("main.logbook"))
+    name=f"{current_username()}_logbook_{'toutes-annees' if requested=='all' else requested}.pdf"
+    return send_file(io.BytesIO(pdf),mimetype="application/pdf",as_attachment=True,download_name=name)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required

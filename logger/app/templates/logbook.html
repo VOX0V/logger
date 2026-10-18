@@ -28,6 +28,7 @@
 @media print{.hbar{display:none!important}.page-head,.year-tabs,.flash,.btn{display:none!important}.year-panel{display:block!important}.logbook-wrap{overflow:visible}.logbook-page{margin:0;page-break-after:always}.logbook-table{min-width:0;width:100%}}
 </style>
 <div class="year-tabs">{% for y in years %}<a class="year-tab{% if y==active_year %} active{% endif %}" data-year="{{y}}" href="{{url_for('main.logbook', year=y)}}">{{y}}</a>{% endfor %}</div>
+{% if years %}<p><a class="btn secondary" href="{{url_for('main.logbook_pdf', year=active_year)}}">PDF {{active_year}}</a> <a class="btn secondary" href="{{url_for('main.logbook_pdf', year='all')}}">PDF toutes les années</a></p>{% endif %}
 <script>
 const yearPages = {{ year_pages|tojson }};
 const yearSummaries = {{ year_summaries|tojson }};

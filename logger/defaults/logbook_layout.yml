@@ -9,6 +9,49 @@ header_heights:
 - 16.95
 - 16.95
 - 16.95
+pdf:
+  page_width_u: 1100      # unité : 1 u = 0,01 po -> Letter paysage 11 x 8,5 po
+  page_height_u: 850
+  row_height_u: 22        # hauteur de TOUTES les lignes (en-têtes, vols, totaux, pied) ; 37 lignes = 814
+  offset_top_u: 0         # décalage du tableau depuis le haut (0 : l'imprimante gère les marges)
+  blank_first_page: true  # page 1 vierge pour que les pages 2 et 3 se retrouvent face à face
+  # Largeurs en unités ENTIÈRES. Chaque feuille doit totaliser exactement page_width_u (gouttière incluse).
+  left_columns_u:         # feuille gauche : 14 colonnes (A à N) + gouttière à droite
+    - {key: A, u: 38}
+    - {key: B, u: 76}
+    - {key: C, u: 76}
+    - {key: D, u: 49}
+    - {key: E, u: 68}
+    - {key: F, u: 76}
+    - {key: G, u: 59}
+    - {key: H, u: 76}
+    - {key: I, u: 76}
+    - {key: J, u: 159}
+    - {key: K, u: 44}
+    - {key: L, u: 76}
+    - {key: M, u: 76}
+    - {key: N, u: 76}
+    - {key: gutter, u: 75}
+  right_columns_u:        # feuille droite : gouttière à gauche + 18 colonnes (O à AF)
+    - {key: gutter, u: 75}
+    - {key: O, u: 35}
+    - {key: P, u: 59}
+    - {key: Q, u: 59}
+    - {key: R, u: 59}
+    - {key: S, u: 59}
+    - {key: T, u: 58}
+    - {key: U, u: 58}
+    - {key: V, u: 58}
+    - {key: W, u: 58}
+    - {key: X, u: 58}
+    - {key: Y, u: 58}
+    - {key: Z, u: 58}
+    - {key: AA, u: 58}
+    - {key: AB, u: 58}
+    - {key: AC, u: 58}
+    - {key: AD, u: 58}
+    - {key: AE, u: 58}
+    - {key: AF, u: 58}
 styles:
   font_family: Arial
   font_size: 10
