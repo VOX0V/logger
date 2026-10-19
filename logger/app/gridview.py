@@ -9,6 +9,7 @@ from flask import request, jsonify, send_file
 from openpyxl import Workbook
 
 from .db import safe_identifier
+from .uploads import neutralize_formula
 
 
 def _sql(col, expressions):
@@ -73,14 +74,14 @@ def grid_export(conn, table, columns, labels, fmt, filename, expressions=None):
         writer = csv.writer(buf)
         writer.writerow(labels)
         for r in rows:
-            writer.writerow([r[c] for c in columns])
+            writer.writerow([neutralize_formula(r[c]) for c in columns])
         data = buf.getvalue().encode("utf-8-sig")
         return send_file(io.BytesIO(data), mimetype="text/csv", as_attachment=True, download_name=f"{filename}.csv")
     if fmt == "xlsx":
         wb = Workbook(); ws = wb.active
         ws.append(list(labels))
         for r in rows:
-            ws.append([r[c] for c in columns])
+            ws.append([neutralize_formula(r[c]) for c in columns])
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")

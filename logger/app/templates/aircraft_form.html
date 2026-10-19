@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block content %}
 {% set v = form if form else aircraft %}
 <h2>{{'Modifier' if aircraft else 'Nouveau'}} type d'appareil</h2>
-<form class="card" method="post"><div class="grid">
+<form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
 <div class="field"><label>Code du type (comme dans le logbook, ex. RH44)</label><input name="code" value="{{v.code if v and v.code is not none else ''}}" required></div>
 <div class="field"><label>Marque</label><input name="make" value="{{v.make if v and v.make is not none else ''}}"></div>
 <div class="field"><label>Modèle</label><input name="model" value="{{v.model if v and v.model is not none else ''}}"></div>

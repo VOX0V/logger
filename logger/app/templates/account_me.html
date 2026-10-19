@@ -5,20 +5,21 @@
 <div class="card"><p><strong>{{g.username}}</strong> — {{'administrateur' if g.role=='admin' else 'utilisateur'}}</p>
 <p><a class="btn secondary" href="{{url_for('main.export_user_data')}}">Exporter (sauvegarde du dossier utilisateur)</a></p></div>
 <div class="card"><h3>Adresse e-mail</h3><p class="muted">Adresse du propriétaire du logbook, imprimée en bas de chaque page du Logbook.</p>
-<form method="post"><input type="hidden" name="action" value="email"><div class="grid">
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="email"><div class="grid">
 <div class="field"><label>E-mail</label><input type="email" name="email" value="{{g.user.email or ''}}" autocomplete="email" placeholder="prenom.nom@exemple.com"></div>
 </div><button class="btn">Enregistrer</button></form></div>
 <div class="card"><h3>Identité de pilote</h3><p class="muted">Le nom de famille sert au convertisseur à te retrouver dans la liste d'équipage (indique seulement le nom). Le prénom et le numéro d'employé apparaissent dans l'en-tête des rapports PDF.</p>
-<form method="post"><input type="hidden" name="action" value="pilot"><div class="grid">
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="pilot"><div class="grid">
 <div class="field"><label>Nom de famille</label><input type="text" name="pilot_name" maxlength="60" value="{{profile.pilot_name}}"></div>
 <div class="field"><label>Prénom</label><input type="text" name="first_name" maxlength="60" value="{{profile.first_name}}"></div>
 <div class="field"><label>Numéro d'employé</label><input type="text" name="employee_number" maxlength="20" value="{{profile.employee_number}}"></div>
 </div><button class="btn">Enregistrer</button></form></div>
-<div class="card"><h3>Changer le mot de passe</h3><form method="post"><div class="grid">
-<div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required></div>
-<div class="field"><label>Nouveau mot de passe</label><input type="password" name="new_password" required></div>
+<div class="card"><h3>Changer le mot de passe</h3><p class="muted">15 caractères minimum : une phrase de passe convient très bien. Les autres sessions seront déconnectées.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
+<div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required autocomplete="current-password"></div>
+<div class="field"><label>Nouveau mot de passe</label><input type="password" name="new_password" required autocomplete="new-password" minlength="15"></div>
 <div class="field"><label>Confirmer</label><input type="password" name="confirm_password" required></div>
 </div><button class="btn">Enregistrer</button></form></div>
+<div class="card"><h3>Sessions</h3><form method="post" action="{{url_for('accounts.revoke_my_sessions')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" data-confirm="Déconnecter toutes tes sessions, y compris celle-ci ?">Déconnecter toutes mes sessions</button></form></div>
 {% if g.role=='admin' %}<div class="card"><h3>Administration</h3>
 <p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Gérer les comptes</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
 {% endblock %}

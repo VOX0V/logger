@@ -4,6 +4,8 @@ import re
 from datetime import date, datetime, time
 from openpyxl import load_workbook
 
+from .uploads import check_xlsx
+
 
 class FileImportError(Exception):
     pass
@@ -45,6 +47,10 @@ def _select_sheet(workbook, sheet_name=None):
 def _read_table(filename, file_bytes, sheet_name=None):
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext in ("xlsx", "xlsm"):
+        try:
+            check_xlsx(file_bytes)
+        except ValueError as exc:
+            raise FileImportError(str(exc)) from exc
         try:
             workbook = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
             sheet = _select_sheet(workbook, sheet_name)

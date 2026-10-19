@@ -1,0 +1,98 @@
+import re
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app import create_app  # noqa: E402
+
+STRONG_SECRET = "0f9c1e7b52d84a36b8e1c07d93a45f6e1b2c3d4e5f60718293a4b5c6d7e8f901"
+ADMIN_PW = "correct horse battery staple 42"
+USER_PW = "another sturdy passphrase 77"
+REFERER = {"Referer": "https://localhost/"}
+
+
+class Web:
+    """Client de test qui gère le jeton CSRF et le Referer exigé par Flask-WTF en HTTPS."""
+
+    def __init__(self, app):
+        self.app, self.c = app, app.test_client()
+
+    def get(self, url, **kw):
+        kw.setdefault("headers", {}).update(REFERER)
+        return self.c.get(url, **kw)
+
+    def token(self):
+        r = self.c.get("/login", headers=REFERER)
+        if r.status_code in (301, 302):
+            r = self.c.get("/accounts/me", headers=REFERER)
+        found = re.search(r'name="csrf-token" content="([^"]+)"', r.get_data(as_text=True))
+        assert found, f"pas de jeton CSRF dans la réponse ({r.status_code})"
+        return found.group(1)
+
+    def post(self, url, data=None, csrf=True, headers=None, **kw):
+        data = dict(data or {})
+        if csrf:
+            data["csrf_token"] = self.token()
+        merged = {**REFERER, **(headers or {})}
+        return self.c.post(url, data=data, headers=merged, **kw)
+
+    def login(self, username="admin", password=ADMIN_PW, **kw):
+        return self.post("/login", {"username": username, "password": password}, **kw)
+
+
+@pytest.fixture
+def make_app(tmp_path):
+    count = [0]
+
+    def _make(**overrides):
+        count[0] += 1
+        base = tmp_path / f"inst{count[0]}"
+        conf = dict(APPDATA_DIR=str(base / "appdata"), USERS_DIR=str(base / "users"), SECRET_KEY=STRONG_SECRET,
+                    ADMIN_USERNAME="admin", ADMIN_PASSWORD=ADMIN_PW, PREFERRED_URL_SCHEME="https")
+        conf.update(overrides)
+        return create_app(conf)
+    return _make
+
+
+@pytest.fixture
+def app(make_app):
+    return make_app()
+
+
+@pytest.fixture
+def web(app):
+    return Web(app)
+
+
+@pytest.fixture
+def admin(app):
+    w = Web(app)
+    assert w.login().status_code == 302
+    return w
+
+
+@pytest.fixture
+def make_user(app, admin):
+    """Crée un compte (par l'API interne) et renvoie un client connecté avec ce compte."""
+    def _make(username="alice", password=USER_PW, role="user", must_change=False):
+        from app.accounts import create_account
+        with app.app_context():
+            create_account(username, password, role, must_change=must_change)
+        w = Web(app)
+        assert w.login(username, password).status_code == 302
+        return w
+    return _make
+
+
+def error_text(response):
+    found = re.search(r"<p>(Identifiants[^<]*)</p>", response.get_data(as_text=True))
+    return found.group(1) if found else None
+
+
+def events(app, event=None):
+    from app.seclog import list_events
+    with app.app_context():
+        return [dict(r) for r in list_events(1000, event)]

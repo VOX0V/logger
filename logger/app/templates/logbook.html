@@ -29,7 +29,7 @@
 </style>
 <div class="year-tabs">{% for y in years %}<a class="year-tab{% if y==active_year %} active{% endif %}" data-year="{{y}}" href="{{url_for('main.logbook', year=y)}}">{{y}}</a>{% endfor %}</div>
 {% if years %}<p><a class="btn secondary" href="{{url_for('main.logbook_pdf', year=active_year)}}">PDF {{active_year}}</a> <a class="btn secondary" href="{{url_for('main.logbook_pdf', year='all')}}">PDF toutes les années</a></p>{% endif %}
-<script>
+<script nonce="{{ csp_nonce }}">
 const yearPages = {{ year_pages|tojson }};
 const yearSummaries = {{ year_summaries|tojson }};
 const logbookColumns = {{ columns|tojson }};
@@ -144,12 +144,12 @@ const formatHours = (value) => { const [i, d] = Math.abs(Number(value || 0)).toF
 </div>
 {% else %}<div class="card"><p class="muted">Aucune donnée. Actualise depuis Données converties.</p></div>
 {% endfor %}
-<script>
+<script nonce="{{ csp_nonce }}">
 async function saveCell(cell){
   let value=cell.textContent.trim();
   if(cell.dataset.numeric){const n=parseHours(value); if(n!==null){cell.textContent=formatHours(n); value=n.toFixed(1);}}
   const data=new URLSearchParams({row_id:cell.dataset.rowId,column:cell.dataset.column,value:value});
-  const r=await fetch("{{url_for('main.edit_logbook_cell')}}",{method:"POST",body:data});
+  const r=await fetch("{{url_for('main.edit_logbook_cell')}}",{method:"POST",headers:{"X-CSRFToken":document.querySelector('meta[name=csrf-token]').content},body:data});
   if(!r.ok) throw new Error();
 }
 (function(){

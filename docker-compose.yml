@@ -7,10 +7,20 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      # Par défaut : joignable uniquement depuis cette machine. Place un reverse proxy HTTPS devant (voir README),
+      # ou mets LOGGER_BIND=0.0.0.0 en connaissance de cause (alors COOKIE_SECURE=0 si tu restes en HTTP).
+      - "${LOGGER_BIND:-127.0.0.1}:${LOGGER_PORT:-8000}:8000"
     volumes:
       - logger_appdata:/app/appdata
       - logger_users:/app/users
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:            # strictement ceux de l'entrypoint : réparer la propriété du volume puis abandonner root
+      - CHOWN
+      - SETUID
+      - SETGID
 volumes:
   logger_appdata:
   logger_users:

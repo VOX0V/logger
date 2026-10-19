@@ -2,7 +2,7 @@
 {% block content %}
 <h2>Export vers ton logbook Excel</h2>
 <div class="card"><p class="muted">Envoie ton logbook Excel actuel : l'app y ajoute les vols de ta base de logbook qui n'y sont pas encore, dans les lignes de vol vides de chaque onglet d'année. Les lignes déjà remplies, les formules, les totaux et la mise en forme ne sont jamais modifiés ; les calculs restent faits par Excel à l'ouverture. Ton fichier d'origine n'est pas touché : tu télécharges une copie mise à jour. La copie est supprimée du serveur après le téléchargement (au plus tard au bout d'une heure) et ton fichier envoyé n'est pas conservé.</p>
-<form method="post" enctype="multipart/form-data"><div class="grid"><div class="field"><label>Logbook Excel (.xlsx)</label><input type="file" name="logbook" accept=".xlsx" required></div></div>
+<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid"><div class="field"><label>Logbook Excel (.xlsx)</label><input type="file" name="logbook" accept=".xlsx" required></div></div>
 <p><button class="btn">Mettre à jour</button> <a class="btn secondary" href="{{url_for('main.logbook')}}">Retour au logbook</a></p></form></div>
 {% if report %}
 <div class="card"><h3>Résultat : {{report.added_total}} vol(s) ajouté(s)</h3>

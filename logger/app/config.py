@@ -1,6 +1,8 @@
 """Per-user YAML configuration: <user>_data.yml, <user>_logbook.yml, <user>_layout.yml."""
+import copy
 import yaml
 from .db import user_file, safe_identifier
+from .cssafe import sanitize_layout
 
 SYSTEM_COLUMNS = [
     {"column": "id", "display_name": "ID", "position": 0, "group": "system", "data_type": "integer", "nullable": False, "visible": False, "editable": False, "primary_key": True},
@@ -183,7 +185,7 @@ def load_logbook_layout(username=None):
     cfg["styles"] = {**DEFAULT_LOGBOOK_LAYOUT["styles"], **(raw or {}).get("styles", {})}
     cfg["columns"] = (raw or {}).get("columns", DEFAULT_LOGBOOK_LAYOUT["columns"])
     cfg["physical_columns"] = (raw or {}).get("physical_columns", DEFAULT_LOGBOOK_LAYOUT["physical_columns"])
-    return cfg
+    return sanitize_layout(copy.deepcopy(cfg))      # valeurs CSS/numériques invalides -> valeurs par défaut
 
 
 def save_logbook_layout(data, username=None):

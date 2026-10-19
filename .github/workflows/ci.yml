@@ -8,14 +8,37 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: vox0v/logger
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: logger/requirements-dev.txt
+      - run: pip install -r logger/requirements-dev.txt
+      - name: Tests de sécurité et de non-régression
+        working-directory: logger
+        run: python -m pytest -q
+      - name: Audit des dépendances (vulnérabilités connues)
+        run: pip-audit -r logger/requirements.txt --strict
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v6
+      - id: version
+        run: echo "value=$(cat logger/VERSION)" >> "$GITHUB_OUTPUT"
+      # La publication n'a lieu que sur un push vers main (jamais depuis une pull request).
       - uses: docker/login-action@v3
+        if: github.event_name == 'push'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -26,11 +49,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.value }}
             type=sha
       - uses: docker/build-push-action@v6
         with:
           context: ./logger
           file: ./logger/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

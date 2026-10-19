@@ -15,6 +15,9 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 
 from .auth import login_required
+from .errors import safe_message
+from .seclog import log_event
+from .uploads import check_xlsx
 from .db import logbook_connect, user_file
 
 export_bp = Blueprint("export", __name__, url_prefix="/export")
@@ -128,6 +131,8 @@ def update_workbook(wb, rows):
                 text = str(f.get(column) or "").strip()
                 if text:
                     ws.cell(r, c).value = text
+                    if text.startswith(("=", "+", "-", "@")):
+                        ws.cell(r, c).data_type = "s"      # jamais interprété comme une formule
             for column, c in TIME_COLUMNS.items():
                 value = number(f.get(column))
                 if value is not None:
@@ -179,12 +184,13 @@ def index():
     try:
         if source.stat().st_size > MAX_UPLOAD:
             raise ValueError("Fichier trop volumineux (25 Mo maximum).")
+        check_xlsx(source)
         wb = load_workbook(source)
         report = update_workbook(wb, _load_rows())
         token = secrets.token_urlsafe(16)
         wb.save(folder / f"{token}.xlsx")
     except Exception as exc:                        # unreadable or unexpected workbook
-        flash(f"Impossible de traiter ce fichier : {exc}")
+        flash(f"Impossible de traiter ce fichier : {safe_message(exc)}")
         return redirect(url_for("export.index"))
     finally:
         source.unlink(missing_ok=True)              # the uploaded copy is never kept
@@ -204,6 +210,9 @@ def download(token):
     def cleanup(response):
         path.unlink(missing_ok=True)                # the copy is removed once downloaded
         return response
-    name = request.args.get("name") or "logbook - mis à jour.xlsx"
+    name = re.sub(r"[^\w\-. ]+", "", request.args.get("name") or "")[:100] or "logbook - mis à jour.xlsx"
+    if not name.lower().endswith(".xlsx"):
+        name += ".xlsx"
+    log_event("data_export", target="logbook-excel-mis-a-jour")
     return send_file(path, as_attachment=True, download_name=name,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

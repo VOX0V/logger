@@ -183,6 +183,8 @@ def read_logbook_workbook(filename, data):
     if not filename.lower().endswith((".xlsx", ".xlsm")):
         return None
     from .export import COL_DAY, COL_MONTH, TEXT_COLUMNS, TIME_COLUMNS, flight_rows, line_is_empty
+    from .uploads import check_xlsx
+    check_xlsx(data)                 # ValueError remontée à l'appelant : archive suspecte ou illisible
     try:
         wb = load_workbook(io.BytesIO(data), data_only=True)
     except Exception:

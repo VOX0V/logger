@@ -13,7 +13,7 @@
   <div class="card">
     <h3>{{label}} <span class="muted" style="font-weight:400">— {{filename}}</span></h3>
     {% if error %}<div class="cfg-error"><strong>Non enregistré.</strong> {{error}}</div>{% endif %}
-    <form method="post" id="cfgform"><input type="hidden" name="file" value="{{key}}">
+    <form method="post" id="cfgform"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="file" value="{{key}}">
       <textarea name="content" id="cfgtext" spellcheck="false" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>{{content}}</textarea>
       <p><button class="btn" name="action" value="save" id="cfgsave">Enregistrer</button>
          <button class="btn secondary" name="action" value="validate">Vérifier sans enregistrer</button>
@@ -22,7 +22,7 @@
     </form>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce }}">
 const ta=document.getElementById('cfgtext');
 ta.addEventListener('keydown',e=>{
   if(e.key==='Tab'){e.preventDefault();const s=ta.selectionStart;ta.setRangeText('  ',s,ta.selectionEnd,'end');}

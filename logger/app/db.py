@@ -10,7 +10,9 @@ from it without circular imports.
 """
 import contextlib
 import re
+import shutil
 import sqlite3
+import time
 from pathlib import Path
 from flask import current_app, g
 
@@ -66,7 +68,7 @@ def converter_dir():
 
 
 def _open(path):
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -122,3 +124,22 @@ def logbook_db_path(username=None):
 
 def connect(username=None): return _open(db_path(username))
 def logbook_connect(username=None): return _open(logbook_db_path(username))
+
+
+def archive_user_dir(username):
+    """Met de côté (sans l'effacer) le dossier de données d'un compte supprimé ou orphelin.
+
+    Un nouveau compte portant le même nom ne doit jamais hériter des anciennes données. Le dossier est
+    déplacé dans users/.deleted/<nom>_<horodatage>/ (le point initial le rend impossible à confondre
+    avec un nom d'utilisateur valide). À purger manuellement quand les données ne sont plus nécessaires.
+    """
+    if not valid_username(username):
+        return None
+    source = users_root() / username
+    if not source.exists():
+        return None
+    target_root = users_root() / ".deleted"
+    target_root.mkdir(parents=True, exist_ok=True)
+    target = target_root / f"{username}_{int(time.time())}"
+    shutil.move(str(source), str(target))
+    return target

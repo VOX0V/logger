@@ -2,7 +2,8 @@
 rules), converter settings, and the shared airport / aircraft reference data."""
 from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
 
-from ..auth import login_required, admin_required
+from ..auth import login_required, admin_required, fresh_login_required
+from ..seclog import log_event
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
                        list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
@@ -62,6 +63,7 @@ def save_settings_route():
         current = catalog.load_settings()
         catalog.save_settings({**current, "night": {"after_sunset_minutes": after, "before_sunrise_minutes": before},
                                "tc_rounding": {"comment": current["tc_rounding"].get("comment", ""), "rules": rules}})
+        log_event("config_change", target="converter:reglages")
         flash("Réglages du convertisseur enregistrés.")
     except ValueError as exc:
         flash(f"Réglages non enregistrés — {exc}")
@@ -97,6 +99,7 @@ def rule_new():
             rule_id = catalog.rule_id_from_name(request.form.get("name", ""), {r["id"] for r in rules})
             rules.append(catalog.build_rule(request.form, transform, rule_id))
             catalog.save_rules(rules)
+            log_event("config_change", target=f"converter:regle-ajoutee:{rule_id}")
             flash("Règle ajoutée au catalogue.")
             return redirect(url_for("converter.index"))
         except ValueError as exc:
@@ -115,6 +118,7 @@ def rule_edit(rule_id):
         try:
             updated = catalog.build_rule(request.form, rule["transform"], rule_id)
             catalog.save_rules([updated if r["id"] == rule_id else r for r in rules])
+            log_event("config_change", target=f"converter:regle-modifiee:{rule_id}")
             flash("Règle modifiée.")
             return redirect(url_for("converter.index"))
         except ValueError as exc:
@@ -125,9 +129,11 @@ def rule_edit(rule_id):
 
 @converter_bp.route("/rule/<rule_id>/delete", methods=["POST"])
 @admin_required
+@fresh_login_required
 def rule_delete(rule_id):
     rules = catalog.load_rules()
     catalog.save_rules([r for r in rules if r["id"] != rule_id])
+    log_event("data_destroy", target=f"converter:regle-supprimee:{rule_id}")
     flash("Règle supprimée du catalogue (elle est aussi décochée chez tous les comptes).")
     return redirect(url_for("converter.index"))
 
@@ -161,6 +167,7 @@ def airport_form(airport_id=None):
 @admin_required
 def airport_delete(airport_id):
     delete_airport(airport_id)
+    log_event("data_destroy", target=f"aeroport:{airport_id}")
     flash("Aéroport supprimé.")
     return redirect(url_for("converter.airports"))
 
@@ -197,6 +204,7 @@ def aircraft_form(aircraft_id=None):
 @admin_required
 def aircraft_delete(aircraft_id):
     delete_aircraft_type(aircraft_id)
+    log_event("data_destroy", target=f"avion:{aircraft_id}")
     flash("Type supprimé.")
     return redirect(url_for("converter.aircrafts"))
 

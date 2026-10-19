@@ -12,6 +12,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from . import config as C
 from .auth import login_required
 from .db import current_username
+from .seclog import log_event
+from . import cssafe
 from .models import init_user_db
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
@@ -36,6 +38,9 @@ def parse(text):
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise Problem("Fichier trop volumineux (256 Ko maximum).")
     try:
+        for event in yaml.parse(text, Loader=yaml.SafeLoader):      # ancres/alias interdits : bombes d'expansion (« billion laughs »)
+            if isinstance(event, yaml.AliasEvent) or getattr(event, "anchor", None):
+                raise Problem("Les ancres et alias YAML (&nom, *nom) ne sont pas autorisés.")
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
@@ -77,6 +82,9 @@ def check_logbook(data): check_structure(data, C._norm_lb)
 
 
 def check_layout(data):
+    problems = cssafe.layout_problems(data)
+    if problems:
+        raise Problem(" ".join(problems))
     if "rows_per_page" in data:
         _number(data["rows_per_page"], "rows_per_page", 1)
     if "row_height" in data:
@@ -182,6 +190,7 @@ def editor():
                 os.replace(tmp, path)
                 if key in ("data", "logbook"):
                     init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
+                log_event("config_change", target=f"yaml:{key}")
                 flash("Fichier enregistré. L'ancienne version est gardée (bouton « Restaurer »).")
                 return redirect(url_for("yamledit.editor", file=key))
     return render_template("config_editor.html", files=FILES, key=key, label=label, content=content, error=error,
