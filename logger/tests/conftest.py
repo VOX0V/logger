@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from flask.testing import FlaskClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -96,3 +97,28 @@ def events(app, event=None):
     from app.seclog import list_events
     with app.app_context():
         return [dict(r) for r in list_events(1000, event)]
+
+
+class CsrfClient(FlaskClient):
+    """Client de test Flask qui ajoute le jeton CSRF et le Referer à chaque mutation, comme le ferait un navigateur.
+
+    Sert aux tests fonctionnels écrits avant le durcissement (test_app.py) : ils décrivent le comportement de
+    l'application, pas le CSRF, qui est testé à part (test_csrf_authz.py). Passer ``no_csrf=True`` pour l'omettre."""
+
+    def _token(self):
+        response = super().open("/login", method="GET", headers=REFERER)
+        if response.status_code in (301, 302):
+            response = super().open("/accounts/me", method="GET", headers=REFERER)
+        found = re.search(r'name="csrf-token" content="([^"]+)"', response.get_data(as_text=True))
+        return found.group(1) if found else None
+
+    def open(self, *args, **kwargs):
+        skip = kwargs.pop("no_csrf", False)
+        if not skip and str(kwargs.get("method", "GET")).upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers = dict(kwargs.get("headers") or {})
+            token = self._token()
+            if token:
+                headers.setdefault("X-CSRFToken", token)
+            headers.setdefault("Referer", REFERER["Referer"])
+            kwargs["headers"] = headers
+        return super().open(*args, **kwargs)

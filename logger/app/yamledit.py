@@ -82,9 +82,6 @@ def check_logbook(data): check_structure(data, C._norm_lb)
 
 
 def check_layout(data):
-    problems = cssafe.layout_problems(data)
-    if problems:
-        raise Problem(" ".join(problems))
     if "rows_per_page" in data:
         _number(data["rows_per_page"], "rows_per_page", 1)
     if "row_height" in data:
@@ -112,6 +109,9 @@ def check_layout(data):
     for i, b in enumerate(styles.get("data_blocks", []), 1):
         if not isinstance(b, dict) or not isinstance(b.get("color"), str) or isinstance(b.get("rows"), bool) or not isinstance(b.get("rows"), int):
             raise Problem(f"styles.data_blocks n°{i} : il faut « rows » (entier) et « color » (ex. '#f1dddd').")
+    problems = cssafe.layout_problems(data)          # sécurité : après les contrôles d'origine, pour garder leurs messages
+    if problems:
+        raise Problem(" ".join(problems))
 
 
 def check_view(data):

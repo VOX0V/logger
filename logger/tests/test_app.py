@@ -6,18 +6,25 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 from app import create_app
+from conftest import CsrfClient
+
+# Identifiants de test : conformes à la politique de sécurité (l'application refuse « test » / « admin » au démarrage).
+TEST_SECRET = "0f9c1e7b52d84a36b8e1c07d93a45f6e1b2c3d4e5f60718293a4b5c6d7e8f901"
+ADMIN_PW = "correct horse battery staple 42"
+USER_PW = "a long enough test passphrase 1"
+
+
+def _env_without_secrets():
+    """Environnement pour les sous-processus : sans SECRET_KEY/ADMIN_* hérités du poste ou de la CI."""
+    import os
+    return {k: v for k, v in os.environ.items() if k not in ("SECRET_KEY", "ADMIN_USERNAME", "ADMIN_PASSWORD")}
 
 
 @pytest.fixture()
-def app():
-    import os
-    os.environ["APPDATA_DIR"] = tempfile.mkdtemp()
-    os.environ["USERS_DIR"] = tempfile.mkdtemp()
-    os.environ["SECRET_KEY"] = "test"
-    os.environ["ADMIN_USERNAME"] = "admin"
-    os.environ["ADMIN_PASSWORD"] = "admin"
-    app = create_app()
-    app.config.update(TESTING=True)
+def app(tmp_path):
+    app = create_app({"APPDATA_DIR": str(tmp_path / "appdata"), "USERS_DIR": str(tmp_path / "users"), "SECRET_KEY": TEST_SECRET,
+                      "ADMIN_USERNAME": "admin", "ADMIN_PASSWORD": ADMIN_PW, "PREFERRED_URL_SCHEME": "https", "TESTING": True})
+    app.test_client_class = CsrfClient
     return app
 
 
@@ -25,7 +32,7 @@ def app():
 def client(app): return app.test_client()
 
 
-def login(client, username="admin", password="admin"):
+def login(client, username="admin", password=ADMIN_PW):
     return client.post('/login', data={'username': username, 'password': password}, follow_redirects=True)
 
 
@@ -64,7 +71,8 @@ def test_import_and_refresh_logbook(client, app):
         from app.converter import list_logbook_rows
         rows = list_logbook_rows(username="admin")
     row = rows[0]
-    assert row['date'] == '2026-09-27'; assert row['registration'] == 'C-AAA'; assert row['departure'] == 'YUL'; assert row['arrival'] == 'YYZ'
+    assert row['date'] == '2026-09-27'; assert row['registration'] == 'C-AAA'
+    assert row['departure'] == 'CYUL' and row['arrival'] == 'CYYZ'      # IATA -> ICAO (règles departure_icao / arrival_icao, cochées par défaut)
 
 
 def test_logbook_cell_edit(client, app):
@@ -100,18 +108,18 @@ def test_logbook_settings_are_separate(client, app):
 def test_non_admin_cannot_manage_accounts(client, app):
     with app.app_context():
         from app.accounts import create_account
-        create_account("pilot1", "pilot1pass", role="user")
-    login(client, "pilot1", "pilot1pass")
+        create_account("pilot1", USER_PW, role="user")
+    login(client, "pilot1", USER_PW)
     r = client.get('/accounts', follow_redirects=True)
     assert 'Nouveau compte' not in r.get_data(as_text=True)
 
 
 def test_admin_can_create_account_and_data_is_isolated(client, app):
     login(client)
-    r = client.post('/accounts/new', data={'username': 'pilot2', 'password': 'pilot2pass', 'role': 'user'}, follow_redirects=True)
+    r = client.post('/accounts/new', data={'username': 'pilot2', 'password': USER_PW, 'role': 'user'}, follow_redirects=True)
     assert r.status_code == 200
-    client.get('/logout')
-    login(client, 'pilot2', 'pilot2pass')
+    client.post('/logout')
+    login(client, 'pilot2', USER_PW)
     r = client.get('/', follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
@@ -120,6 +128,13 @@ def test_admin_can_create_account_and_data_is_isolated(client, app):
 
 
 # ---------------- convertisseur ----------------
+
+def _aircraft_type(app, code, engines):
+    """Crée un type d'appareil de test. Le filtre moteur des règles jour/nuit lit le type (colonne « type »), plus l'immatriculation."""
+    with app.app_context():
+        from app.refdata import save_aircraft_type
+        save_aircraft_type(None, {"code": code, "category": "airplane", "engines": engines})
+
 
 def _import_flight(client, **cols):
     headers = list(cols.keys()); values = list(cols.values())
@@ -176,10 +191,10 @@ def test_tc_rounding():
 def test_refresh_with_day_night_rule(client, app):
     login(client)
     with app.app_context():
-        from app.refdata import save_aircraft
-        save_aircraft(None, {"registration": "C-GABC", "type": "C172", "engine": "single"})
-    _import_flight(client, year=2024, month=10, day=11, reg='C-GABC', arr='YUL', block='01:23:00', fcv_on_millis_utc=1728680385000)
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+        pass
+    _aircraft_type(app, 'TST1', 'single')
+    _import_flight(client, year=2024, month=10, day=11, reg='C-GABC', type='TST1', arr='YUL', block='01:23:00', fcv_on_millis_utc=1728680385000)
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
     r = client.post('/logbook/refresh', follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
@@ -192,19 +207,23 @@ def test_refresh_with_day_night_rule(client, app):
 
 
 def test_refresh_warns_on_unknown_airport_and_aircraft(client, app):
+    import html
     login(client)
-    _import_flight(client, year=2024, month=10, day=11, reg='C-XXXX', arr='ZZZ', block='01:00:00', fcv_on_millis_utc=1728680385000)
+    _aircraft_type(app, 'TST1', 'single')
+    _import_flight(client, year=2024, month=10, day=11, reg='C-XXXX', type='ZZ99', arr='YUL', block='01:00:00', fcv_on_millis_utc=1728680385000)   # type inconnu
+    _import_flight(client, year=2024, month=10, day=12, reg='C-XXXX', type='TST1', arr='ZZZ', block='01:00:00', fcv_on_millis_utc=1728680385000)   # aéroport inconnu
     client.post('/converter/select', data={'enabled': ['daynight_single_pic']})
-    r = client.post('/logbook/refresh', follow_redirects=True)
-    assert 'Avion inconnu : C-XXXX' in r.get_data(as_text=True)
+    page = html.unescape(client.post('/logbook/refresh', follow_redirects=True).get_data(as_text=True))
+    assert "Type d'appareil inconnu : ZZ99" in page
+    assert 'Aéroport inconnu : ZZZ' in page
 
 
 def test_engine_filter_skips_other_engine(client, app):
     login(client)
     with app.app_context():
-        from app.refdata import save_aircraft
-        save_aircraft(None, {"registration": "C-FMUL", "engine": "multi"})
-    _import_flight(client, year=2024, month=10, day=11, reg='C-FMUL', arr='YUL', block='02:00:00', fcv_on_millis_utc=1728680385000)
+        pass
+    _aircraft_type(app, 'TST2', 'multi')
+    _import_flight(client, year=2024, month=10, day=11, reg='C-FMUL', type='TST2', arr='YUL', block='02:00:00', fcv_on_millis_utc=1728680385000)
     client.post('/converter/select', data={'enabled': ['daynight_single_pic', 'daynight_multi_pic']})
     client.post('/logbook/refresh')
     with app.app_context():
@@ -227,12 +246,12 @@ def test_first_rule_wins_for_same_column(client, app):
 def test_only_admin_edits_catalog_and_users_tick_their_own(client, app):
     with app.app_context():
         from app.accounts import create_account
-        create_account("pilot3", "pilot3pass", role="user")
-    login(client, "pilot3", "pilot3pass")
+        create_account("pilot3", USER_PW, role="user")
+    login(client, "pilot3", USER_PW)
     assert client.get('/converter').status_code == 200
     r = client.get('/converter/rule/new', follow_redirects=True)
     assert 'Nouvelle règle' not in r.get_data(as_text=True) or 'Type de transformation' not in r.get_data(as_text=True)
-    assert client.post('/converter/rule/copy_remarks/delete').status_code == 302
+    assert client.post('/converter/rule/copy_remarks/delete').status_code == 403   # non-admin : refusé (avant la 0.2.0 : redirection 302)
     from app.converter.catalog import load_rules
     with app.app_context():
         assert any(r['id'] == 'copy_remarks' for r in load_rules())   # rien supprimé
@@ -271,25 +290,25 @@ def test_admin_settings_and_reference_pages(client, app):
     assert 'non enregistrés' in r.get_data(as_text=True)
     for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
-    r = client.post('/converter/aircrafts/new', data={'registration': 'c-gzzz', 'engine': 'single'}, follow_redirects=True)
-    assert 'C-GZZZ' in r.get_data(as_text=True)
+    r = client.post('/converter/aircrafts/new', data={'code': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
+    assert 'ZZ99' in r.get_data(as_text=True)          # la page liste désormais des TYPES d'appareils (code en majuscules)
 
 
 def test_new_account_gets_default_rules_selected(client, app):
     login(client)
-    client.post('/accounts/new', data={'username': 'pilot4', 'password': 'pilot4pass', 'role': 'user'})
+    client.post('/accounts/new', data={'username': 'pilot4', 'password': USER_PW, 'role': 'user'})
     with app.app_context():
         from app.converter.catalog import load_selection
         sel = load_selection(username="pilot4")
-    assert 'date_from_parts' in sel and 'copy_registration' in sel
+    assert 'date_from_parts' in sel and 'registration_format' in sel
     assert 'daynight_single_pic' not in sel
 
 
 def test_concurrent_startup_is_safe(tmp_path):
     """gunicorn boots several workers at once on a fresh install: they must not race."""
     import os, subprocess, sys
-    env = {**os.environ, "APPDATA_DIR": str(tmp_path / "appdata"), "USERS_DIR": str(tmp_path / "users"),
-           "PYTHONPATH": str(Path(__file__).parent.parent), "ADMIN_USERNAME": "admin", "ADMIN_PASSWORD": "admin"}
+    env = {**_env_without_secrets(), "APPDATA_DIR": str(tmp_path / "appdata"), "USERS_DIR": str(tmp_path / "users"),
+           "PYTHONPATH": str(Path(__file__).parent.parent), "ADMIN_USERNAME": "admin", "ADMIN_PASSWORD": ADMIN_PW}
     procs = [subprocess.Popen([sys.executable, "-c", "from app import create_app; create_app()"], env=env,
                               cwd=str(Path(__file__).parent.parent), stderr=subprocess.PIPE) for _ in range(6)]
     for proc in procs:
@@ -344,7 +363,7 @@ def test_grid_rejects_unknown_columns_without_crashing(client, app):
 def test_logbook_db_grid_matches_converted_data(client, app):
     login(client)
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
     client.post('/logbook/refresh')
     r = client.get('/logbook-db/rows')
     assert r.get_json()['data'][0]['registration'] == 'C-GABC'
@@ -373,7 +392,7 @@ def test_logbook_page_matches_template_structure(client, app):
     le modèle) est retirée. Remarks est une colonne unique et large (fusion J:K)."""
     login(client)
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
     client.post('/logbook/refresh')
     r = client.get('/logbook')
     assert r.status_code == 200
@@ -410,7 +429,7 @@ def test_logbook_page_uses_manual_pagination_not_table_wide_calc(client, app):
         ws.append([2024, 1, (i % 28) + 1, 'C-GABC', '01:00:00'])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     assert "pagination: true" not in body and "pagination:true" not in body
@@ -422,14 +441,14 @@ def test_logbook_page_uses_manual_pagination_not_table_wide_calc(client, app):
 def test_logbook_page_totals_forwarded_and_to_date(client, app):
     login(client)
     with app.app_context():
-        from app.refdata import save_aircraft
-        save_aircraft(None, {"registration": "C-GABC", "engine": "single"})
-    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg', 'arr', 'block', 'fcv_on_millis_utc'])
+        pass
+    _aircraft_type(app, 'TST1', 'single')
+    wb = Workbook(); ws = wb.active; ws.append(['year', 'month', 'day', 'reg', 'type', 'arr', 'block', 'fcv_on_millis_utc'])
     for i in range(35):
-        ws.append([2024, 1, (i % 28) + 1, 'C-GABC', 'YUL', '00:20:00', 1728680385000])
+        ws.append([2024, 1, (i % 28) + 1, 'C-GABC', 'TST1', 'YUL', '00:20:00', 1728680385000])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration', 'daynight_single_pic']})
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     summaries = json.loads(re.search(r'const yearSummaries = (\{.*?\});', body).group(1))["2024"]
@@ -475,7 +494,7 @@ def test_logbook_table_is_30_rows_one_decimal_and_editable(client, app):
     ws.append([2014, 3, 10, 'RH44', 'C-FARY', 'V.Fuzeau', 0.2, None])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_aircraft_type', 'copy_registration',
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_aircraft_type', 'registration_format',
                 'copy_pilot_in_command', 'copy_single_engine_pic_day', 'copy_single_engine_dual_day']})
     client.post('/logbook/refresh')
     rows = _logbook_html_rows(client.get('/logbook').get_data(as_text=True))
@@ -574,7 +593,7 @@ def test_year_tabs_ascending_with_most_recent_active_and_no_big_title(client, ap
 def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     login(client)
     header = re.search(r'<header>.*?</header>', client.get('/data').get_data(as_text=True), re.S).group(0)
-    assert header.index('v1.') < header.index('class="header-btn"') < header.index('<nav>')        # bouton juste à droite de la version
+    assert header.index('v' + app.config['APP_VERSION']) < header.index('class="header-btn"') < header.index('<nav>')        # bouton juste à droite de la version
     assert header.count('>Logbook<') == 1
     for gone in ('Données brutes', 'Convertisseur', 'Données converties'):
         assert gone not in header                                                                  # retirés de la barre du haut
@@ -612,7 +631,7 @@ def test_home_opens_logbook_on_current_year_else_most_recent(client, app):
     _logbook_with_years(client, [2014, now])                          # un vol cette année : c'est elle qui s'ouvre
     body = client.get('/', follow_redirects=True).get_data(as_text=True)
     assert re.search(rf'class="year-tab active" data-year="{now}"', body)
-    assert client.post('/login', data={'username': 'admin', 'password': 'admin'}).headers['Location'].endswith('/')   # après connexion -> accueil
+    assert client.post('/login', data={'username': 'admin', 'password': ADMIN_PW}).headers['Location'].endswith('/')   # après connexion -> accueil
     assert client.get('/data').status_code == 200                      # Données brutes, ailleurs
 
 
@@ -673,7 +692,7 @@ def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, ap
     client.post('/accounts/me', data={'action': 'email', 'email': ''})   # vider l'adresse l'efface
     assert 'pilote@example.com' not in client.get('/logbook').get_data(as_text=True)
     # le mot de passe se change toujours avec l'ancien formulaire (sans champ "action")
-    r = client.post('/accounts/me', data={'current_password': 'admin', 'new_password': 'x1', 'confirm_password': 'x1'}, follow_redirects=True)
+    r = client.post('/accounts/me', data={'current_password': ADMIN_PW, 'new_password': 'x1 is now a much longer passphrase', 'confirm_password': 'x1 is now a much longer passphrase'}, follow_redirects=True)
     assert 'Mot de passe modifié' in r.get_data(as_text=True)
 
 
@@ -683,7 +702,7 @@ def test_accounts_db_without_email_column_is_migrated(tmp_path):
     conn = sqlite3.connect(appdata / "db" / "users.db")           # base d'avant cette version : pas de colonne email
     conn.execute("CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
     conn.execute("INSERT INTO accounts (username, password_hash, role) VALUES ('voxov', 'x', 'admin')"); conn.commit(); conn.close()
-    env = {**os.environ, "APPDATA_DIR": str(appdata), "USERS_DIR": str(tmp_path / "users"), "PYTHONPATH": str(Path(__file__).parent.parent)}
+    env = {**_env_without_secrets(), "APPDATA_DIR": str(appdata), "USERS_DIR": str(tmp_path / "users"), "PYTHONPATH": str(Path(__file__).parent.parent)}
     subprocess.run([sys.executable, "-c", "from app import create_app; create_app()"], env=env, check=True, cwd=str(Path(__file__).parent.parent))
     cols = [r[1] for r in sqlite3.connect(appdata / "db" / "users.db").execute("PRAGMA table_info(accounts)")]
     assert "email" in cols
@@ -721,7 +740,7 @@ def test_converted_data_splits_date_and_is_editable(client, app):
     for y, m, d, r in ((2014, 1, 5, 'C-AAA'), (2014, 3, 9, 'C-BBB'), (2015, 3, 12, 'C-CCC')): ws.append([y, m, d, r])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_registration']})
+    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
     client.post('/logbook/refresh')
     rows = client.get('/logbook-db/rows').get_json()['data']
     assert [(r['year'], r['month'], r['day']) for r in rows] == [('2014', '01', '05'), ('2014', '03', '09'), ('2015', '03', '12')]
@@ -742,7 +761,7 @@ def test_converted_data_splits_date_and_is_editable(client, app):
     # une colonne ordinaire s'édite aussi, et la page l'annonce (éditeur + avertissement avant Actualiser)
     assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'registration', 'value': 'C-ZZZ'}).status_code == 204
     page = client.get('/logbook-db').get_data(as_text=True)
-    assert 'editor: "input"' in page and 'confirm(' in page and 'efface les modifications' in page
+    assert 'editor: "input"' in page and 'data-confirm=' in page and 'efface les modifications' in page   # confirmation via data-confirm (static/app.js), plus de confirm() inline : CSP
 
 
 def test_yaml_editor_lists_files_and_rejects_unknown_ones(client, app):
@@ -807,8 +826,8 @@ def test_yaml_editor_checks_layout_and_view_files_and_keeps_each_user_apart(clie
     # un autre compte ne voit que ses propres fichiers
     with app.app_context():
         from app.accounts import create_account
-        create_account("pilot9", "pilot9pass", role="user")
-    client.get('/logout'); login(client, 'pilot9', 'pilot9pass')
+        create_account("pilot9", USER_PW, role="user")
+    client.post('/logout'); login(client, 'pilot9', USER_PW)
     other = client.get('/config?file=layout').get_data(as_text=True)
     assert 'pilot9_layout.yml' in other and 'row_height: 20' not in other
 

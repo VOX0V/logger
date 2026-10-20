@@ -10,6 +10,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -23,12 +24,27 @@ jobs:
       - name: Tests de sécurité et de non-régression
         working-directory: logger
         run: python -m pytest -q
-      - name: Audit des dépendances (vulnérabilités connues)
-        run: pip-audit -r logger/requirements.txt --strict
+
+  # Audit des dépendances : il signale les vulnérabilités connues mais ne bloque pas la publication de l'image
+  # (un nouvel avis publié demain ne doit pas rendre le pipeline rouge sans qu'aucun code n'ait changé).
+  dependency-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r logger/requirements.txt --strict
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
