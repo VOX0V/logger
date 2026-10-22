@@ -86,28 +86,20 @@ def check_logbook(data): check_structure(data, C._norm_lb)
 def check_layout(data):
     if "rows_per_page" in data:
         _number(data["rows_per_page"], "rows_per_page", 1)
-    if "row_height" in data:
-        _number(data["row_height"], "row_height", 1)
-    if "gap_widths" in data:
-        gw = data["gap_widths"]
-        if not isinstance(gw, list) or len(gw) != 2:
-            raise Problem("gap_widths doit contenir exactement 2 largeurs (les deux colonnes vides).")
-        for w in gw: _number(w, "gap_widths", 0)
-    for name in ("columns", "physical_columns"):
-        if name in data:
-            items = data[name]
-            if not isinstance(items, list) or not all(isinstance(x, dict) for x in items):
-                raise Problem(f"« {name} » doit être une liste de blocs clé: valeur.")
-    for i, col in enumerate(data.get("physical_columns", []), 1):
-        if "width" not in col: raise Problem(f"physical_columns n°{i} : « width » manquant.")
-        _number(col["width"], f"physical_columns n°{i} : width", 0)
+    if "row_height_u" in data:
+        _number(data["row_height_u"], "row_height_u", 5)
+    if "columns" in data:
+        items = data["columns"]
+        if not isinstance(items, list) or not all(isinstance(x, dict) for x in items):
+            raise Problem("« columns » doit être une liste de blocs clé: valeur.")
+    for i, col in enumerate(data.get("columns", []), 1):
+        if "width" in col: _number(col["width"], f"columns n°{i} : width", 0)
     for i, col in enumerate(data.get("columns", []), 1):
         if not isinstance(col.get("key"), str) or not col["key"]:
             raise Problem(f"columns n°{i} : « key » manquant.")
     styles = data.get("styles", {})
     if not isinstance(styles, dict):
         raise Problem("« styles » doit être un bloc clé: valeur.")
-    if "width_scale" in styles: _number(styles["width_scale"], "styles.width_scale", 0.1)
     for i, b in enumerate(styles.get("data_blocks", []), 1):
         if not isinstance(b, dict) or not isinstance(b.get("color"), str) or isinstance(b.get("rows"), bool) or not isinstance(b.get("rows"), int):
             raise Problem(f"styles.data_blocks n°{i} : il faut « rows » (entier) et « color » (ex. '#f1dddd').")

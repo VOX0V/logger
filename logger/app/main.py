@@ -270,7 +270,7 @@ def save_logbook_settings():
     layout=load_logbook_layout()
     try:
         layout["rows_per_page"]=max(1,int(request.form.get("rows_per_page",30)))
-        layout["row_height"]=float(request.form.get("row_height",16.95))
+        layout["row_height_u"]=int(float(request.form.get("row_height_u",layout.get("row_height_u",22))))
         layout["styles"]["font_family"]=request.form.get("font_family","Arial")
         layout["styles"]["font_size"]=int(request.form.get("font_size",10))
         layout["styles"]["header_font_size"]=int(request.form.get("header_font_size",9))
@@ -279,11 +279,8 @@ def save_logbook_settings():
         layout["styles"]["border"]=request.form.get("border",layout["styles"].get("border","1px solid #000000"))
         layout["styles"]["text_align"]=request.form.get("text_align",layout["styles"].get("text_align","center"))
         layout["styles"]["vertical_align"]=request.form.get("vertical_align",layout["styles"].get("vertical_align","middle"))
-        heights=[]
-        for i in range(4): heights.append(float(request.form.get(f"header_height_{i}",layout.get("header_heights",[16.95]*4)[i])))
-        layout["header_heights"]=heights
         for c in layout["columns"]:
-            c["width"]=float(request.form.get("width_"+c["key"],c.get("width",13)))
+            c["width"]=int(float(request.form.get("width_"+c["key"],c.get("width",51))))
         problems=cssafe.layout_problems(layout)
         if problems: raise ValueError(" ".join(problems))
         save_logbook_layout(layout); log_event("config_change", target="layout:logbook"); flash("Configuration d'affichage du logbook enregistrée.")

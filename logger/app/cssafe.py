@@ -13,7 +13,7 @@ ALIGN = {"left", "center", "right"}
 VALIGN = {"top", "middle", "bottom"}
 DEFAULT_STYLES = {"font_family": "Arial", "font_size": 10, "header_font_size": 9, "border": "1px solid #000000",
                   "header_background": "#ffffff", "total_background": "#eeeeee", "text_align": "center",
-                  "vertical_align": "middle", "width_scale": 4.7}
+                  "vertical_align": "middle"}
 
 
 def _num(value, lo, hi):
@@ -30,7 +30,6 @@ def style_problems(styles):
     checks = {
         "font_family": lambda v: isinstance(v, str) and FONT.match(v),
         "font_size": lambda v: _num(v, 4, 40) is not None, "header_font_size": lambda v: _num(v, 4, 40) is not None,
-        "width_scale": lambda v: _num(v, 0.1, 20) is not None,
         "border": lambda v: isinstance(v, str) and BORDER.match(v),
         "header_background": lambda v: isinstance(v, str) and HEX.match(v),
         "total_background": lambda v: isinstance(v, str) and HEX.match(v),
@@ -48,16 +47,12 @@ def style_problems(styles):
 
 def layout_problems(layout):
     out = style_problems(layout.get("styles", {}))
-    for key, lo, hi in (("rows_per_page", 1, 200), ("row_height", 1, 200)):
+    for key, lo, hi in (("rows_per_page", 1, 200), ("row_height_u", 5, 200)):
         if key in layout and _num(layout[key], lo, hi) is None:
             out.append(f"{key} : nombre entre {lo} et {hi} attendu.")
-    for key in ("header_heights", "gap_widths"):
-        if key in layout and not (isinstance(layout[key], list) and all(_num(v, 0, 200) is not None for v in layout[key])):
-            out.append(f"{key} : liste de nombres entre 0 et 200 attendue.")
-    for key in ("columns", "physical_columns"):
-        for i, col in enumerate(layout.get(key, []) or [], 1):
-            if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 200) is None:
-                out.append(f"{key} n°{i} : width entre 0 et 200 attendu.")
+    for i, col in enumerate(layout.get("columns", []) or [], 1):
+        if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 1100) is None:
+            out.append(f"columns n°{i} : width entre 0 et 1100 attendu.")
     return out
 
 
@@ -71,14 +66,10 @@ def sanitize_layout(cfg):
     if isinstance(blocks, list):
         styles["data_blocks"] = [b if isinstance(b, dict) and isinstance(b.get("color"), str) and HEX.match(b["color"])
                                  else {**(b if isinstance(b, dict) else {}), "color": "#ffffff"} for b in blocks]
-    for key, default in (("rows_per_page", 30), ("row_height", 16.95)):
+    for key, default in (("rows_per_page", 30), ("row_height_u", 22)):
         if _num(cfg.get(key), 1, 200) is None:
             cfg[key] = default
-    for key, default in (("header_heights", [16.95] * 4), ("gap_widths", [3.9, 4.9])):
-        if not (isinstance(cfg.get(key), list) and all(_num(v, 0, 200) is not None for v in cfg[key])):
-            cfg[key] = list(default)
-    for key in ("columns", "physical_columns"):
-        for col in cfg.get(key, []) or []:
-            if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 200) is None:
-                col["width"] = 13.0
+    for col in cfg.get("columns", []) or []:
+        if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 1100) is None:
+            col["width"] = 51
     return cfg

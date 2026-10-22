@@ -93,14 +93,14 @@ def test_logbook_cell_edit(client, app):
 def test_logbook_settings_are_separate(client, app):
     login(client)
     assert client.get('/logbook/settings').status_code == 200
-    r = client.post('/logbook/settings/save', data={'rows_per_page': '30', 'row_height': '20', 'font_family': 'Arial', 'font_size': '10', 'header_font_size': '9', 'width_date': '7'}, follow_redirects=True)
+    r = client.post('/logbook/settings/save', data={'rows_per_page': '30', 'row_height_u': '20', 'font_family': 'Arial', 'font_size': '10', 'header_font_size': '9', 'width_date': '7'}, follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
         from app.config import load_logbook_layout, load_logbook_db_config, load_config
         layout = load_logbook_layout(username="admin")
         db = load_logbook_db_config(username="admin")
         user = load_config(username="admin")
-    assert layout['rows_per_page'] == 30 and layout['row_height'] == 20
+    assert layout['rows_per_page'] == 30 and layout['row_height_u'] == 20
     assert 'columns' in db['database']
     assert 'columns' in user['database']
 
@@ -817,11 +817,10 @@ def test_yaml_editor_checks_layout_and_view_files_and_keeps_each_user_apart(clie
     layout = layout_path.read_text(encoding="utf-8")
     post = lambda key, text, action='save': client.post('/config', data={'file': key, 'content': text, 'action': action}, follow_redirects=True).get_data(as_text=True)
     assert 'rows_per_page doit être un nombre' in post('layout', layout + "\nrows_per_page: abc\n")
-    assert 'gap_widths doit contenir exactement 2' in post('layout', layout + "\ngap_widths: [1]\n")
     assert 'align doit être' in post('data_view', "columns:\n- column: year\n  align: haut\n")
     assert 'frozen doit être' in post('logbook_view', "columns:\n- column: year\n  frozen: oui\n")
-    assert 'Fichier enregistré' in post('layout', layout.replace("row_height: 16.95", "row_height: 20"))
-    assert 'row_height: 20' in layout_path.read_text(encoding="utf-8")
+    assert 'Fichier enregistré' in post('layout', layout.replace("row_height_u: 22", "row_height_u: 20"))
+    assert 'row_height_u: 20' in layout_path.read_text(encoding="utf-8")
     assert _logbook_with_years(client, [2014])                               # la page Logbook s'affiche avec le fichier modifié
     # un autre compte ne voit que ses propres fichiers
     with app.app_context():
@@ -829,7 +828,7 @@ def test_yaml_editor_checks_layout_and_view_files_and_keeps_each_user_apart(clie
         create_account("pilot9", USER_PW, role="user")
     client.post('/logout'); login(client, 'pilot9', USER_PW)
     other = client.get('/config?file=layout').get_data(as_text=True)
-    assert 'pilot9_layout.yml' in other and 'row_height: 20' not in other
+    assert 'pilot9_layout.yml' in other and 'row_height_u: 20' not in other
 
 
 def test_logbook_table_grid_is_rectangular_with_closed_frame(client, app):

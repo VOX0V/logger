@@ -16,9 +16,9 @@ PDF_DEFAULTS = {
     "row_height_u": 22,         # hauteur de TOUTES les lignes (37 lignes = 814 u)
     "offset_top_u": 0,          # décalage du tableau depuis le haut (0 : l'imprimante gère les marges)
     "blank_first_page": True,   # page 1 vierge pour que les pages 2 et 3 se retrouvent face à face
-    # largeurs entières en unités ; chaque feuille totalise page_width_u, gouttière comprise
-    "left_columns_u": [{"key": "A", "u": 38}, {"key": "B", "u": 76}, {"key": "C", "u": 76}, {"key": "D", "u": 49}, {"key": "E", "u": 68}, {"key": "F", "u": 76}, {"key": "G", "u": 59}, {"key": "H", "u": 76}, {"key": "I", "u": 76}, {"key": "J", "u": 159}, {"key": "K", "u": 44}, {"key": "L", "u": 76}, {"key": "M", "u": 76}, {"key": "N", "u": 76}, {"key": "gutter", "u": 75}],
-    "right_columns_u": [{"key": "gutter", "u": 75}, {"key": "O", "u": 35}, {"key": "P", "u": 59}, {"key": "Q", "u": 59}, {"key": "R", "u": 59}, {"key": "S", "u": 59}, {"key": "T", "u": 58}, {"key": "U", "u": 58}, {"key": "V", "u": 58}, {"key": "W", "u": 58}, {"key": "X", "u": 58}, {"key": "Y", "u": 58}, {"key": "Z", "u": 58}, {"key": "AA", "u": 58}, {"key": "AB", "u": 58}, {"key": "AC", "u": 58}, {"key": "AD", "u": 58}, {"key": "AE", "u": 58}, {"key": "AF", "u": 58}],
+    # gouttières (PDF seulement, pour percer les pages) : chaque feuille doit totaliser page_width_u, gouttière comprise
+    "gutter_left_u": 29,        # à droite de la feuille gauche
+    "gutter_right_u": 38,       # à gauche de la feuille droite
 }
 U = 0.01 * 72                   # 1 unité en points
 PX = 0.75                       # 1 px (hauteurs et polices du YAML) en points
@@ -28,8 +28,13 @@ RIGHT_GROUPS = ("multi_engine", "instruments", "cross_country", "landings", "ins
 
 
 def pdf_settings(layout):
+    layout = layout or {}
     cfg = dict(PDF_DEFAULTS)
-    cfg.update((layout or {}).get("pdf") or {})
+    cfg.update(layout.get("pdf") or {})
+    cfg["row_height_u"] = int(round(float(layout.get("row_height_u", cfg["row_height_u"]))))
+    widths = [int(round(float(c.get("width", 0)))) for c in layout.get("columns", []) if c.get("group") != "spacer"]   # mêmes largeurs que la page web
+    cfg["left_columns_u"] = [{"key": f"c{i + 1}", "u": w} for i, w in enumerate(widths[:14])] + [{"key": "gutter", "u": int(cfg["gutter_left_u"])}]
+    cfg["right_columns_u"] = [{"key": "gutter", "u": int(cfg["gutter_right_u"])}] + [{"key": f"c{i + 15}", "u": w} for i, w in enumerate(widths[14:])]
     return cfg
 
 
@@ -50,12 +55,12 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
     st = layout["styles"]
     n_rows = int(layout.get("rows_per_page", 30))
     entries = cfg["left_columns_u"] if side == "left" else cfg["right_columns_u"]
-    name = "left_columns_u" if side == "left" else "right_columns_u"
+    name = "les colonnes de gauche + gutter_left_u" if side == "left" else "les colonnes de droite + gutter_right_u"
     if sum(int(e["u"]) for e in entries) != cfg["page_width_u"]:
         raise ValueError(f"PDF : {name} totalise {sum(int(e['u']) for e in entries)} u au lieu de {cfg['page_width_u']} (gouttière comprise).")
     data = [e for e in entries if e["key"] != "gutter"]
     if len(data) != (14 if side == "left" else 18):
-        raise ValueError(f"PDF : {name} doit contenir {14 if side == 'left' else 18} colonnes de données plus la colonne gutter.")
+        raise ValueError(f"PDF : la feuille {'gauche' if side == 'left' else 'droite'} doit contenir {14 if side == 'left' else 18} colonnes de données (hors espaceurs).")
     first = next(i for i, e in enumerate(entries) if e["key"] != "gutter")
     x0 = sum(int(e["u"]) for e in entries[:first]) * U            # gouttière à gauche : la feuille droite démarre après elle
     cw = [int(e["u"]) * U for e in data]

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — largeurs et hauteurs uniques pour la page web et le PDF
+
+- **Version visible** : le numéro de version s'affiche à côté de « Logger » pour tout utilisateur connecté (plus seulement les administrateurs).
+- **Largeurs** : un seul jeu de largeurs, en unités u (1 u = 0,01 po), une valeur `width` par colonne, identique sur la page web et sur le PDF. Réglable colonne par colonne dans le YAML et dans « Réglages du logbook ».
+- **Épaisseur des lignes** : un seul réglage `row_height_u` pour toutes les lignes (web et PDF). Les hauteurs d'en-têtes séparées disparaissent.
+- **Page web** : plus de gouttières ; les deux colonnes `spacer` (5 u chacune par défaut) séparent les tableaux gauche et droit.
+- **PDF** : gouttières manuelles `pdf.gutter_left_u` et `pdf.gutter_right_u` ; chaque feuille doit totaliser `page_width_u`.
+- **Format du fichier de mise en page modifié** (non compatible avec les fichiers 0.2.x) : supprimés `gap_widths`, `row_height`, `header_heights`, `physical_columns`, `styles.width_scale`, `pdf.left_columns_u`, `pdf.right_columns_u`, `pdf.row_height_u`. Recréer le dossier de données, ou supprimer l'ancien fichier `<compte>_layout.yml`.
+
 ## 0.2.2 — correctifs d'intégrité (audit du 21 octobre 2026)
 
 - **Données** : renommer le nom affiché d'une colonne ne change plus son nom technique, et un import ne supprime plus jamais de colonne

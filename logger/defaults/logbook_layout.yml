@@ -1,57 +1,18 @@
 title: Logbook
-gap_widths:
-- 3.88671875
-- 4.88671875
 rows_per_page: 30
-row_height: 16.95
-header_heights:
-- 16.95
-- 16.95
-- 16.95
-- 16.95
+row_height_u: 22
+# Unité u : 1 u = 0,01 po (Letter paysage 11 x 8,5 po = 1100 x 850 u). Largeurs des colonnes = champ « width » de chaque colonne (en u), identiques sur la page web et le PDF.
+# row_height_u : épaisseur de TOUTES les lignes (web et PDF) ; 37 lignes x 22 u = 814 u sur le PDF.
 pdf:
-  page_width_u: 1100      # unité : 1 u = 0,01 po -> Letter paysage 11 x 8,5 po
+  page_width_u: 1100
   page_height_u: 850
-  row_height_u: 22        # hauteur de TOUTES les lignes (en-têtes, vols, totaux, pied) ; 37 lignes = 814
   offset_top_u: 0         # décalage du tableau depuis le haut (0 : l'imprimante gère les marges)
   blank_first_page: true  # page 1 vierge pour que les pages 2 et 3 se retrouvent face à face
-  # Largeurs en unités ENTIÈRES. Chaque feuille doit totaliser exactement page_width_u (gouttière incluse).
-  left_columns_u:         # feuille gauche : 14 colonnes (A à N) + gouttière à droite
-    - {key: A, u: 38}
-    - {key: B, u: 76}
-    - {key: C, u: 76}
-    - {key: D, u: 49}
-    - {key: E, u: 68}
-    - {key: F, u: 76}
-    - {key: G, u: 59}
-    - {key: H, u: 76}
-    - {key: I, u: 76}
-    - {key: J, u: 159}
-    - {key: K, u: 44}
-    - {key: L, u: 76}
-    - {key: M, u: 76}
-    - {key: N, u: 76}
-    - {key: gutter, u: 75}
-  right_columns_u:        # feuille droite : gouttière à gauche + 18 colonnes (O à AF)
-    - {key: gutter, u: 75}
-    - {key: O, u: 35}
-    - {key: P, u: 59}
-    - {key: Q, u: 59}
-    - {key: R, u: 59}
-    - {key: S, u: 59}
-    - {key: T, u: 58}
-    - {key: U, u: 58}
-    - {key: V, u: 58}
-    - {key: W, u: 58}
-    - {key: X, u: 58}
-    - {key: Y, u: 58}
-    - {key: Z, u: 58}
-    - {key: AA, u: 58}
-    - {key: AB, u: 58}
-    - {key: AC, u: 58}
-    - {key: AD, u: 58}
-    - {key: AE, u: 58}
-    - {key: AF, u: 58}
+  # Gouttières (PDF seulement, pour percer les pages) : chaque feuille doit totaliser page_width_u.
+  # feuille gauche = colonnes A à N + gutter_left_u ; feuille droite = gutter_right_u + colonnes O à AF.
+  gutter_left_u: 29
+  gutter_right_u: 38
+# Sur la page web : pas de gouttières, seulement les deux colonnes « spacer » (width en u) entre les tableaux gauche et droit.
 styles:
   font_family: Arial
   font_size: 10
@@ -61,7 +22,6 @@ styles:
   total_background: '#eeeeee'
   text_align: center
   vertical_align: middle
-  width_scale: 4.7
   alternate_white: true
   data_blocks:
   - name: block1
@@ -78,186 +38,186 @@ columns:
   label: YEAR
   db_column: date
   date_part: year
-  width: 6.55
+  width: 51
   group: date
 - key: month
   label: Month
   db_column: date
   date_part: month
-  width: 6.55
+  width: 51
   group: date
 - key: day
   label: Day
   db_column: date
   date_part: day
-  width: 6.55
+  width: 51
   group: date
 - key: type
   label: Type
   db_column: aircraft_type
-  width: 6.55
+  width: 65
   group: aircraft
 - key: registration
   label: Registr.
   db_column: registration
-  width: 8.33
+  width: 90
   group: aircraft
 - key: pilot
   label: Pilot
   db_column: pilot_in_command
-  width: 11.55
+  width: 90
   group: crew
 - key: copilot
   label: Co-Pilot
   db_column: copilot
-  width: 11.55
+  width: 77
   group: crew
 - key: departure
   label: Departure
   db_column: departure
-  width: 10
+  width: 77
   group: route
 - key: arrival
   label: Arrival
   db_column: arrival
-  width: 10
+  width: 77
   group: route
 - key: remarks
   label: Exercise, Mission, Flight Number…
   db_column: remarks
-  width: 37.11
+  width: 210
   group: remarks
 - key: se_dual_day
   label: Dual
   db_column: single_engine_dual_day
-  width: 7.53515625
+  width: 58
   group: single_engine
   subgroup: Day
 - key: se_pic_day
   label: PIC
   db_column: single_engine_pic_day
-  width: 13.0
+  width: 58
   group: single_engine
   subgroup: Day
 - key: se_dual_night
   label: Dual
   db_column: single_engine_dual_night
-  width: 13.0
+  width: 58
   group: single_engine
   subgroup: Night
 - key: se_pic_night
   label: PIC
   db_column: single_engine_pic_night
-  width: 13.0
+  width: 58
   group: single_engine
   subgroup: Night
 - key: spacer1
   label: ''
-  width: 0
+  width: 5
   group: spacer
 - key: spacer2
   label: ''
-  width: 0
+  width: 5
   group: spacer
 - key: me_dual_day
   label: Dual
   db_column: multi_engine_dual_day
-  width: 7.69140625
+  width: 59
   group: multi_engine
   subgroup: Day
 - key: me_pic_day
   label: PIC
   db_column: multi_engine_pic_day
-  width: 13.0
+  width: 59
   group: multi_engine
   subgroup: Day
 - key: me_copilot_day
   label: Co-Pilot
   db_column: multi_engine_copi_day
-  width: 13.0
+  width: 59
   group: multi_engine
   subgroup: Day
 - key: me_dual_night
   label: Dual
   db_column: multi_engine_dual_night
-  width: 13.0
+  width: 59
   group: multi_engine
   subgroup: Night
 - key: me_pic_night
   label: PIC
   db_column: multi_engine_pic_night
-  width: 13.0
+  width: 59
   group: multi_engine
   subgroup: Night
 - key: me_copilot_night
   label: Co-Pilot
   db_column: multi_engine_copi_night
-  width: 13.0
+  width: 59
   group: multi_engine
   subgroup: Night
 - key: ifr
   label: IFR
   db_column: ifr
-  width: 13.0
+  width: 59
   group: instruments
 - key: hood
   label: Hood
   db_column: hood
-  width: 13.0
+  width: 59
   group: instruments
 - key: ftd
   label: FTD
   db_column: ftd
-  width: 13.0
+  width: 59
   group: instruments
 - key: ifr_app
   label: IFR app
   db_column: ifr_approach
-  width: 13.0
+  width: 59
   group: instruments
 - key: cc_dual_day
   label: Dual
   db_column: cross_country_dual_day
-  width: 13.0
+  width: 59
   group: cross_country
   subgroup: Day
 - key: cc_pic_day
   label: PIC
   db_column: cross_country_pic_day
-  width: 13.0
+  width: 59
   group: cross_country
   subgroup: Day
 - key: cc_dual_night
   label: Dual
   db_column: cross_country_dual_night
-  width: 13.0
+  width: 59
   group: cross_country
   subgroup: Night
 - key: cc_pic_night
   label: PIC
   db_column: cross_country_pic_night
-  width: 13.0
+  width: 59
   group: cross_country
   subgroup: Night
 - key: land_day
   label: Day
   db_column: landings_day
-  width: 13.0
+  width: 59
   group: landings
 - key: land_night
   label: Night
   db_column: landings_night
-  width: 13.0
+  width: 59
   group: landings
 - key: instruction_day
   label: Day
   db_column: instruction_day
-  width: 13.0
+  width: 59
   group: instruction
 - key: instruction_night
   label: Night
   db_column: instruction_night
-  width: 13.0
+  width: 59
   group: instruction
 group_labels:
   date: YEAR
@@ -285,68 +245,3 @@ group_spans:
   cross_country: 4
   landings: 2
   instruction: 2
-physical_columns:
-- key: A
-  width: 6.53515625
-- key: B
-  width: 13.0
-- key: C
-  width: 13.0
-- key: D
-  width: 8.3046875
-- key: E
-  width: 11.53515625
-- key: F
-  width: 13.0
-- key: G
-  width: 10.0
-- key: H
-  width: 13.0
-- key: I
-  width: 13.0
-- key: J
-  width: 27.07421875
-- key: K
-  width: 7.53515625
-- key: L
-  width: 13.0
-- key: M
-  width: 13.0
-- key: N
-  width: 13.0
-- key: O
-  width: 7.69140625
-- key: P
-  width: 13.0
-- key: Q
-  width: 13.0
-- key: R
-  width: 13.0
-- key: S
-  width: 13.0
-- key: T
-  width: 13.0
-- key: U
-  width: 13.0
-- key: V
-  width: 13.0
-- key: W
-  width: 13.0
-- key: X
-  width: 13.0
-- key: Y
-  width: 13.0
-- key: Z
-  width: 13.0
-- key: AA
-  width: 13.0
-- key: AB
-  width: 13.0
-- key: AC
-  width: 13.0
-- key: AD
-  width: 13.0
-- key: AE
-  width: 13.0
-- key: AF
-  width: 13.0

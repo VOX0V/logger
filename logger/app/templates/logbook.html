@@ -5,14 +5,14 @@
 .logbook-page{margin:0 0 18px 0;background:#fff;page-break-after:always}
 .logbook-table{border-collapse:collapse;table-layout:fixed;font-family:{{ layout.styles.get('font_family','Arial') }},sans-serif;font-size:{{ layout.styles.get('font_size',10) }}px;width:max-content;min-width:100%}
 .logbook-table thead tr:first-child th:not(.gap){border-top:2px solid #000!important}
-.logbook-table th,.logbook-table td{border:1px solid #777;padding:0 2px;height:{{ layout.row_height }}px;line-height:{{ layout.row_height }}px;text-align:{{ layout.styles.get('text_align','center') }};vertical-align:{{ layout.styles.get('vertical_align','middle') }};white-space:nowrap;overflow:hidden}
+.logbook-table th,.logbook-table td{border:1px solid #777;padding:0 2px;height:{{ '%.2f'|format(layout.row_height_u * 0.96) }}px;line-height:{{ '%.2f'|format(layout.row_height_u * 0.96) }}px;text-align:{{ layout.styles.get('text_align','center') }};vertical-align:{{ layout.styles.get('vertical_align','middle') }};white-space:nowrap;overflow:hidden}
 .logbook-table th{background:{{ layout.styles.get('header_background','#ffffff') }};font-size:{{ layout.styles.get('header_font_size',9) }}px;font-weight:700;color:#111}
 .logbook-table .group{font-weight:700;height:25px;line-height:24px;border-bottom:1px solid #777}
 .logbook-table .subgroup{font-weight:700;background:#d9d9d9;height:22px;line-height:21px}
 .logbook-table .leaf{font-weight:400;height:22px;line-height:21px;background:#eee}
 .logbook-table .outer-left{border-left:2px solid #000!important}.logbook-table .outer-right{border-right:2px solid #000!important}
 .logbook-table .section-left{border-left:2px solid #000!important}.logbook-table .section-right{border-right:2px solid #000!important}
-.logbook-table .data-row td{height:{{ layout.row_height }}px;border-top:1px solid #999;border-bottom:1px solid #999}
+.logbook-table .data-row td{height:{{ '%.2f'|format(layout.row_height_u * 0.96) }}px;border-top:1px solid #999;border-bottom:1px solid #999}
 {% set _blocks = layout.styles.get('data_blocks') or [] %}{% set _defaults = ['#f1dddd','#dce7f2','#eaf1dc'] %}{% for _i in range(3) %}.logbook-table .data-row.block{{ _i + 1 }}.shaded td{background:{{ (_blocks[_i].get('color') if _blocks|length > _i and _blocks[_i] is mapping and _blocks[_i].get('color') else _defaults[_i]) }}}
 {% endfor %}.logbook-table .editable{cursor:text}.logbook-table .editable:focus{outline:2px solid #4a90e2;outline-offset:-2px;background:#fff}
 .logbook-table .total-row td{background:{{ layout.styles.get('total_background','#eeeeee') }};font-weight:700;height:20px;line-height:19px;border-color:#777}
@@ -47,7 +47,7 @@ const formatHours = (value) => { const [i, d] = Math.abs(Number(value || 0)).toF
 <div class="logbook-layout-metadata" hidden>{{ columns|tojson }}</div>
 <table class="logbook-table">
 <colgroup>
-{% for pc in layout.physical_columns %}{% if loop.index0 == 14 %}{% for gw in layout.gap_widths %}<col style="width:{{ '%.2f'|format(gw * layout.styles.get('width_scale',4.7)) }}px">{% endfor %}{% endif %}<col style="width:{{ '%.2f'|format(pc.width * layout.styles.get('width_scale',4.7)) }}px">{% endfor %}
+{% for c in layout.columns %}<col style="width:{{ '%.2f'|format(c.width * 0.96) }}px">{% endfor %}
 </colgroup>
 <thead>
 <tr>
