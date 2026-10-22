@@ -403,7 +403,7 @@ def test_logbook_page_matches_template_structure(client, app):
         from app.config import load_logbook_layout
         cols = load_logbook_layout(username="admin")["columns"]
     remarks = next(c for c in cols if c["key"] == "remarks")
-    assert remarks["width"] == 37.11
+    assert remarks["width"] == 210
     assert '"registration"' in body and 'C-GABC' in body
 
 
@@ -666,7 +666,7 @@ def test_two_empty_borderless_columns_between_single_and_multi_engine(client, ap
     body = _logbook_with_years(client, [2014])
     assert body.count('<col style=') == 34                                  # 32 colonnes + 2 colonnes vides
     widths = re.findall(r'<col style="width:([\d.]+)px">', body)
-    assert widths[14:16] == ['18.27', '22.97']                              # 3,89 et 4,89 du modèle x 4,7
+    assert widths[14:16] == ['4.80', '4.80']                                # 2 colonnes spacer de 5 u x 0,96 px
     rows = _logbook_html_rows(body)
     for r in [r for r in rows if 'data-row' in r['cls']]:
         cells = r['cells']
