@@ -53,6 +53,10 @@ def two_digits(value):
         return str(value or "").strip()
 
 
+def _reg(value):
+    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
 def flight_rows(ws):
     """Flight lines of a year sheet: the 30 lines above each 'GRAND TOTAL' row, page after page."""
     rows = []
@@ -105,21 +109,25 @@ def update_workbook(wb, rows):
         year = int(ws.title)
         all_slots = flight_rows(ws)
         slots = [r for r in all_slots if row_is_writable(ws, r)]      # lines with merged cells are left alone
-        existing, last_date = Counter(), None
+        existing, last_date = defaultdict(list), None
         for r in slots:
             if not line_is_empty(ws, r):
                 key = (two_digits(ws.cell(r, COL_MONTH).value), two_digits(ws.cell(r, COL_DAY).value),
                        match_token(ws.cell(r, TEXT_COLUMNS["remarks"]).value))
-                existing[key] += 1
+                existing[key].append(_reg(ws.cell(r, TEXT_COLUMNS["registration"]).value))
                 try:
                     last_date = date(year, int(key[0]), int(key[1]))
                 except ValueError:
                     pass
-        filled = sum(existing.values())
+        filled = sum(len(v) for v in existing.values())
         pending, present = [], 0
         for f in by_year.get(year, []):
-            if existing[f["_key"]] > 0:
-                existing[f["_key"]] -= 1
+            lines, reg = existing.get(f["_key"], []), _reg(f.get("registration"))
+            idx = next((i for i, x in enumerate(lines) if reg and x == reg), None)          # même appareil d'abord
+            if idx is None:
+                idx = next((i for i, x in enumerate(lines) if not reg or not x), None)   # sinon ligne sans immatriculation
+            if idx is not None:
+                lines.pop(idx)
                 present += 1
             else:
                 pending.append(f)
@@ -141,7 +149,7 @@ def update_workbook(wb, rows):
             "sheet": ws.title, "slots": len(slots), "merged_skipped": len(all_slots) - len(slots), "filled": filled, "in_db": len(by_year.get(year, [])),
             "present": present, "added": len(added), "no_slot": len(pending) - len(added),
             "out_of_order": sum(1 for f in added if last_date and f["_date"] < last_date),
-            "not_in_db": sum(v for v in existing.values() if v > 0),
+            "not_in_db": sum(len(v) for v in existing.values()),
             "samples": [f"{f['_key'][1]}/{f['_key'][0]} {str(f.get('remarks') or '')[:40]}" for f in added[:8]]})
     sheet_years = {int(ws.title) for ws in wb.worksheets if re.fullmatch(r"\d{4}", ws.title)}
     report["no_sheet"] = {y: len(v) for y, v in sorted(by_year.items()) if y not in sheet_years}

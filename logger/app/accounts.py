@@ -67,10 +67,12 @@ def init_accounts_db():
         conn = accounts_connect()
         for name, decl in missing.items():
             conn.execute(f"ALTER TABLE accounts ADD COLUMN {name} {decl}")
-    try:                                                    # unicité insensible à la casse (si aucun doublon existant)
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username_nocase ON accounts(username COLLATE NOCASE)")
-    except sqlite3.IntegrityError:
-        pass
+    duplicates = [r[0] for r in conn.execute("SELECT lower(username) FROM accounts GROUP BY lower(username) HAVING COUNT(*) > 1")]
+    if duplicates:                                          # jamais de démarrage sans la garantie d'unicité
+        conn.commit(); conn.close()
+        from . import SetupError
+        raise SetupError("Comptes en double (casse ignorée) : " + ", ".join(sorted(duplicates)) + ". Renomme ou supprime les doublons dans users.db, puis redémarre.")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username_nocase ON accounts(username COLLATE NOCASE)")
     init_security_tables(conn)
     conn.commit(); conn.close()
 

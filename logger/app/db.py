@@ -126,6 +126,20 @@ def connect(username=None): return _open(db_path(username))
 def logbook_connect(username=None): return _open(logbook_db_path(username))
 
 
+def backup_sqlite(path, label):
+    """Copie cohérente (API de sauvegarde SQLite) avant une opération destructrice. Renvoie le chemin de la copie."""
+    path = Path(path)
+    if not path.exists():
+        return None
+    target = path.with_name(f"{path.name}.{label}-{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}.bak")
+    source, dest = sqlite3.connect(path), sqlite3.connect(target)
+    try:
+        source.backup(dest)
+    finally:
+        dest.close(); source.close()
+    return target
+
+
 def archive_user_dir(username):
     """Met de côté (sans l'effacer) le dossier de données d'un compte supprimé ou orphelin.
 

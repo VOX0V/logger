@@ -37,8 +37,7 @@ def import_rows(source, rows, config, username=None):
     """Merge `rows` into the raw database: never replaces or deletes anything (see merge.py)."""
     from .merge import merge_context, plan_merge
     conn = connect(username)
-    sync_user_columns(conn, config)
-    drop_unused_columns(conn, config)
+    sync_user_columns(conn, config)      # jamais de DROP COLUMN ici : un import n'efface rien (voir delete_category)
     cols = [safe_identifier(c["column"]) for c in configurable_columns(config)]
     quoted = ",".join(chr(34) + c + chr(34) for c in cols)
     cursor = conn.execute(f"SELECT id,{quoted} FROM users ORDER BY id") if cols else None

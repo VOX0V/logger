@@ -46,6 +46,8 @@ def parse(text):
         mark = getattr(exc, "problem_mark", None)
         where = f"ligne {mark.line + 1}, colonne {mark.column + 1} : " if mark else ""
         raise Problem(f"YAML invalide — {where}{getattr(exc, 'problem', None) or exc}")
+    except RecursionError:
+        raise Problem("YAML trop profondément imbriqué.")
     if not isinstance(data, dict):
         raise Problem("Le fichier doit commencer par des clés (clé: valeur), pas par une liste ni du texte.")
     return data

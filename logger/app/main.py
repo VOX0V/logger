@@ -6,7 +6,7 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 from .auth import login_required, fresh_login_required
 from .importer import importable_rows
 from .merge import read_logbook_workbook
-from .db import safe_identifier, connect, logbook_connect, user_root, current_username
+from .db import safe_identifier, connect, logbook_connect, user_root, current_username, backup_sqlite, db_path as user_db_path
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       load_logbook_layout, save_logbook_layout,
                       logbook_columns, technical_name, load_data_view, load_logbook_view)
@@ -326,7 +326,7 @@ def edit_category(position):
         try:
             display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); group=request.form.get("new_group","").strip() if group=="__new__" else group; rules=[x.strip() for x in request.form.get("import_rules","").splitlines() if x.strip()]
             if not display or not group or not rules: raise ValueError("Display name, groupe et règles d'import sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Colonne modifiée dans userdb.yml."); return redirect(url_for("main.settings"))
+            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Colonne modifiée dans userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("category_form.html",category=category,groups=sorted({c.get("group") for c in categories}),positions=list(range(1,len(categories)+1)),action=url_for("main.edit_category",position=position))
 
@@ -336,7 +336,7 @@ def edit_category(position):
 def delete_category(position):
     config=load_config(); categories=_columns(config); target=next((c for c in categories if int(c["position"])==position),None)
     if not target: flash("Colonne introuvable."); return redirect(url_for("main.settings"))
-    categories.remove(target); _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); conn=connect(); drop_unused_columns(conn,config); conn.commit(); conn.close(); log_event("data_destroy", target=f"colonne-supprimee:{target['column']}"); flash(f"Colonne {target['column']} supprimée de user.db."); return redirect(url_for("main.settings"))
+    categories.remove(target); _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); backup_sqlite(user_db_path(),"pre-drop"); conn=connect(); drop_unused_columns(conn,config); conn.commit(); conn.close(); log_event("data_destroy", target=f"colonne-supprimee:{target['column']}"); flash(f"Colonne {target['column']} supprimée de user.db."); return redirect(url_for("main.settings"))
 
 @main_bp.route("/data/clear",methods=["POST"])
 @login_required

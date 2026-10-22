@@ -108,6 +108,21 @@ def same_value(col, a, b, ctx):
         return str(a).strip().casefold() == str(b).strip().casefold()
 
 
+def _conflicts(rec, e, ctx):
+    """Preuve contraire : deux vols portant des identifiants différents ne sont jamais le même vol."""
+    a, b = flight_digits(rec), flight_digits(e)
+    if a and b and a != b:
+        return True
+    ra, rb = norm_registration(rec.get("registration")), norm_registration(e.get("registration"))
+    if ra and rb and ra != rb:
+        return True
+    for col in ("departure", "arrival"):
+        x, y = canon_airport(rec.get(col), ctx), canon_airport(e.get(col), ctx)
+        if x and y and x != y:
+            return True
+    return False
+
+
 def find_match(rec, candidates, ctx):
     """The flight of `candidates` (same date, not matched yet) that `rec` describes, or None."""
     digits = flight_digits(rec)
@@ -118,7 +133,7 @@ def find_match(rec, candidates, ctx):
     remarks = norm_remarks(rec.get("remarks"))
     if remarks:
         for e in candidates:
-            if norm_remarks(e.get("remarks")) == remarks:
+            if norm_remarks(e.get("remarks")) == remarks and not _conflicts(rec, e, ctx):
                 return e
     reg, dep, arr = norm_registration(rec.get("registration")), canon_airport(rec.get("departure"), ctx), canon_airport(rec.get("arrival"), ctx)
     if reg and dep and arr:
@@ -130,7 +145,7 @@ def find_match(rec, candidates, ctx):
     if kind and duration:
         for e in candidates:
             other = hours(e)
-            if norm_type(e.get("type"), ctx) == kind and other and abs(other - duration) <= HOURS_TOLERANCE:
+            if norm_type(e.get("type"), ctx) == kind and other and abs(other - duration) <= HOURS_TOLERANCE and not _conflicts(rec, e, ctx):
                 return e
     return None
 

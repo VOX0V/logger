@@ -1,5 +1,7 @@
 """Per-user YAML configuration: <user>_data.yml, <user>_logbook.yml, <user>_layout.yml."""
 import copy
+import os
+
 import yaml
 from .db import user_file, safe_identifier
 from .cssafe import sanitize_layout
@@ -59,6 +61,17 @@ DEFAULT_LOGBOOK_DB_COLUMNS = [
 ]
 
 DEFAULT_LOGBOOK_LAYOUT = {"gap_widths": [3.88671875, 4.88671875], 'title': 'Logbook', 'rows_per_page': 30, 'row_height': 16.95, 'header_heights': [16.95, 16.95, 16.95, 16.95], 'styles': {'font_family': 'Arial', 'font_size': 10, 'header_font_size': 9, 'border': '1px solid #000000', 'header_background': '#ffffff', 'total_background': '#eeeeee', 'text_align': 'center', 'vertical_align': 'middle', 'width_scale': 4.7, 'alternate_white': True, 'data_blocks': [{'name': 'block1', 'rows': 10, 'color': '#f1dddd'}, {'name': 'block2', 'rows': 10, 'color': '#dce7f2'}, {'name': 'block3', 'rows': 10, 'color': '#eaf1dc'}]}, 'columns': [{'key': 'year', 'label': 'YEAR', 'db_column': 'date', 'date_part': 'year', 'width': 6.55, 'group': 'date'}, {'key': 'month', 'label': 'Month', 'db_column': 'date', 'date_part': 'month', 'width': 6.55, 'group': 'date'}, {'key': 'day', 'label': 'Day', 'db_column': 'date', 'date_part': 'day', 'width': 6.55, 'group': 'date'}, {'key': 'type', 'label': 'Type', 'db_column': 'aircraft_type', 'width': 6.55, 'group': 'aircraft'}, {'key': 'registration', 'label': 'Registr.', 'db_column': 'registration', 'width': 8.33, 'group': 'aircraft'}, {'key': 'pilot', 'label': 'Pilot', 'db_column': 'pilot_in_command', 'width': 11.55, 'group': 'crew'}, {'key': 'copilot', 'label': 'Co-Pilot', 'db_column': 'copilot', 'width': 11.55, 'group': 'crew'}, {'key': 'departure', 'label': 'Departure', 'db_column': 'departure', 'width': 10, 'group': 'route'}, {'key': 'arrival', 'label': 'Arrival', 'db_column': 'arrival', 'width': 10, 'group': 'route'}, {'key': 'remarks', 'label': 'Exercise, Mission, Flight Number…', 'db_column': 'remarks', 'width': 37.11, 'group': 'remarks'}, {'key': 'se_dual_day', 'label': 'Dual', 'db_column': 'single_engine_dual_day', 'width': 7.53515625, 'group': 'single_engine', 'subgroup': 'Day'}, {'key': 'se_pic_day', 'label': 'PIC', 'db_column': 'single_engine_pic_day', 'width': 13.0, 'group': 'single_engine', 'subgroup': 'Day'}, {'key': 'se_dual_night', 'label': 'Dual', 'db_column': 'single_engine_dual_night', 'width': 13.0, 'group': 'single_engine', 'subgroup': 'Night'}, {'key': 'se_pic_night', 'label': 'PIC', 'db_column': 'single_engine_pic_night', 'width': 13.0, 'group': 'single_engine', 'subgroup': 'Night'}, {'key': 'spacer1', 'label': '', 'width': 0, 'group': 'spacer'}, {'key': 'spacer2', 'label': '', 'width': 0, 'group': 'spacer'}, {'key': 'me_dual_day', 'label': 'Dual', 'db_column': 'multi_engine_dual_day', 'width': 7.69140625, 'group': 'multi_engine', 'subgroup': 'Day'}, {'key': 'me_pic_day', 'label': 'PIC', 'db_column': 'multi_engine_pic_day', 'width': 13.0, 'group': 'multi_engine', 'subgroup': 'Day'}, {'key': 'me_copilot_day', 'label': 'Co-Pilot', 'db_column': 'multi_engine_copi_day', 'width': 13.0, 'group': 'multi_engine', 'subgroup': 'Day'}, {'key': 'me_dual_night', 'label': 'Dual', 'db_column': 'multi_engine_dual_night', 'width': 13.0, 'group': 'multi_engine', 'subgroup': 'Night'}, {'key': 'me_pic_night', 'label': 'PIC', 'db_column': 'multi_engine_pic_night', 'width': 13.0, 'group': 'multi_engine', 'subgroup': 'Night'}, {'key': 'me_copilot_night', 'label': 'Co-Pilot', 'db_column': 'multi_engine_copi_night', 'width': 13.0, 'group': 'multi_engine', 'subgroup': 'Night'}, {'key': 'ifr', 'label': 'IFR', 'db_column': 'ifr', 'width': 13.0, 'group': 'instruments'}, {'key': 'hood', 'label': 'Hood', 'db_column': 'hood', 'width': 13.0, 'group': 'instruments'}, {'key': 'ftd', 'label': 'FTD', 'db_column': 'ftd', 'width': 13.0, 'group': 'instruments'}, {'key': 'ifr_app', 'label': 'IFR app', 'db_column': 'ifr_approach', 'width': 13.0, 'group': 'instruments'}, {'key': 'cc_dual_day', 'label': 'Dual', 'db_column': 'cross_country_dual_day', 'width': 13.0, 'group': 'cross_country', 'subgroup': 'Day'}, {'key': 'cc_pic_day', 'label': 'PIC', 'db_column': 'cross_country_pic_day', 'width': 13.0, 'group': 'cross_country', 'subgroup': 'Day'}, {'key': 'cc_dual_night', 'label': 'Dual', 'db_column': 'cross_country_dual_night', 'width': 13.0, 'group': 'cross_country', 'subgroup': 'Night'}, {'key': 'cc_pic_night', 'label': 'PIC', 'db_column': 'cross_country_pic_night', 'width': 13.0, 'group': 'cross_country', 'subgroup': 'Night'}, {'key': 'land_day', 'label': 'Day', 'db_column': 'landings_day', 'width': 13.0, 'group': 'landings'}, {'key': 'land_night', 'label': 'Night', 'db_column': 'landings_night', 'width': 13.0, 'group': 'landings'}, {'key': 'instruction_day', 'label': 'Day', 'db_column': 'instruction_day', 'width': 13.0, 'group': 'instruction'}, {'key': 'instruction_night', 'label': 'Night', 'db_column': 'instruction_night', 'width': 13.0, 'group': 'instruction'}], 'group_labels': {'date': 'YEAR', 'aircraft': 'AIRCRAFT', 'crew': 'FLIGHT CREW', 'route': 'ROUTE OF FLIGHT', 'remarks': 'REMARKS', 'single_engine': 'SINGLE-ENGINE', 'spacer': '', 'multi_engine': 'MULTI-ENGINE', 'instruments': 'INSTRUMENTS', 'cross_country': 'CROSS-COUNTRY', 'landings': 'TAKEOFFS & LANDINGS', 'instruction': 'INSTRUCTION'}, 'group_spans': {'date': 3, 'aircraft': 2, 'crew': 2, 'route': 2, 'remarks': 1, 'single_engine': 4, 'spacer': 2, 'multi_engine': 6, 'instruments': 4, 'cross_country': 4, 'landings': 2, 'instruction': 2}, 'physical_columns': [{'key': 'A', 'width': 6.53515625}, {'key': 'B', 'width': 13.0}, {'key': 'C', 'width': 13.0}, {'key': 'D', 'width': 8.3046875}, {'key': 'E', 'width': 11.53515625}, {'key': 'F', 'width': 13.0}, {'key': 'G', 'width': 10.0}, {'key': 'H', 'width': 13.0}, {'key': 'I', 'width': 13.0}, {'key': 'J', 'width': 27.07421875}, {'key': 'K', 'width': 7.53515625}, {'key': 'L', 'width': 13.0}, {'key': 'M', 'width': 13.0}, {'key': 'N', 'width': 13.0}, {'key': 'O', 'width': 7.69140625}, {'key': 'P', 'width': 13.0}, {'key': 'Q', 'width': 13.0}, {'key': 'R', 'width': 13.0}, {'key': 'S', 'width': 13.0}, {'key': 'T', 'width': 13.0}, {'key': 'U', 'width': 13.0}, {'key': 'V', 'width': 13.0}, {'key': 'W', 'width': 13.0}, {'key': 'X', 'width': 13.0}, {'key': 'Y', 'width': 13.0}, {'key': 'Z', 'width': 13.0}, {'key': 'AA', 'width': 13.0}, {'key': 'AB', 'width': 13.0}, {'key': 'AC', 'width': 13.0}, {'key': 'AD', 'width': 13.0}, {'key': 'AE', 'width': 13.0}, {'key': 'AF', 'width': 13.0}]}
+
+
+def _atomic_write(path, text):
+    """Écriture atomique : fichier temporaire voisin, fsync, puis remplacement (jamais de YAML tronqué)."""
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            handle.write(text); handle.flush(); os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _cfg_username(username):
@@ -123,7 +136,7 @@ def _norm_lb(raw, index):
 def _load_yaml(path, fallback):
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        path.write_text(yaml.safe_dump(fallback, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        _atomic_write(path, yaml.safe_dump(fallback, allow_unicode=True, sort_keys=False))
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
@@ -135,9 +148,9 @@ def ensure_configs(username=None):
             data = yaml.safe_load(bundled.read_text(encoding="utf-8")) if bundled.exists() else {"database": {"columns": DEFAULT_COLUMNS}}
         except Exception:
             data = {"database": {"columns": DEFAULT_COLUMNS}}
-        config_path(username).write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        _atomic_write(config_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     if not logbook_db_config_path(username).exists():
-        logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"columns": DEFAULT_LOGBOOK_DB_COLUMNS}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        _atomic_write(logbook_db_config_path(username), yaml.safe_dump({"database": {"columns": DEFAULT_LOGBOOK_DB_COLUMNS}}, allow_unicode=True, sort_keys=False))
     if not logbook_layout_path(username).exists():
         try:
             from flask import current_app
@@ -145,9 +158,9 @@ def ensure_configs(username=None):
         except Exception:
             bundled = None
         if bundled and bundled.exists():
-            logbook_layout_path(username).write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
+            _atomic_write(logbook_layout_path(username), bundled.read_text(encoding="utf-8"))
         else:
-            logbook_layout_path(username).write_text(yaml.safe_dump(DEFAULT_LOGBOOK_LAYOUT, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            _atomic_write(logbook_layout_path(username), yaml.safe_dump(DEFAULT_LOGBOOK_LAYOUT, allow_unicode=True, sort_keys=False))
 
 
 def load_config(username=None):
@@ -161,7 +174,7 @@ def load_config(username=None):
 
 def save_config(data, username=None):
     db = data.get("database", data); cols = db.get("columns", [])
-    config_path(username).write_text(yaml.safe_dump({"database": {"columns": cols}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    _atomic_write(config_path(username), yaml.safe_dump({"database": {"columns": cols}}, allow_unicode=True, sort_keys=False))
 
 
 def load_logbook_db_config(username=None):
@@ -175,7 +188,7 @@ def load_logbook_db_config(username=None):
 
 def save_logbook_db_config(data, username=None):
     db = data.get("database", data)
-    logbook_db_config_path(username).write_text(yaml.safe_dump({"database": {"columns": db.get("columns", [])}}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    _atomic_write(logbook_db_config_path(username), yaml.safe_dump({"database": {"columns": db.get("columns", [])}}, allow_unicode=True, sort_keys=False))
 
 
 def load_logbook_layout(username=None):
@@ -189,7 +202,7 @@ def load_logbook_layout(username=None):
 
 
 def save_logbook_layout(data, username=None):
-    logbook_layout_path(username).write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    _atomic_write(logbook_layout_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
 
 
 def configurable_columns(config): return [c for c in config["database"]["columns"] if c.get("group") != "system"]
@@ -213,7 +226,7 @@ def _default_view(columns):
 def _load_view(path, columns):
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        path.write_text(yaml.safe_dump({"columns": _default_view(columns)}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        _atomic_write(path, yaml.safe_dump({"columns": _default_view(columns)}, allow_unicode=True, sort_keys=False))
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     by = {v.get("column"): v for v in raw.get("columns", []) if v.get("column")}
     out = []
