@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+{% macro n(v) %}{{ '%.1f'|format(v) }}{% endmacro %}
+<div class="page-head"><h2>{{title}}</h2><div><a class="btn" href="{{pdf_url}}" target="_blank">PDF</a> <a class="btn secondary" href="{{url_for('reports.index')}}">Reports</a></div></div>
+<p class="muted">{{rac_title}}{% if rep.period %} · flights from {{rep.period[0]}} to {{rep.period[1]}}{% endif %}</p>
+{% if rep.uncategorized %}<div class="card muted">Category missing for: {{rep.uncategorized|join(', ')}}. They appear in the table but not in the airplane / helicopter totals — complete them in <a href="{{url_for('converter.aircrafts')}}">Aircraft types</a>.</div>{% endif %}
+{% if not rep.name or not rep.license %}<div class="card muted">Name, license number and phone are set in <a href="{{url_for('accounts.me')}}">My account</a>.</div>{% endif %}
+<div class="card" style="display:flex;flex-wrap:wrap;gap:24px">
+<div style="flex:2;min-width:320px;font-size:12px">{% for t in rac_text %}<p style="margin:3px 0">{{t}}</p>{% endfor %}</div>
+<div style="flex:1;min-width:280px;font-size:13px"><p>{{certify}}</p>
+<table><tr><td><strong>Name :</strong></td><td>{{rep.name}}</td></tr><tr><td><strong>License number :</strong></td><td>{{rep.license}}</td></tr><tr><td><strong>Phone number :</strong></td><td>{{rep.phone}}</td></tr><tr><td><strong>Email address :</strong></td><td>{{rep.email}}</td></tr><tr><td><strong>Date :</strong></td><td>{{rep.date}}</td></tr><tr><td><strong>Signature :</strong></td><td></td></tr></table>
+<h3 style="margin-top:14px">Qualifications tracking</h3>
+{% if rep.quals %}<table style="width:100%"><tr><th style="text-align:left">Qualification</th><th style="text-align:left">Expiry date</th><th style="text-align:right">Days remaining</th></tr>
+{% for q in rep.quals %}<tr><td>{{q.name}}</td><td>{{q.expiry}}</td><td style="text-align:right{% if q.days < 0 %};color:#b91c1c{% endif %}">{{q.days}}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">None yet — add them in <a href="{{url_for('accounts.me')}}">My account</a>.</p>{% endif %}</div>
+</div>
+<p><strong>Airplane total :</strong> {{n(rep.cat.airplane)}} &nbsp; <strong>Helicopter total :</strong> {{n(rep.cat.helicopter)}} &nbsp; <strong>Jet engine / turboshaft total :</strong> {{n(rep.cat.turbine)}}</p>
+<div class="card"><div class="table-wrap"><table class="data" style="text-align:center;font-size:12px">
+<thead>
+<tr><th colspan="2" rowspan="2">AIRCRAFT</th>{% for t, cs, rs in headers[0] %}<th colspan="{{cs}}" rowspan="{{rs}}">{{t}}</th>{% endfor %}</tr>
+<tr>{% for t, cs, rs in headers[1] %}<th colspan="{{cs}}" rowspan="{{rs}}">{{t}}</th>{% endfor %}</tr>
+<tr><th>Type</th><th>TOTAL</th>{% for t, cs, rs in headers[2] %}<th>{{t}}</th>{% endfor %}</tr>
+</thead><tbody>
+{% for ln in rep.lines %}<tr><td><strong>{{ln.code}}</strong></td><td>{{n(ln.total)}}</td>{% for v in ln.cells %}<td>{{n(v)}}</td>{% endfor %}</tr>{% endfor %}
+<tr style="font-weight:bold;background:#eee"><td>TOTAL</td><td>{{n(rep.total)}}</td>{% for v in rep.cells_total %}<td>{{n(v)}}</td>{% endfor %}</tr>
+<tr style="font-weight:bold;background:#eee"><td></td><td></td>{% for s in sections %}<td colspan="{{cols|selectattr(0,'equalto',s)|list|length}}">{{n(rep.section_totals[loop.index0])}}</td>{% endfor %}</tr>
+</tbody></table></div></div>
+{% endblock %}

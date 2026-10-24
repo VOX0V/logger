@@ -242,8 +242,32 @@ def me():
         if action == "pilot":
             from .converter import catalog
             catalog.save_profile(request.form.get("pilot_name", ""), request.form.get("first_name", ""),
-                                 request.form.get("employee_number", ""), g.username)
+                                 request.form.get("employee_number", ""), g.username,
+                                 license_number=request.form.get("license_number", ""), phone=request.form.get("phone", ""))
             flash("Identité enregistrée. Clique sur Actualiser dans logbook.db pour appliquer le nom de famille.")
+            return redirect(url_for("accounts.me"))
+        if action in ("qualification_add", "qualification_delete"):
+            from datetime import date
+            from .converter import catalog
+            items = catalog.load_qualifications(g.username)
+            if action == "qualification_add":
+                name, expiry = request.form.get("name", "").strip(), request.form.get("expiry", "").strip()
+                try:
+                    date.fromisoformat(expiry)
+                except ValueError:
+                    expiry = ""
+                if not name or not expiry:
+                    flash("Indique le nom de la qualification et une date d'expiration valide.")
+                else:
+                    catalog.save_qualifications(items + [{"name": name, "expiry": expiry}], g.username)
+                    flash("Qualification ajoutée.")
+            else:
+                try:
+                    del items[int(request.form.get("index", ""))]
+                    catalog.save_qualifications(items, g.username)
+                    flash("Qualification supprimée.")
+                except (ValueError, IndexError):
+                    flash("Qualification introuvable.")
             return redirect(url_for("accounts.me"))
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "")
@@ -263,7 +287,11 @@ def me():
                 flash("Mot de passe modifié. Les autres sessions ont été déconnectées.")
         return redirect(url_for("accounts.me"))
     from .converter import catalog
-    return render_template("account_me.html", profile=catalog.load_profile(g.username))
+    from datetime import date
+    today = date.today()
+    quals = [dict(q, days=(date.fromisoformat(q["expiry"]) - today).days) for q in catalog.load_qualifications(g.username)
+             if len(q["expiry"]) == 10]
+    return render_template("account_me.html", profile=catalog.load_profile(g.username), quals=quals)
 
 
 @accounts_bp.route("/me/revoke-sessions", methods=["POST"])

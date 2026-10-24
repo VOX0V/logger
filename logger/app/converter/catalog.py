@@ -260,14 +260,35 @@ def load_profile(username=None):
     """Identity used by the converter (family name) and by the PDF reports (first name, employee number)."""
     ensure_user_selection(username or current_username())
     data = _selection_data(username)
-    return {k: str(data.get(k) or "").strip() for k in ("pilot_name", "first_name", "employee_number")}
+    return {k: str(data.get(k) or "").strip()
+            for k in ("pilot_name", "first_name", "employee_number", "license_number", "phone")}
 
 
-def save_profile(pilot_name, first_name, employee_number, username=None):
+def save_profile(pilot_name, first_name, employee_number, username=None, license_number=None, phone=None):
+    """license_number / phone : None = laisser inchangé (utilisé par la page « Flight time breakdown »)."""
     ensure_user_selection(username or current_username())
     data = _selection_data(username)
     data["pilot_name"], data["first_name"] = str(pilot_name).strip()[:60], str(first_name).strip()[:60]
     data["employee_number"] = str(employee_number).strip()[:20]
+    if license_number is not None:
+        data["license_number"] = str(license_number).strip()[:30]
+    if phone is not None:
+        data["phone"] = str(phone).strip()[:30]
+    _write_selection(data, username)
+
+
+def load_qualifications(username=None):
+    """Suivi des qualifications du pilote : liste de {name, expiry (AAAA-MM-JJ)}, triée par date d'expiration."""
+    ensure_user_selection(username or current_username())
+    items = [q for q in (_selection_data(username).get("qualifications") or [])
+             if isinstance(q, dict) and q.get("name") and q.get("expiry")]
+    return sorted(({"name": str(q["name"]), "expiry": str(q["expiry"])} for q in items), key=lambda q: q["expiry"])
+
+
+def save_qualifications(items, username=None):
+    ensure_user_selection(username or current_username())
+    data = _selection_data(username)
+    data["qualifications"] = [{"name": str(q["name"]).strip()[:60], "expiry": str(q["expiry"])[:10]} for q in items][:50]
     _write_selection(data, username)
 
 

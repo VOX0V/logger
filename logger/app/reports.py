@@ -217,3 +217,43 @@ def zip_reports(year=None):
                 z.writestr(f"{a}/{filename_for(a, m)}", _pdf(by_month, a, m, profile))
     return Response(buf.getvalue(), mimetype="application/zip", headers={
         "Content-Disposition": f'attachment; filename="reports {year if year else "CRJ"}.zip"'})
+
+
+# ---- Flight time breakdown (RAC 401.08), English report ----
+
+def _breakdown():
+    from . import breakdown
+    from .refdata import list_aircraft_types
+    profile = _profile()
+    today = date.today()
+    quals = []
+    from .converter import catalog
+    for q in catalog.load_qualifications(g.username):
+        try:
+            quals.append(dict(q, days=(date.fromisoformat(q["expiry"]) - today).days))
+        except ValueError:
+            continue
+    try:
+        email = g.user["email"]
+    except (KeyError, IndexError, TypeError):
+        email = ""
+    types = [dict(t) for t in list_aircraft_types()]
+    return breakdown.build_report(_load_rows(), types, profile, email, quals, today)
+
+
+@reports_bp.route("/breakdown")
+@login_required
+def breakdown_page():
+    from . import breakdown
+    r1, r2, r3 = breakdown.header_rows()
+    return render_template("breakdown.html", rep=_breakdown(), title=breakdown.TITLE, rac_title=breakdown.RAC_TITLE,
+                           rac_text=breakdown.RAC_TEXT, certify=breakdown.CERTIFY, headers=(r1, r2, r3),
+                           sections=breakdown.SECTIONS, cols=breakdown.COLS, pdf_url=url_for("reports.breakdown_pdf"))
+
+
+@reports_bp.route("/breakdown.pdf")
+@login_required
+def breakdown_pdf():
+    from . import breakdown
+    return Response(breakdown.build_pdf(_breakdown()), mimetype="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="flight-time-breakdown-{date.today().isoformat()}.pdf"'})

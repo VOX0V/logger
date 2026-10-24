@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — Flight time breakdown (RAC 401.08), version anglaise
+
+- **Nouvelle page** « Flight time breakdown » (Rapports → Ouvrir) et son PDF Letter paysage, d'après la feuille « Report EN » du logbook Excel : heures par type d'appareil (monomoteur, multimoteur, instruments, cross-country, instruction), ligne TOTAL, sous-totaux par section, totaux avion / hélicoptère / turbine-jet, bloc de certification (date du jour, signature laissée vide).
+- **Mon compte** : numéro de licence et numéro de téléphone (identité de pilote) ; nouvelle carte « Suivi des qualifications » (nom + date d'expiration, jours restants calculés). L'e-mail du compte est repris dans le rapport.
+- Les vols à date future sont ignorés (comme les rapports mensuels). Les types sans catégorie apparaissent dans le tableau mais pas dans les totaux avion / hélicoptère : à compléter dans « Types d'appareils ».
+- Version française du rapport : à venir.
+
 ## 0.3.0 — largeurs et hauteurs uniques pour la page web et le PDF
 
 - **Version visible** : le numéro de version s'affiche à côté de « Logger » pour tout utilisateur connecté (plus seulement les administrateurs).
