@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h2>Réglages du Breakdown</h2><div><a class="btn secondary" href="{{url_for('breakdown.index')}}">Retour au Breakdown</a> <a class="btn secondary" href="{{url_for('yamledit.editor', file='breakdown')}}">Éditer le YAML</a></div></div>
+<form class="card" method="post" action="{{url_for('breakdown.save_settings')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<p class="muted">Unité u : 1 u = 0,01 po (US Legal paysage = 1400 x 850 u). Les largeurs de colonnes et les trois blocs du haut doivent totaliser page_width_u - 2 x margin_u (ici {{cfg.page_width_u - 2*cfg.margin_u}} u).</p>
+<h3>Page et hauteurs (u)</h3><div class="grid">{% for key in numbers %}<div class="field"><label>{{key}}</label><input type="number" step="1" name="{{key}}" value="{{cfg[key]}}"></div>{% endfor %}</div>
+<h3>Blocs du haut (u)</h3><div class="grid">{% for k in ('left','middle','right') %}<div class="field"><label>{{k}}</label><input type="number" step="1" name="top_{{k}}" value="{{cfg.top_widths_u[k]}}"></div>{% endfor %}</div>
+<h3>Présentation</h3><div class="grid">
+<div class="field"><label>Police</label><input name="font_family" value="{{cfg.styles.font_family}}"></div>
+<div class="field"><label>Taille police</label><input type="number" name="font_size" value="{{cfg.styles.font_size}}"></div>
+<div class="field"><label>Taille en-têtes</label><input type="number" name="header_font_size" value="{{cfg.styles.header_font_size}}"></div>
+<div class="field"><label>Fond en-têtes</label><input name="header_background" value="{{cfg.styles.header_background}}"></div>
+<div class="field"><label>Fond totaux</label><input name="total_background" value="{{cfg.styles.total_background}}"></div>
+<div class="field"><label>Couleur des zéros</label><input name="zero_color" value="{{cfg.styles.zero_color}}"></div>
+<div class="field"><label>Bordure</label><input name="border" value="{{cfg.styles.border}}"></div>
+<div class="field"><label>Alignement horizontal</label><select name="text_align">{% for a in ('left','center','right') %}<option{% if cfg.styles.text_align==a %} selected{% endif %}>{{a}}</option>{% endfor %}</select></div>
+<div class="field"><label>Alignement vertical</label><select name="vertical_align">{% for a in ('top','middle','bottom') %}<option{% if cfg.styles.vertical_align==a %} selected{% endif %}>{{a}}</option>{% endfor %}</select></div></div>
+<h3>Largeurs des colonnes</h3><p class="muted">Total : {{cfg.columns|sum(attribute='width')}} u (attendu : {{cfg.page_width_u - 2*cfg.margin_u}} u).</p>
+<table class="data"><thead><tr><th>Colonne</th><th>Largeur (u)</th></tr></thead><tbody>{% for c in cfg.columns %}<tr><td>{{labels[c.key]}}</td><td><input type="number" step="1" min="0" name="width_{{c.key}}" value="{{c.width}}"></td></tr>{% endfor %}</tbody></table>
+<p><button class="btn">Enregistrer</button></p></form>
+{% endblock %}

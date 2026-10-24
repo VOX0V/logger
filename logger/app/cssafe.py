@@ -73,3 +73,51 @@ def sanitize_layout(cfg):
         if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 1100) is None:
             col["width"] = 51
     return cfg
+
+
+BD_NUMBERS = {"page_width_u": (300, 3000), "page_height_u": (300, 3000), "margin_u": (0, 200), "gap_u": (0, 100),
+              "row_height_u": (5, 100), "title_height_u": (10, 300), "title_font_size": (8, 80), "rac_bar_height_u": (8, 100),
+              "top_height_u": (50, 800), "cert_height_u": (30, 400), "qual_row_height_u": (6, 60), "photo_height_u": (0, 600),
+              "totals_height_u": (20, 300)}
+
+
+def breakdown_problems(cfg):
+    """Problèmes (liste vide = valide) d'un breakdown.yml."""
+    out = style_problems(cfg.get("styles", {}))
+    zc = (cfg.get("styles") or {}).get("zero_color", "#cccccc")
+    if not (isinstance(zc, str) and HEX.match(zc)):
+        out.append("styles.zero_color : couleur #RRGGBB attendue.")
+    for key, (lo, hi) in BD_NUMBERS.items():
+        if key in cfg and _num(cfg[key], lo, hi) is None:
+            out.append(f"{key} : nombre entre {lo} et {hi} attendu.")
+    tw = cfg.get("top_widths_u", {})
+    if not isinstance(tw, dict) or any(_num(tw.get(k), 10, 3000) is None for k in ("left", "middle", "right")):
+        out.append("top_widths_u : left, middle et right doivent être des nombres entre 10 et 3000.")
+    for i, col in enumerate(cfg.get("columns", []) or [], 1):
+        if not isinstance(col, dict) or not isinstance(col.get("key"), str) or _num(col.get("width"), 0, 3000) is None:
+            out.append(f"columns n°{i} : « key » et « width » (0 à 3000) attendus.")
+    rows = cfg.get("rows", [])
+    if not isinstance(rows, list) or len(rows) > 60 or any(not isinstance(x, (str, type(None))) or len(str(x or "")) > 20 for x in rows):
+        out.append("rows : liste de 60 codes de types au plus (20 caractères max chacun, vide = ligne libre).")
+    return out
+
+
+def sanitize_breakdown(cfg):
+    from .config import DEFAULT_BREAKDOWN as D
+    styles = cfg["styles"]
+    for key, default in {**DEFAULT_STYLES, "zero_color": "#cccccc"}.items():
+        if key == "zero_color":
+            if not (isinstance(styles.get(key), str) and HEX.match(styles[key])):
+                styles[key] = D["styles"]["zero_color"]
+        elif style_problems({key: styles.get(key, default)}):
+            styles[key] = D["styles"].get(key, default)
+    for key, (lo, hi) in BD_NUMBERS.items():
+        if _num(cfg.get(key), lo, hi) is None:
+            cfg[key] = D[key]
+    for k in ("left", "middle", "right"):
+        if _num(cfg["top_widths_u"].get(k), 10, 3000) is None:
+            cfg["top_widths_u"][k] = D["top_widths_u"][k]
+    for col, dflt in zip(cfg["columns"], D["columns"]):
+        if _num(col.get("width"), 0, 3000) is None:
+            col["width"] = dflt["width"]
+    return cfg

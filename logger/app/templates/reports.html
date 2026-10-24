@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card"><h3>Flight time breakdown (RAC 401.08)</h3><p class="muted">Répartition des heures de vol par type d'appareil, avec le suivi des qualifications — version anglaise.</p><p><a class="btn" href="{{url_for('reports.breakdown_page')}}">Ouvrir</a> <a class="btn secondary" href="{{url_for('reports.breakdown_pdf')}}" target="_blank">PDF</a></p></div>
 <h2>Rapports mensuels — vols de ligne CRJ</h2>
 <p class="muted">{{total}} vol(s) · <a href="{{url_for('main.logbook')}}">Retour au logbook</a></p>
 {% if not profile.pilot_name %}<div class="card muted">Renseigne ton nom, ton prénom et ton numéro d'employé dans <a href="{{url_for('accounts.me')}}">Mon compte</a> pour les afficher dans l'en-tête des PDF.</div>{% endif %}

@@ -108,6 +108,14 @@ def check_layout(data):
         raise Problem(" ".join(problems))
 
 
+def check_breakdown(data):
+    if not isinstance(data, dict):
+        raise Problem("Le fichier doit être un bloc clé: valeur.")
+    problems = cssafe.breakdown_problems(data)
+    if problems:
+        raise Problem(" ".join(problems))
+
+
 def check_view(data):
     cols = data.get("columns")
     if not isinstance(cols, list) or not all(isinstance(c, dict) and isinstance(c.get("column"), str) for c in cols):
@@ -128,6 +136,7 @@ FILES = {
     "logbook": ("Données converties — structure", C.logbook_db_config_path, check_logbook),
     "logbook_view": ("Données converties — affichage", C.logbook_view_path, check_view),
     "layout": ("Logbook — mise en page", C.logbook_layout_path, check_layout),
+    "breakdown": ("Breakdown — mise en page", C.breakdown_path, check_breakdown),
 }
 
 

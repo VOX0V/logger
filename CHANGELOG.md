@@ -1,10 +1,12 @@
 # Changelog
 
-## 0.4.0 — Flight time breakdown (RAC 401.08), version anglaise
+## 0.3.1 — Flight time breakdown (RAC 401.08), version anglaise
 
-- **Nouvelle page** « Flight time breakdown » (Rapports → Ouvrir) et son PDF Letter paysage, d'après la feuille « Report EN » du logbook Excel : heures par type d'appareil (monomoteur, multimoteur, instruments, cross-country, instruction), ligne TOTAL, sous-totaux par section, totaux avion / hélicoptère / turbine-jet, bloc de certification (date du jour, signature laissée vide).
-- **Mon compte** : numéro de licence et numéro de téléphone (identité de pilote) ; nouvelle carte « Suivi des qualifications » (nom + date d'expiration, jours restants calculés). L'e-mail du compte est repris dans le rapport.
-- Les vols à date future sont ignorés (comme les rapports mensuels). Les types sans catégorie apparaissent dans le tableau mais pas dans les totaux avion / hélicoptère : à compléter dans « Types d'appareils ».
+- **Nouvelle page** « Breakdown » (bouton dans l'en-tête, à côté de Logbook) et son PDF **US Legal paysage sur une seule page**, d'après la feuille « Report EN » du logbook Excel : heures par type d'appareil (monomoteur, multimoteur, instruments, cross-country, instruction), ligne TOTAL, sous-totaux par section, totaux avion / hélicoptère / turbine-jet, bloc de certification (date du jour, signature vide), suivi des qualifications. Les zones photo et signature restent vides (téléversement à venir).
+- **Types du tableau** : chaque ligne a un menu déroulant alimenté par la page « Types d'appareils » ; les lignes partent vides, le choix est enregistré dans `breakdown.yml`. Les totaux ne comptent que les types choisis ; un avertissement liste les heures du logbook absentes du tableau. Un type ne peut être choisi qu'une fois.
+- **Mise en page** : même système que le logbook, en u (1 u = 0,01 po). Nouveau fichier `<compte>_breakdown.yml` (modèle `defaults/breakdown.yml`) : taille de page, marges, hauteurs, largeur de chaque colonne, couleurs ; page « Réglages du Breakdown » et éditeur YAML (fichier « Breakdown — mise en page »). Les largeurs doivent totaliser `page_width_u - 2 x margin_u`. Les couleurs des lignes sont celles du logbook.
+- **Mon compte** : numéro de licence, numéro de téléphone et carte « Suivi des qualifications » (date d'expiration, jours restants). L'e-mail du compte est repris dans le rapport.
+- Les vols à date future sont ignorés. Types sans catégorie : à compléter dans « Types d'appareils » pour les totaux avion / hélicoptère.
 - Version française du rapport : à venir.
 
 ## 0.3.0 — largeurs et hauteurs uniques pour la page web et le PDF

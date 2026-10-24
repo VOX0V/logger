@@ -64,6 +64,9 @@ DEFAULT_LOGBOOK_DB_COLUMNS = [
 DEFAULT_LOGBOOK_LAYOUT = yaml.safe_load((Path(__file__).resolve().parent.parent / "defaults" / "logbook_layout.yml").read_text(encoding="utf-8"))
 
 
+DEFAULT_BREAKDOWN = yaml.safe_load((Path(__file__).resolve().parent.parent / "defaults" / "breakdown.yml").read_text(encoding="utf-8"))
+
+
 def _atomic_write(path, text):
     """Écriture atomique : fichier temporaire voisin, fsync, puis remplacement (jamais de YAML tronqué)."""
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
@@ -86,6 +89,8 @@ def logbook_db_config_path(username=None):
     u = _cfg_username(username); return user_file(f"{u}_logbook.yml", username)
 def logbook_layout_path(username=None):
     u = _cfg_username(username); return user_file(f"{u}_layout.yml", username)
+def breakdown_path(username=None):
+    u = _cfg_username(username); return user_file(f"{u}_breakdown.yml", username)
 
 
 def technical_name(display_name):
@@ -162,6 +167,10 @@ def ensure_configs(username=None):
             _atomic_write(logbook_layout_path(username), bundled.read_text(encoding="utf-8"))
         else:
             _atomic_write(logbook_layout_path(username), yaml.safe_dump(DEFAULT_LOGBOOK_LAYOUT, allow_unicode=True, sort_keys=False))
+
+
+    if not breakdown_path(username).exists():
+        _atomic_write(breakdown_path(username), (Path(__file__).resolve().parent.parent / "defaults" / "breakdown.yml").read_text(encoding="utf-8"))
 
 
 def load_config(username=None):
@@ -257,3 +266,25 @@ def load_logbook_view(username=None):
     return _load_view(logbook_view_path(username), columns)
 def logbook_columns(config, username=None): return [c for c in load_logbook_db_config(username)["database"]["columns"] if c.get("group") != "system"]
 def system_columns(config): return [c for c in config["database"]["columns"] if c.get("group") == "system"]
+
+
+def load_breakdown(username=None):
+    """Mise en page du rapport Flight time breakdown (breakdown.yml de l'utilisateur) ; valeurs invalides -> valeurs par défaut."""
+    from .cssafe import sanitize_breakdown
+    ensure_configs(username)
+    raw = _load_yaml(breakdown_path(username), DEFAULT_BREAKDOWN) or {}
+    cfg = copy.deepcopy(DEFAULT_BREAKDOWN)
+    for k, v in raw.items():
+        if k not in ("styles", "columns", "top_widths_u", "rows"):
+            cfg[k] = v
+    for k in ("styles", "top_widths_u"):
+        cfg[k] = {**DEFAULT_BREAKDOWN[k], **(raw.get(k) or {})} if isinstance(raw.get(k), dict) else cfg[k]
+    given = {c.get("key"): c for c in (raw.get("columns") or []) if isinstance(c, dict)}
+    cfg["columns"] = [{"key": c["key"], "width": given.get(c["key"], c).get("width", c["width"])} for c in DEFAULT_BREAKDOWN["columns"]]
+    if isinstance(raw.get("rows"), list):
+        cfg["rows"] = [str(x or "").strip() for x in raw["rows"]][:60]
+    return sanitize_breakdown(cfg)
+
+
+def save_breakdown(data, username=None):
+    _atomic_write(breakdown_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))

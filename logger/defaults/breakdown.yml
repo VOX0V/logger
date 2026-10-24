@@ -1,0 +1,98 @@
+# Réglages du rapport « Flight time breakdown » (même système que logbook_layout.yml).
+# Unité u : 1 u = 0,01 po. US Legal paysage 14 x 8,5 po = 1400 x 850 u.
+# La somme des largeurs de colonnes doit être égale à page_width_u - 2 x margin_u (ici 1360 u), et top_widths_u aussi.
+# Les couleurs des lignes viennent des blocs de couleurs du logbook (styles.data_blocks de la mise en page du logbook).
+title: Flight time breakdown
+page_width_u: 1400
+page_height_u: 850
+margin_u: 20
+gap_u: 8
+row_height_u: 18
+title_height_u: 55
+title_font_size: 30
+rac_bar_height_u: 16
+top_height_u: 235
+cert_height_u: 90
+qual_row_height_u: 14
+photo_height_u: 150
+totals_height_u: 55
+top_widths_u:
+  left: 330
+  middle: 700
+  right: 330
+styles:
+  font_family: Arial
+  font_size: 9
+  header_font_size: 9
+  border: '1px solid #000000'
+  header_background: '#eeeeee'
+  total_background: '#eeeeee'
+  text_align: center
+  vertical_align: middle
+  zero_color: '#cccccc'
+columns:
+- key: type
+  width: 55
+- key: total
+  width: 55
+- key: single_engine_dual_day
+  width: 62
+- key: single_engine_pic_day
+  width: 62
+- key: single_engine_dual_night
+  width: 62
+- key: single_engine_pic_night
+  width: 62
+- key: multi_engine_dual_day
+  width: 62
+- key: multi_engine_pic_day
+  width: 62
+- key: multi_engine_copi_day
+  width: 62
+- key: multi_engine_dual_night
+  width: 62
+- key: multi_engine_pic_night
+  width: 62
+- key: multi_engine_copi_night
+  width: 62
+- key: ifr
+  width: 62
+- key: hood
+  width: 62
+- key: ftd
+  width: 62
+- key: ifr_approach
+  width: 62
+- key: cross_country_dual_day
+  width: 62
+- key: cross_country_pic_day
+  width: 62
+- key: cross_country_dual_night
+  width: 62
+- key: cross_country_pic_night
+  width: 62
+- key: instruction_day
+  width: 67
+- key: instruction_night
+  width: 67
+rows:
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
+- ''
