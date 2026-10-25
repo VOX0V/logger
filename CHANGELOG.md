@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2 — Navigation simplifiée
+
+- **En-tête** : Logbook · Breakdown · Data · Export · Audit (Audit reste un bouton à part pour l'instant).
+- **Data** (nouvelle page d'accueil) : Import, Raw data, Convertisseur, Work data, et pour les administrateurs Types d'appareils et Aéroports.
+- **Export** (nouvelle page d'accueil) : Reports, export vers le logbook Excel, sauvegarde du dossier utilisateur.
+- **Mon compte** : tous les réglages au même endroit (logbook, Breakdown, colonnes des données brutes, convertisseur pour les administrateurs, éditeur YAML). Les boutons de réglages ont été retirés des autres pages. Les réglages du convertisseur ont maintenant leur propre page (administrateurs).
+
 ## 0.3.1 — Flight time breakdown (RAC 401.08), version anglaise
 
 - **Nouvelle page** « Breakdown » (bouton dans l'en-tête, à côté de Logbook) et son PDF **US Legal paysage sur une seule page**, d'après la feuille « Report EN » du logbook Excel : heures par type d'appareil (monomoteur, multimoteur, instruments, cross-country, instruction), ligne TOTAL, sous-totaux par section, totaux avion / hélicoptère / turbine-jet, bloc de certification (date du jour, signature vide), suivi des qualifications. Les zones photo et signature restent vides (téléversement à venir).

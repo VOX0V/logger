@@ -598,9 +598,14 @@ def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     for gone in ('Données brutes', 'Convertisseur', 'Données converties'):
         assert gone not in header                                                                  # retirés de la barre du haut
     assert 'Logout' in header and 'admin' in header
+    for entry in ('Logbook', 'Breakdown', 'Data', 'Export', 'Audit'):
+        assert f'>{entry}<' in header                                                              # en-tête : 5 entrées seulement
+    data = client.get('/hub/data').get_data(as_text=True)
+    for link in ('>Import<', '>Raw data<', '>Convertisseur<', '>Work data<'):
+        assert link in data                                                                        # ...les pages de données sont dans Data
     account = client.get('/accounts/me').get_data(as_text=True)
-    for link in ('>Logbook<', '>Données brutes<', '>Convertisseur<', '>Données converties<'):
-        assert link in account                                                                     # ...et présents dans Mon compte
+    for link in ('>Réglages du logbook<', '>Réglages du Breakdown<', '>Configuration (YAML)<'):
+        assert link in account                                                                     # ...et tous les réglages dans Mon compte
 
 
 def test_sans_date_tab_goes_left_and_never_active_when_dated_years_exist(client, app):

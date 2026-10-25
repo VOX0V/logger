@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h2>Réglages du convertisseur</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">Retour à Mon compte</a></div></div>
+<div class="card"><h3>Réglages du convertisseur</h3><form method="post" action="{{url_for('converter.save_settings_route')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
+<div class="field"><label>Nuit : minutes après le coucher du soleil</label><input type="number" name="after_sunset_minutes" min="0" max="180" value="{{settings.night.after_sunset_minutes}}"></div>
+<div class="field"><label>Nuit : minutes avant le lever du soleil</label><input type="number" name="before_sunrise_minutes" min="0" max="180" value="{{settings.night.before_sunrise_minutes}}"></div>
+</div><div class="field"><label>Arrondi Transport Canada — une plage par ligne : min-max=décimale (ajouter +1h pour compter une heure de plus)</label><textarea class="rules" name="tc_rounding">{{rounding_text}}</textarea></div>
+<p><button class="btn">Enregistrer les réglages</button></p></form></div>
+{% endblock %}

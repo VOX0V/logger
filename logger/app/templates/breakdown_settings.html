@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head"><h2>Réglages du Breakdown</h2><div><a class="btn secondary" href="{{url_for('breakdown.index')}}">Retour au Breakdown</a> <a class="btn secondary" href="{{url_for('yamledit.editor', file='breakdown')}}">Éditer le YAML</a></div></div>
+<div class="page-head"><h2>Réglages du Breakdown</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">Retour à Mon compte</a></div></div>
 <form class="card" method="post" action="{{url_for('breakdown.save_settings')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <p class="muted">Unité u : 1 u = 0,01 po (US Legal paysage = 1400 x 850 u). Les largeurs de colonnes et les trois blocs du haut doivent totaliser page_width_u - 2 x margin_u (ici {{cfg.page_width_u - 2*cfg.margin_u}} u).</p>
 <h3>Page et hauteurs (u)</h3><div class="grid">{% for key in numbers %}<div class="field"><label>{{key}}</label><input type="number" step="1" name="{{key}}" value="{{cfg[key]}}"></div>{% endfor %}</div>

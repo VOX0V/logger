@@ -51,6 +51,14 @@ def select():
     return redirect(url_for("converter.index"))
 
 
+@converter_bp.route("/settings")
+@admin_required
+def settings_page():
+    settings = catalog.load_settings()
+    return render_template("converter_settings.html", settings=settings,
+                           rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
+
+
 @converter_bp.route("/settings", methods=["POST"])
 @admin_required
 def save_settings_route():
@@ -67,7 +75,7 @@ def save_settings_route():
         flash("Réglages du convertisseur enregistrés.")
     except ValueError as exc:
         flash(f"Réglages non enregistrés — {exc}")
-    return redirect(url_for("converter.index"))
+    return redirect(url_for("converter.settings_page"))
 
 
 # ---------------- rules (admin) ----------------
