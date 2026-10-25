@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 — Exports regroupés dans Export, nouveau rapport mensuel
+
+- **Export > PDF** (nouvelle page) : Logbook d'une année précise (menu des années), Logbook complet, et Breakdown. Les boutons PDF ont disparu de la page Logbook et de la page Breakdown.
+- **Export** regroupe maintenant tout ce que le logiciel génère : PDF, Reports, export vers le logbook Excel, Raw data et Work data (Excel, CSV), sauvegarde de Work data, sauvegarde du dossier utilisateur, et pour les administrateurs les exports Excel des Types d'appareils et des Aéroports. Les boutons d'export ont été retirés des pages Données brutes, Données converties, Types d'appareils et Aéroports.
+- **Reports** : au lieu de générer tous les rapports du CRJ, on choisit le **mois, l'année et le type d'appareil** (ou « Tous les types ») et on génère le rapport mensuel de ces vols. Colonnes : DATE, FLIGHT/REMARK, ORG, DEST, TIME, LDG, D/N, PIC, COPI ; lignes TOTAL (mois), Total de l'année et Total to date, calculés pour le type choisi seulement. S'il n'y a aucun vol, un message s'affiche. Les anciennes routes (liste de tous les rapports CRJ, ZIP) sont supprimées.
+
 ## 0.3.2 — Navigation simplifiée
 
 - **En-tête** : Logbook · Breakdown · Data · Export · Audit (Audit reste un bouton à part pour l'instant).

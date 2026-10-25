@@ -1,14 +1,13 @@
-"""Monthly PDF reports of the airline (CRJ) flights, built from the logbook database (B).
+"""Monthly flight report (PDF) for a chosen month, year and aircraft type (or all types), built from the logbook database.
 Adapted from generer_reports.py of the earlier Excel-based application."""
 import io
 import re
 import sqlite3
-import zipfile
 from collections import defaultdict
 from datetime import date
 from xml.sax.saxutils import escape
 
-from flask import Blueprint, Response, abort, g, render_template, url_for
+from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
@@ -54,25 +53,32 @@ def text(v):
     return "" if v is None else str(v).strip()
 
 
-def extract_flight_number(rem):
-    m = re.search(r"\d+", text(rem))
-    return m.group() if m else ""
+MOIS_LONG = {1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin", 7: "Juillet", 8: "Août",
+             9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"}
+DAY_COLS = ["single_engine_dual_day", "single_engine_pic_day"] + ME_DAY
+NIGHT_COLS = ["single_engine_dual_night", "single_engine_pic_night"] + ME_NIGHT
+
+
+def clean(v):
+    return re.sub(r"\s+", " ", text(v))
 
 
 def fmt_block(val):
     return f"{val:.1f}" if val else "0.0"
 
 
-def filename_for(year, month):
-    return f"{month:02d}{MOIS_FR.get(month, f'{month:02d}')}{str(year)[2:]}.pdf"
+def filename_for(year, month, type_code=""):
+    base = f"{month:02d}{MOIS_FR.get(month, f'{month:02d}')}{str(year)[2:]}"
+    return f"{base}-{re.sub(r'[^A-Za-z0-9_-]', '', type_code) or 'ALL'}.pdf"
 
 
-def collect_flights(rows, today=None):
-    """CRJ flights of the logbook, grouped by (year, month). Future dates and lines without time are left out."""
-    today = today or date.today()
+def collect_flights(rows, type_code="", today=None):
+    """Flights of the logbook grouped by (year, month), for one aircraft type (type_code) or all types ("").
+    Future dates and lines without flight time are left out."""
+    today, type_code = today or date.today(), type_code.strip().upper()
     by_month = defaultdict(list)
     for r in rows:
-        if text(r.get("aircraft_type")).upper() != "CRJ":
+        if type_code and text(r.get("aircraft_type")).upper() != type_code:
             continue
         try:
             d = date.fromisoformat(text(r.get("date"))[:10])
@@ -80,70 +86,68 @@ def collect_flights(rows, today=None):
             continue
         if d > today:
             continue
-        day, night = sum(num(r.get(c)) for c in ME_DAY), sum(num(r.get(c)) for c in ME_NIGHT)
+        day, night = sum(num(r.get(c)) for c in DAY_COLS), sum(num(r.get(c)) for c in NIGHT_COLS)
         block = day + night
         if block <= 0:
             continue
-        if night > 0 and day == 0:
-            dn = "N"
-        elif day > 0 and night == 0:
-            dn = "D"
-        else:
-            dn = "N" if night >= day else "D"
+        dn = "N" if night > 0 and (day == 0 or night >= day) else "D"
+        landings = int(num(r.get("landings_day")) + num(r.get("landings_night"))) or 1     # a flight has at least one landing
         by_month[(d.year, d.month)].append({
-            "flt": extract_flight_number(r.get("remarks")), "date": f"{d.day:02d}/{d.month:02d}/{str(d.year)[2:]}",
+            "remark": clean(r.get("remarks")), "date": f"{d.day:02d}/{d.month:02d}/{str(d.year)[2:]}",
             "sort": (d, r.get("id") or 0), "org": text(r.get("departure")), "des": text(r.get("arrival")),
-            "block": block, "lndg": 1, "dn": dn, "pilot": text(r.get("pilot_in_command"))})
+            "block": block, "lndg": landings, "dn": dn, "pilot": text(r.get("pilot_in_command")),
+            "copi": text(r.get("copilot"))})
     return by_month
 
 
 def totals(by_month, year, month):
-    """Cumulative totals: since the start of the year, and since the first CRJ flight."""
-    ytd, jazz = ({"block": 0.0, "lndg": 0, "vols": 0} for _ in range(2))
+    """Cumulative totals: since the start of the year, and to date (since the first flight)."""
+    ytd, to_date = ({"block": 0.0, "lndg": 0, "vols": 0} for _ in range(2))
     for (a, m), vols in by_month.items():
         if (a, m) > (year, month):
             continue
-        for acc in ([ytd, jazz] if a == year else [jazz]):
+        for acc in ([ytd, to_date] if a == year else [to_date]):
             acc["block"] += sum(v["block"] for v in vols)
             acc["lndg"] += sum(v["lndg"] for v in vols)
             acc["vols"] += len(vols)
-    return ytd, jazz
+    return ytd, to_date
 
 
-def title_text(year, month, profile):
+def title_text(year, month, type_label, profile):
     name = ", ".join(p.upper() for p in (profile.get("pilot_name"), profile.get("first_name")) if p)
-    extra = "   ".join(x for x in (profile.get("employee_number"), "FO" if name else "", name) if x)
-    return f"Flight Log Report — {MOIS_FR.get(month, month)}{str(year)[2:]}" + (f"     {extra}" if extra else "")
+    extra = "   ".join(x for x in (profile.get("employee_number"), name) if x)
+    return f"Flight Log Report — {MOIS_FR.get(month, month)}{str(year)[2:]} — {type_label}" + (f"     {extra}" if extra else "")
 
 
-def build_monthly_pdf(year, month, vols, ytd, jazz, profile):
+def build_monthly_pdf(year, month, type_label, vols, ytd, to_date, profile):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
                             topMargin=1.2 * cm, bottomMargin=1.2 * cm)
-    CW = [1.6 * cm, 2.2 * cm, 1.6 * cm, 1.6 * cm, 1.8 * cm, 1.4 * cm, 1.2 * cm, 6.8 * cm]
-    story = [Paragraph(escape(title_text(year, month, profile)).replace("   ", "&nbsp;&nbsp;&nbsp;"), S_TITLE)]
-    data = [[Paragraph(h, S_HDR_L if h == "EMP NAME" else S_HDR)
-             for h in ("FLT", "DATE", "ORG", "DES", "BLOCK", "LNDG", "D/N", "EMP NAME")]]
+    CW = [1.6 * cm, 4.0 * cm, 1.4 * cm, 1.4 * cm, 1.3 * cm, 1.0 * cm, 0.9 * cm, 3.2 * cm, 3.2 * cm]
+    story = [Paragraph(escape(title_text(year, month, type_label, profile)).replace("   ", "&nbsp;&nbsp;&nbsp;"), S_TITLE)]
+    left = ("FLIGHT/REMARK", "PIC", "COPI")
+    data = [[Paragraph(h, S_HDR_L if h in left else S_HDR)
+             for h in ("DATE", "FLIGHT/REMARK", "ORG", "DEST", "TIME", "LDG", "D/N", "PIC", "COPI")]]
     row_meta, total_block, total_lndg = [], 0.0, 0
     for i, v in enumerate(sorted(vols, key=lambda x: x["sort"]), 1):
         total_block += v["block"]
         total_lndg += v["lndg"]
-        data.append([Paragraph(escape(v["flt"]), S_C), Paragraph(v["date"], S_C), Paragraph(escape(v["org"]), S_C),
+        data.append([Paragraph(v["date"], S_C), Paragraph(escape(v["remark"]), S_L), Paragraph(escape(v["org"]), S_C),
                      Paragraph(escape(v["des"]), S_C), Paragraph(fmt_block(v["block"]), S_R),
-                     Paragraph(str(v["lndg"]) if v["lndg"] else "", S_C), Paragraph(v["dn"], S_C),
-                     Paragraph(escape(v["pilot"]), S_L)])
+                     Paragraph(str(v["lndg"]), S_C), Paragraph(v["dn"], S_C),
+                     Paragraph(escape(v["pilot"]), S_L), Paragraph(escape(v["copi"]), S_L)])
         row_meta.append((v["dn"] == "N", i))
 
     def total_row(label, block, lndg, count):
         return [Paragraph("", S_C)] * 3 + [Paragraph(label, ps("t" + label, True, alignment=TA_RIGHT)),
                                           Paragraph(fmt_block(block), S_RB), Paragraph(str(lndg), S_CB),
-                                          Paragraph("", S_C), Paragraph(f"{count} vol(s)", S_LB)]
+                                          Paragraph("", S_C), Paragraph(f"{count} vol(s)", S_LB), Paragraph("", S_C)]
 
     data.append(total_row("TOTAL", total_block, total_lndg, len(vols)))
     data.append(total_row(f"Total {year}", ytd["block"], ytd["lndg"], ytd["vols"]))
-    data.append(total_row("Total Jazz", jazz["block"], jazz["lndg"], jazz["vols"]))
+    data.append(total_row("Total to date", to_date["block"], to_date["lndg"], to_date["vols"]))
     style = [("BACKGROUND", (0, 0), (-1, 0), GREY_BG), ("LINEBELOW", (0, 0), (-1, 0), 1.2, BLACK),
-             ("LINEABOVE", (0, -1), (-1, -1), 1.2, BLACK), ("INNERGRID", (0, 0), (-1, -1), 0.3, GREY_LT),
+             ("LINEABOVE", (0, -3), (-1, -3), 1.2, BLACK), ("INNERGRID", (0, 0), (-1, -1), 0.3, GREY_LT),
              ("BOX", (0, 0), (-1, -1), 0.5, GREY), ("TOPPADDING", (0, 0), (-1, -1), 2),
              ("BOTTOMPADDING", (0, 0), (-1, -1), 2), ("LEFTPADDING", (0, 0), (-1, -1), 4),
              ("RIGHTPADDING", (0, 0), (-1, -1), 4), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]
@@ -175,46 +179,43 @@ def _profile():
     return catalog.load_profile(g.username)
 
 
-def _pdf(by_month, year, month, profile):
-    ytd, jazz = totals(by_month, year, month)
-    return build_monthly_pdf(year, month, by_month[(year, month)], ytd, jazz, profile)
+def _int_arg(name, default=None):
+    try:
+        return int(request.args.get(name, ""))
+    except ValueError:
+        return default
 
 
 @reports_bp.route("/")
 @login_required
 def index():
-    by_month = collect_flights(_load_rows())
-    years = defaultdict(list)
-    for (a, m), vols in by_month.items():
-        years[a].append({"label": f"{MOIS_FR[m]} {a}", "flights": len(vols), "block": sum(v["block"] for v in vols),
-                         "url": url_for("reports.month_pdf", year=a, month=m)})
-    groups = [(a, sorted(ms, key=lambda x: x["url"], reverse=True), url_for("reports.zip_reports", year=a))
-              for a, ms in sorted(years.items(), reverse=True)]
-    return render_template("reports.html", groups=groups, zip_all=url_for("reports.zip_reports"),
-                           profile=_profile(), total=sum(len(v) for v in by_month.values()))
+    from .refdata import list_aircraft_types
+    rows = _load_rows()
+    by_month = collect_flights(rows)
+    types = {text(t["code"]).upper(): text(t["code"]) for t in list_aircraft_types()}
+    types.update({text(r.get("aircraft_type")).upper(): text(r.get("aircraft_type")).upper() for r in rows if text(r.get("aircraft_type"))})
+    latest = max(by_month) if by_month else (date.today().year, date.today().month)
+    return render_template("reports.html", years=sorted({a for a, _ in by_month}, reverse=True),
+                           months=list(MOIS_LONG.items()), types=[types[k] for k in sorted(types)],
+                           sel_year=_int_arg("year", latest[0]), sel_month=_int_arg("month", latest[1]),
+                           sel_type=request.args.get("type", "all").strip().upper() or "ALL", total=sum(len(v) for v in by_month.values()))
 
 
-@reports_bp.route("/<int:year>/<int:month>")
+@reports_bp.route("/pdf")
 @login_required
-def month_pdf(year, month):
-    by_month = collect_flights(_load_rows())
-    if (year, month) not in by_month:
-        abort(404)
-    pdf = _pdf(by_month, year, month, _profile())
-    return Response(pdf, mimetype="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{filename_for(year, month)}"'})
-
-
-@reports_bp.route("/zip")
-@reports_bp.route("/zip/<int:year>")
-@login_required
-def zip_reports(year=None):
-    by_month = collect_flights(_load_rows())
-    profile, buf = _profile(), io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for (a, m) in sorted(by_month):
-            if year is None or a == year:
-                z.writestr(f"{a}/{filename_for(a, m)}", _pdf(by_month, a, m, profile))
-    return Response(buf.getvalue(), mimetype="application/zip", headers={
-        "Content-Disposition": f'attachment; filename="reports {year if year else "CRJ"}.zip"'})
-
+def pdf():
+    year, month = _int_arg("year"), _int_arg("month")
+    if not year or month not in MOIS_LONG:
+        flash("Choisis un mois et une année.")
+        return redirect(url_for("reports.index"))
+    raw_type = request.args.get("type", "all").strip()
+    type_code = "" if raw_type.lower() == "all" else raw_type.upper()
+    by_month = collect_flights(_load_rows(), type_code)
+    vols = by_month.get((year, month))
+    if not vols:
+        flash(f"Aucun vol en {MOIS_LONG[month]} {year} pour {type_code or 'tous les types'}.")
+        return redirect(url_for("reports.index", year=year, month=month, type=raw_type or "all"))
+    ytd, to_date = totals(by_month, year, month)
+    out = build_monthly_pdf(year, month, type_code or "ALL TYPES", vols, ytd, to_date, _profile())
+    return Response(out, mimetype="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{filename_for(year, month, type_code)}"'})

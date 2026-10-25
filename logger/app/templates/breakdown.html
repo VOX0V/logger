@@ -15,7 +15,7 @@
 .bd-q td,.bd-q th{border:1px solid #000;font-size:11px;padding:0 3px;text-align:center}
 .bd-reg p{margin:0 0 4px;font-weight:bold;font-size:11px;line-height:1.25}
 </style>
-<div class="page-head"><h2>{{title}}</h2><div><a class="btn" href="{{url_for('breakdown.pdf')}}" target="_blank">PDF</a></div></div>
+<div class="page-head"><h2>{{title}}</h2></div>
 {% if error %}<div class="card">{{error}} À corriger dans Mon compte (Réglages du Breakdown ou Éditeur YAML).</div>
 {% else %}
 {% if rep.unassigned %}<div class="card muted">Heures du logbook absentes du tableau (choisis ces types dans les lignes) : {% for c, h in rep.unassigned %}{{c}} ({{fmt(h)}}){% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
