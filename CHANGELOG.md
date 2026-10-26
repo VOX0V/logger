@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4 — Audit affiné et ajout d'un vol à la main
+
+- **Audit — lignes vides** : une ligne dont la remarque est uniquement « vide » ou « empty » est ignorée par tous les tests (elle sert à créer des espaces dans le logbook). Une telle ligne sans date valide est signalée (« Ligne vide sans date »), car elle pourrait se retrouver n'importe où.
+- **Audit — aérodromes** : un code qui n'a ni 3 ni 4 caractères (nom de lieu, etc.) n'est plus testé. Un code à 3 caractères est une anomalie (code OACI attendu, ex. KBNA) ; un code à 4 caractères doit exister dans la table Aéroports, sinon anomalie « Aérodrome inconnu ».
+- **Audit — simulateur** : pour le type SIM, plus de « Heures sans catégorie ». Anomalie s'il n'y a ni temps FTD ni instruction, et anomalie s'il y a du temps ailleurs que FTD ou instruction.
+- **Ajouter un vol** : nouveau bouton dans l'en-tête, à côté du nom. Le formulaire reprend les colonnes du logbook (date, type, immatriculation, PIC, copilote, départ, arrivée, remarques, heures mono/multi/instruments/cross-country/instruction, atterrissages). Le vol est ajouté aux données brutes (import_source = « Saisie manuelle »), sans fusion avec une ligne existante ; il apparaît dans le Logbook après « Actualiser ».
+
 ## 0.3.3 — Exports regroupés dans Export, nouveau rapport mensuel
 
 - **Export > PDF** (nouvelle page) : Logbook d'une année précise (menu des années), Logbook complet, et Breakdown. Les boutons PDF ont disparu de la page Logbook et de la page Breakdown.

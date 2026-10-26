@@ -116,6 +116,7 @@ def create_app(test_config=None, *, require_admin=True):
     from .reports import reports_bp
     from .breakdown import breakdown_bp
     from .hubs import hubs_bp
+    from .manual import manual_bp
     from .export import export_bp
     from .securityview import security_bp
     from .seclog import log_event
@@ -145,7 +146,7 @@ def create_app(test_config=None, *, require_admin=True):
             log_event("admin_bootstrap", username=app.config["ADMIN_USERNAME"], reason="créé depuis la configuration d'environnement")
     app.config["ADMIN_PASSWORD"] = ""                 # ne reste pas en mémoire de configuration une fois l'initialisation faite
 
-    for blueprint in (auth_bp, accounts_bp, converter_bp, yaml_bp, main_bp, audit_bp, reports_bp, breakdown_bp, hubs_bp, export_bp, security_bp):
+    for blueprint in (auth_bp, accounts_bp, converter_bp, yaml_bp, main_bp, audit_bp, reports_bp, breakdown_bp, hubs_bp, manual_bp, export_bp, security_bp):
         app.register_blueprint(blueprint)
 
     @app.route("/healthz")

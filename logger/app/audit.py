@@ -33,6 +33,8 @@ LANDINGS = ["landings_day", "landings_night"]
 DUAL = ["single_engine_dual_day", "single_engine_dual_night", "multi_engine_dual_day",
         "multi_engine_dual_night", "cross_country_dual_day", "cross_country_dual_night"]
 TIME_COLS = SE + ME + XC + OTHER
+SIM_COLS = ["ftd", "instruction_day", "instruction_night"]       # un vol de simulateur ne comporte que ces temps
+EMPTY_MARKERS = {"vide", "empty"}                              # remarque d'une ligne volontairement vide (espacement du logbook)
 TEXT_COLS = ("aircraft_type", "registration", "pilot_in_command", "copilot", "departure", "arrival", "remarks")
 
 
@@ -57,11 +59,32 @@ def name_key(name):
     return re.sub(r"[^a-z]", "", plain.lower())
 
 
-def check_row(r, today):
+def is_empty_line(r):
+    """Ligne volontairement vide : la remarque est uniquement « vide » ou « empty »."""
+    return text(r.get("remarks")).strip().lower() in EMPTY_MARKERS
+
+
+def airport_codes():
+    """Codes OACI de la table Aéroports (base commune) ; None si la table n'est pas disponible."""
+    try:
+        from .refdata import list_airports
+        return {text(a["icao_code"]).strip().upper() for a in list_airports() if a["icao_code"]}
+    except Exception:
+        return None
+
+
+def check_row(r, today, icao=None):
     out = []
 
     def add(sev, cat, msg):
         out.append((sev, cat, msg))
+
+    if is_empty_line(r):
+        try:
+            date.fromisoformat(text(r.get("date"))[:10])
+        except ValueError:
+            add("ANOMALIE", "Ligne vide sans date", "ligne « vide » sans date valide : elle peut se retrouver n'importe où dans le logbook")
+        return out                                     # aucun autre test sur une ligne vide
 
     d = text(r.get("date"))[:10]
     try:
@@ -84,7 +107,13 @@ def check_row(r, today):
             add("ANOMALIE", "Durée anormale", f"{c} = {v:g} h (> {MAX_DURATION:g} h)")
     if not has_time and not any(num(r.get(c)) for c in LANDINGS):
         add("ANOMALIE", "Ligne sans temps", "aucun temps ni atterrissage enregistré")
-    if has_time and not (sum(times[c] for c in SE + ME) or times["ftd"]):
+    if typ.upper() == "SIM":                           # simulateur : uniquement du temps FTD (entraînement) ou instruction (formation)
+        if not sum(times[c] for c in SIM_COLS):
+            add("ANOMALIE", "Simulateur sans FTD ni instruction", "aucun temps FTD ni instruction")
+        other = [f"{c} = {v:g}" for c, v in times.items() if c not in SIM_COLS and v > 0]
+        if other:
+            add("ANOMALIE", "Simulateur avec temps hors FTD / instruction", ", ".join(other))
+    elif has_time and not (sum(times[c] for c in SE + ME) or times["ftd"]):
         add("ANOMALIE", "Heures sans catégorie", "temps enregistrés hors mono / multi / FTD")
 
     if not typ:
@@ -100,8 +129,11 @@ def check_row(r, today):
         add("ANOMALIE", "Immatriculation vide", "vol avec temps mais sans immatriculation")
 
     for field, v in (("departure", dep), ("arrival", arr)):
-        if v and not re.match(r"^[A-Z0-9]{3,4}$", v.upper()):
-            add("ANOMALIE", "Aérodrome au format suspect", f"{field} : « {v} »")
+        if len(v) == 3:
+            add("ANOMALIE", "Aérodrome au format suspect", f"{field} : « {v} » (code OACI à 4 caractères attendu, ex. KBNA)")
+        elif len(v) == 4 and icao is not None and v.upper() not in icao:
+            add("ANOMALIE", "Aérodrome inconnu", f"{field} : « {v} » absent de la table Aéroports")
+        # toute autre longueur (nom de lieu, etc.) : pas de test
 
     pilot = text(r.get("pilot_in_command")).strip()
     if pilot and cop and pilot.lower() == cop.lower():
@@ -148,6 +180,7 @@ def check_row(r, today):
 
 def check_global(rows):
     out = []
+    rows = [r for r in rows if not is_empty_line(r)]
     types_by_reg, forms_by_reg = defaultdict(set), defaultdict(set)
     forms_by_name, forms_by_aero = defaultdict(set), defaultdict(set)
     for r in rows:
@@ -179,10 +212,11 @@ def check_global(rows):
 def run_checks(rows, today=None):
     today = today or date.today()
     findings = []
+    icao = airport_codes()
     for r in rows:
         route = f"{text(r.get('departure'))}→{text(r.get('arrival'))}" if r.get("departure") or r.get("arrival") else ""
         label = " ".join(x for x in (text(r.get("registration")).strip(), route, text(r.get("remarks")).strip()[:40]) if x)
-        for sev, cat, msg in check_row(r, today):
+        for sev, cat, msg in check_row(r, today, icao):
             findings.append({"sev": sev, "cat": cat, "date": text(r.get("date"))[:10], "label": label, "msg": msg})
     for sev, cat, msg in check_global(rows):
         findings.append({"sev": sev, "cat": cat, "date": "", "label": "plusieurs lignes", "msg": msg})
