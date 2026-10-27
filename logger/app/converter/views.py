@@ -7,7 +7,9 @@ from ..seclog import log_event
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
                        list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
-    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, export_aircraft_types_xlsx, export_airports_xlsx)
+    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, export_aircraft_types_xlsx, export_airports_xlsx,
+    import_airports, import_aircraft_types)
+from ..importer import FileImportError
 from . import catalog
 from .transforms import TRANSFORMS
 
@@ -232,3 +234,28 @@ def aircrafts_export():
 def airports_export():
     return Response(export_airports_xlsx(), mimetype=XLSX,
                     headers={"Content-Disposition": 'attachment; filename="aeroports.xlsx"'})
+
+
+def _do_import(importer, back):
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("Choisis un fichier à importer.")
+    else:
+        try:
+            added, updated, skipped = importer(f.filename, f.read())
+            flash(f"Import terminé : {added} ajouté(s), {updated} mis à jour, {skipped} ignoré(s).")
+        except FileImportError as exc:
+            flash(str(exc))
+    return redirect(url_for(back))
+
+
+@converter_bp.route("/airports/import", methods=["POST"])
+@admin_required
+def airports_import():
+    return _do_import(import_airports, "converter.airports")
+
+
+@converter_bp.route("/aircrafts/import", methods=["POST"])
+@admin_required
+def aircrafts_import():
+    return _do_import(import_aircraft_types, "converter.aircrafts")

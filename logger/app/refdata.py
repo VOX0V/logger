@@ -2,10 +2,12 @@
 from pathlib import Path
 from flask import current_app
 import io
+import re, sqlite3, unicodedata
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from .db import airport_connect, aircrafts_connect
+from .importer import _read_table, FileImportError
 
 ENGINES = ("single", "multi")
 ENGINE_LABELS = {"single": "Monomoteur", "multi": "Multimoteur"}
@@ -335,3 +337,123 @@ def export_airports_xlsx():
     rows = [tuple(r[c] for c in keep) for r in cursor.fetchall()]
     conn.close()
     return _xlsx("Aéroports", [labels.get(c, c) for c in keep], rows)
+
+
+# ---------------- Excel import ----------------
+
+AIRPORT_COLUMNS = {
+    "icao_code": ("icao", "icao_code"), "iata_code": ("iata", "iata_code"),
+    "full_name": ("nom", "full_name", "name"), "country": ("pays", "country"),
+    "latitude": ("latitude", "lat"), "longitude": ("longitude", "lon", "lng"),
+    "elevation": ("elevation", "altitude"), "timezone": ("timezone", "fuseau horaire"), "notes": ("notes",)}
+AIRCRAFT_COLUMNS = {
+    "code": ("code", "type"), "make": ("marque", "make"), "model": ("modele", "model"),
+    "category": ("categorie", "category"), "engines": ("moteurs", "engines"),
+    "engine_type": ("type de moteur", "engine_type"), "notes": ("notes",)}
+
+
+def _hdr(value):
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def _file_rows(filename, data, aliases):
+    headers, rows = _read_table(filename, data)
+    lookup = {_hdr(a): f for f, names in aliases.items() for a in names}
+    cols = {i: lookup[_hdr(h)] for i, h in enumerate(headers) if _hdr(h) in lookup}
+    out = []
+    for values in rows:
+        d = {}
+        for i, field in cols.items():
+            if i < len(values) and field not in d and _clean(values[i]) is not None:
+                d[field] = _clean(values[i])
+        if d:
+            out.append(d)
+    return out, set(cols.values())
+
+
+def _code_for(value, pairs):
+    key = _hdr(value)
+    for code, label in pairs:
+        if key in (_hdr(code), _hdr(label)):
+            return code
+    return None
+
+
+def import_airports(filename, data):
+    rows, present = _file_rows(filename, data, AIRPORT_COLUMNS)
+    if not ({"icao_code", "iata_code"} & present):
+        raise FileImportError("Colonne ICAO ou IATA introuvable dans le fichier.")
+    added = updated = skipped = 0
+    conn = airport_connect()
+    try:
+        for d in rows:
+            icao = d.get("icao_code", "").upper() or None
+            iata = d.get("iata_code", "").upper() or None
+            if not (icao or iata):
+                skipped += 1; continue
+            try:
+                lat = _float(d.get("latitude"), "Latitude", -90, 90, required=False)
+                lon = _float(d.get("longitude"), "Longitude", -180, 180, required=False)
+                elev = _float(d.get("elevation"), "Altitude", -1000, 20000, required=False)
+            except ValueError:
+                skipped += 1; continue
+            new = {"icao_code": icao, "iata_code": iata, "full_name": d.get("full_name"), "country": d.get("country"),
+                   "latitude": lat, "longitude": lon, "elevation": elev, "timezone": d.get("timezone"), "notes": d.get("notes")}
+            hits = [r for r in (
+                conn.execute("SELECT * FROM airports WHERE icao_code=?", (icao,)).fetchone() if icao else None,
+                conn.execute("SELECT * FROM airports WHERE iata_code=?", (iata,)).fetchone() if iata else None) if r]
+            if len({r["id"] for r in hits}) > 1:
+                skipped += 1; continue
+            try:
+                if hits:
+                    gaps = {k: v for k, v in new.items() if v is not None and hits[0][k] in (None, "")}
+                    if gaps:
+                        conn.execute(f"UPDATE airports SET {', '.join(k + '=?' for k in gaps)} WHERE id=?",
+                                     (*gaps.values(), hits[0]["id"]))
+                        updated += 1
+                elif lat is not None and lon is not None:
+                    conn.execute(f"INSERT INTO airports ({', '.join(new)}) VALUES ({','.join('?' * len(new))})", tuple(new.values()))
+                    added += 1
+                else:
+                    skipped += 1
+            except sqlite3.IntegrityError:
+                skipped += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return added, updated, skipped
+
+
+def import_aircraft_types(filename, data):
+    rows, present = _file_rows(filename, data, AIRCRAFT_COLUMNS)
+    if "code" not in present:
+        raise FileImportError("Colonne « Code » introuvable dans le fichier.")
+    added = updated = skipped = 0
+    conn = aircrafts_connect()
+    try:
+        for d in rows:
+            code = d.get("code", "").upper()
+            if not code:
+                skipped += 1; continue
+            new = {"code": code, "make": d.get("make"), "model": d.get("model"),
+                   "category": _code_for(d.get("category"), CATEGORIES),
+                   "engines": _code_for(d.get("engines"), tuple(ENGINE_LABELS.items())),
+                   "engine_type": _code_for(d.get("engine_type"), ENGINE_TYPES), "notes": d.get("notes")}
+            row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(code)=?", (code,)).fetchone()
+            try:
+                if row:
+                    gaps = {k: v for k, v in new.items() if v is not None and row[k] in (None, "")}
+                    if gaps:
+                        conn.execute(f"UPDATE aircraft_types SET {', '.join(k + '=?' for k in gaps)} WHERE id=?",
+                                     (*gaps.values(), row["id"]))
+                        updated += 1
+                else:
+                    conn.execute(f"INSERT INTO aircraft_types ({', '.join(new)}) VALUES ({','.join('?' * len(new))})", tuple(new.values()))
+                    added += 1
+            except sqlite3.IntegrityError:
+                skipped += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return added, updated, skipped
