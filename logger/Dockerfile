@@ -16,6 +16,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY defaults ./defaults
+COPY import_profiles ./import_profiles
 COPY wsgi.py manage.py VERSION ./
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh \

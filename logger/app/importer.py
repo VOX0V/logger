@@ -76,16 +76,23 @@ def _read_table(filename, file_bytes, sheet_name=None):
     raise FileImportError("Format de fichier non supporté : utilisez un fichier .xlsx, .xlsm ou .csv.")
 
 
-def importable_rows(filename, file_bytes, categories, sheet_name=None):
+def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=None):
+    """With an import profile, only the profile's header mapping is used (it replaces the default rules)."""
+    if profile is not None:
+        sheet_name = sheet_name or profile.get("sheet")
     headers, rows = _read_table(filename, file_bytes, sheet_name)
 
     rule_map = {}
-    for category in categories:
-        if category.get("group", category.get("groupe")) == "system":
-            continue
-        destination = category.get("column", category.get("colonne_technique"))
-        for rule in category.get("import_rules", category.get("import", [])) or []:
-            rule_map[normalize(rule)] = destination
+    if profile is not None:
+        for item in profile["columns"]:
+            rule_map.setdefault(normalize(item["header"]), item["column"])
+    else:
+        for category in categories:
+            if category.get("group", category.get("groupe")) == "system":
+                continue
+            destination = category.get("column", category.get("colonne_technique"))
+            for rule in category.get("import_rules", category.get("import", [])) or []:
+                rule_map[normalize(rule)] = destination
 
     source_indexes = {}
     for idx, value in enumerate(headers):
@@ -93,6 +100,8 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None):
         if key in rule_map:
             source_indexes[idx] = rule_map[key]
 
+    if not source_indexes and profile is not None:
+        raise FileImportError(f"No column of this file matches the headers of the '{profile['name']}' import profile.")
     if not source_indexes:
         raise FileImportError("Aucune colonne de ce fichier ne correspond à une règle d'import configurée dans Settings.")
 

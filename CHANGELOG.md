@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7 — Import profiles
+
+- **Import profiles**: new `logger/import_profiles/` folder (shared by all accounts) with one YAML file per airline (`aircreebec.yml` first). A profile maps the headers of the airline file to database columns; values are imported untouched (raw data).
+- **Import page**: new "Import profile" drop-down. "Default" keeps the current import rules (`import_rules` in `userdb.yml`); a profile replaces them entirely for that import.
+- **Missing columns** needed by a profile are added automatically to the user's database (names taken from the file headers).
+
 ## 0.3.4 — Audit affiné et ajout d'un vol à la main
 
 - **Audit — lignes vides** : une ligne dont la remarque est uniquement « vide » ou « empty » est ignorée par tous les tests (elle sert à créer des espaces dans le logbook). Une telle ligne sans date valide est signalée (« Ligne vide sans date »), car elle pourrait se retrouver n'importe où.

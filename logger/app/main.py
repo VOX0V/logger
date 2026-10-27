@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for, send_file
 from .auth import login_required, fresh_login_required
 from .importer import importable_rows
+from .import_profiles import list_profiles, load_profile, ensure_profile_columns
 from .merge import read_logbook_workbook
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username, backup_sqlite, db_path as user_db_path
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
@@ -348,16 +349,22 @@ def import_files():
     if request.method=="POST":
         files=[f for f in request.files.getlist("files") if f and f.filename]
         if not files: flash("Sélectionnez au moins un fichier Excel."); return redirect(url_for("main.import_files"))
+        profile=None; profile_id=request.form.get("profile","").strip()
+        if profile_id:
+            try:
+                profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
+            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return redirect(url_for("main.import_files"))
+            if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
         total=0
         for file in files:
             try:
-                data=file.read(); rows=read_logbook_workbook(file.filename,data)
+                data=file.read(); rows=None if profile else read_logbook_workbook(file.filename,data)
                 if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
-                else: rows,matched=importable_rows(file.filename,data,categories)
+                else: rows,matched=importable_rows(file.filename,data,categories,profile=profile)
                 stats=import_rows(file.filename,rows,config); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} ligne(s) lue(s), {matched} colonne(s) reconnue(s) — {stats['added']} vol(s) ajouté(s), {stats['completed']} vol(s) complété(s) ({sum(stats['filled'].values())} champ(s) rempli(s)), {stats['unchanged']} inchangé(s), {stats['disagreements']} désaccord(s).")
                 if stats["filled"]: flash("Champs complétés : "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
                 for d,c,old,new in stats["samples"][:3]: flash(f"Désaccord (valeur de la base conservée) — {d}, {c} : base « {old} », fichier « {new} ».")
             except Exception as exc: flash(f"{file.filename}: import impossible — {safe_message(exc)}")
         log_event("data_import", target=f"{len(files)} fichier(s), {total} ligne(s) lue(s)"); flash(f"Import terminé: {total} ligne(s) lue(s)."); return redirect(url_for("main.index"))
-    return render_template("import.html",categories=categories)
+    return render_template("import.html",categories=categories,profiles=list_profiles())
