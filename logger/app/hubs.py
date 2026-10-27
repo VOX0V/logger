@@ -1,4 +1,4 @@
-"""Pages d'accueil des catégories de l'en-tête : Data et Export (et la page Export > PDF)."""
+"""Landing pages for the header categories: Data and Export (and the Export > PDF page)."""
 from flask import Blueprint, g, render_template, url_for
 
 from .auth import login_required
@@ -10,6 +10,12 @@ def _url(endpoint):
     return url_for(endpoint[0], **endpoint[1]) if isinstance(endpoint, tuple) else url_for(endpoint)
 
 
+def _links(rows):
+    """Build (label, url) entries; admin-only rows are hidden from other roles."""
+    return [{"label": label, "url": _url(endpoint)} for label, endpoint, admin_only in rows
+            if not admin_only or g.role == "admin"]
+
+
 def _items(rows):
     return [{"label": label, "text": text, "url": _url(endpoint)} for label, text, endpoint, admin in rows
             if not admin or g.role == "admin"]
@@ -18,13 +24,15 @@ def _items(rows):
 @hubs_bp.route("/data")
 @login_required
 def data():
-    return render_template("hub.html", title="Data", items=_items([
-        ("Import", "Importer des fichiers (Excel, CSV de la compagnie, logbook Excel) dans les données brutes.", "main.import_files", False),
-        ("Raw data", "Données brutes : tous les vols importés, tels quels.", "main.index", False),
-        ("Convertisseur", "Règles qui transforment les données brutes en données converties.", "converter.index", False),
-        ("Work data", "Données converties (logbook.db) : la base utilisée par le Logbook et les rapports.", "main.logbook_db_page", False),
-        ("Types d'appareils", "Liste commune à toute l'application (administrateurs).", "converter.aircrafts", True),
-        ("Aéroports", "Liste commune à toute l'application (administrateurs).", "converter.airports", True)]))
+    user_links = _links([
+        ("Import", "main.import_files", False),
+        ("Raw data", "main.index", False),
+        ("Converter", "converter.index", False),
+        ("Work data", "main.logbook_db_page", False)])
+    app_links = _links([
+        ("Airports", "converter.airports", True),
+        ("Aircrafts", "converter.aircrafts", True)])
+    return render_template("data.html", user_links=user_links, app_links=app_links)
 
 
 @hubs_bp.route("/export")

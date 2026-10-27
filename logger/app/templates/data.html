@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h2>User data</h2></div>
+<div style="display:grid;grid-template-columns:minmax(200px,260px);gap:8px;margin-bottom:28px">{% for l in user_links %}<a class="btn secondary" href="{{l.url}}">{{l.label}}</a>{% endfor %}</div>
+{% if app_links %}
+<div class="page-head"><h2>App data</h2></div>
+<div style="display:grid;grid-template-columns:minmax(200px,260px);gap:8px">{% for l in app_links %}<a class="btn secondary" href="{{l.url}}">{{l.label}}</a>{% endfor %}</div>
+{% endif %}
+{% endblock %}
