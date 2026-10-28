@@ -6,7 +6,8 @@ from collections import Counter
 
 from ..db import connect, logbook_connect, safe_identifier
 from ..config import load_logbook_db_config, configurable_columns
-from ..models import sync_logbook_columns, drop_unused_logbook_columns
+from ..models import sync_logbook_columns, drop_unused_logbook_columns, ensure_profile_column
+from .profiles import profile_rules
 from .catalog import active_rules, load_settings, pilot_name, rule_missing_columns
 from .transforms import FUNCTIONS, Skip, SkipRow, Problem, blank
 
@@ -30,11 +31,35 @@ def refresh_logbook(config, username=None):
 
     conn = logbook_connect(username)
     uc = connect(username)
+    rule_sets = {}
+
+    def checked(rules, profile_id):
+        keep = []
+        for rule in rules:
+            missing = rule_missing_columns(rule, a_columns, b_columns)
+            if missing:
+                warnings[f"Rule '{rule['name']}' ({profile_id}) skipped: missing column(s) ({', '.join(missing)})"] += 0
+            else:
+                keep.append(rule)
+        return keep
+
+    def rules_for(profile_id):
+        """Conversion profile of the row's import profile. Rows without one use the ticked rules,
+        then the 'default' profile fills the columns they leave empty."""
+        if profile_id not in rule_sets:
+            found = profile_rules(profile_id) if profile_id else None
+            if found is not None:
+                rule_sets[profile_id] = checked(found, profile_id)
+            else:
+                rule_sets[profile_id] = usable + checked(profile_rules("default") or [], "default")
+        return rule_sets[profile_id]
+
     try:
+        ensure_profile_column(uc)
         conn.execute("CREATE TABLE IF NOT EXISTS logbook (id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,import_source TEXT)")
         sync_logbook_columns(conn, config, username)
         drop_unused_logbook_columns(conn, config, username)
-        select = ",".join(["id", "import_source"] + [f'"{safe_identifier(c)}"' for c in a_columns])
+        select = ",".join(["id", "import_source", "import_profile"] + [f'"{safe_identifier(c)}"' for c in a_columns])
         rows = uc.execute(f"SELECT {select} FROM users ORDER BY id").fetchall()
         conn.execute("DELETE FROM logbook")
         names = [safe_identifier(n) for n in b_columns]
@@ -44,7 +69,7 @@ def refresh_logbook(config, username=None):
             source = dict(row)
             out = {}
             skipped = False
-            for rule in usable:
+            for rule in rules_for(source.get("import_profile")):
                 try:
                     result = FUNCTIONS[rule["transform"]](source, rule, settings)
                 except SkipRow:

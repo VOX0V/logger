@@ -21,7 +21,7 @@ def drop_unused_columns(conn, config):
     configured = {c["column"] for c in config["database"]["columns"]}
     existing = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     for col in existing:
-        if col not in configured and col not in {c["column"] for c in SYSTEM_COLUMNS}:
+        if col not in configured and col != "import_profile" and col not in {c["column"] for c in SYSTEM_COLUMNS}:
             conn.execute(f'ALTER TABLE users DROP COLUMN "{safe_identifier(col)}"')
 
 
@@ -33,10 +33,17 @@ def drop_unused_logbook_columns(conn, config, username=None):
             conn.execute(f'ALTER TABLE logbook DROP COLUMN "{safe_identifier(col)}"')
 
 
-def import_rows(source, rows, config, username=None):
+def ensure_profile_column(conn):
+    """Column of A telling which import profile a row came from (NULL = default rules)."""
+    if "import_profile" not in [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]:
+        conn.execute("ALTER TABLE users ADD COLUMN import_profile TEXT")
+
+
+def import_rows(source, rows, config, username=None, profile=None):
     """Merge `rows` into the raw database: never replaces or deletes anything (see merge.py)."""
     from .merge import merge_context, plan_merge
     conn = connect(username)
+    ensure_profile_column(conn)
     sync_user_columns(conn, config)      # jamais de DROP COLUMN ici : un import n'efface rien (voir delete_category)
     cols = [safe_identifier(c["column"]) for c in configurable_columns(config)]
     quoted = ",".join(chr(34) + c + chr(34) for c in cols)
@@ -48,9 +55,9 @@ def import_rows(source, rows, config, username=None):
         sets = ",".join(f'"{c}"=?' for c in changes)
         conn.execute(f"UPDATE users SET {sets}, updated_at=CURRENT_TIMESTAMP WHERE id=?", list(changes.values()) + [row_id])
     if inserts and cols:
-        sql = f'INSERT INTO users (import_source,{quoted}) VALUES (?,{",".join("?" for _ in cols)})'
+        sql = f'INSERT INTO users (import_source,import_profile,{quoted}) VALUES (?,?,{",".join("?" for _ in cols)})'
         for row in inserts:
-            conn.execute(sql, [source] + [row.get(c) for c in cols])
+            conn.execute(sql, [source, profile] + [row.get(c) for c in cols])
     conn.commit(); conn.close()
     return stats
 

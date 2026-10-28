@@ -1,4 +1,4 @@
-"""Import profiles: one YAML file per airline in <app root>/import_profiles/, shared by all accounts.
+"""Import profiles: one <id>_import.yml file per airline in <app root>/importer/, shared by all accounts.
 
 A profile only maps the headers of an airline file to database columns. Values are imported
 untouched (the raw database holds raw data). A profile replaces the default import rules."""
@@ -11,11 +11,12 @@ from .config import save_config, technical_name
 from .importer import FileImportError
 
 PROFILE_ID = re.compile(r"[a-z0-9_-]+")
+SUFFIX = "_import"
 DATA_TYPES = {"text", "integer", "decimal", "date", "datetime", "boolean"}
 
 
 def profiles_dir():
-    return Path(__file__).resolve().parent.parent / "import_profiles"
+    return Path(__file__).resolve().parent.parent / "importer"
 
 
 def _read(path):
@@ -32,11 +33,12 @@ def list_profiles():
     """[{id, name}] of the available profiles, sorted by name."""
     folder, found = profiles_dir(), []
     if folder.is_dir():
-        for path in folder.glob("*.yml"):
-            if not PROFILE_ID.fullmatch(path.stem):
+        for path in folder.glob(f"*{SUFFIX}.yml"):
+            profile_id = path.stem[: -len(SUFFIX)]
+            if not PROFILE_ID.fullmatch(profile_id):
                 continue
             try:
-                found.append({"id": path.stem, "name": str(_read(path).get("name") or path.stem)})
+                found.append({"id": profile_id, "name": str(_read(path).get("name") or profile_id)})
             except FileImportError:
                 continue
     return sorted(found, key=lambda p: p["name"].lower())
@@ -45,7 +47,7 @@ def list_profiles():
 def load_profile(profile_id):
     if not PROFILE_ID.fullmatch(profile_id or "") or profile_id not in {p["id"] for p in list_profiles()}:
         raise FileImportError("Unknown import profile.")
-    data = _read(profiles_dir() / f"{profile_id}.yml")
+    data = _read(profiles_dir() / f"{profile_id}{SUFFIX}.yml")
     columns = []
     for item in data.get("columns") or []:
         if not isinstance(item, dict) or not item.get("header") or not item.get("column"):

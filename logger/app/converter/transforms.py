@@ -333,8 +333,71 @@ def flight_remarks(row, rule, settings):
     return {rule["outputs"]["target"]: f"{prefix}{number}" if number else None}
 
 
+def date_dmy(row, rule, settings):
+    """Text date dd/mm/yy or dd/mm/yyyy -> ISO date."""
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})", str(row.get(rule["inputs"]["source"]) or "").strip())
+    if not m:
+        return {}
+    day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    try:
+        return {rule["outputs"]["target"]: date(year + 2000 if year < 100 else year, month, day).isoformat()}
+    except ValueError:
+        return {}
+
+
+def last_first_name(row, rule, settings):
+    """'GALLANT, ETIENNE' -> 'E.Gallant'. Any other format is copied trimmed."""
+    raw = " ".join(str(row.get(rule["inputs"]["source"]) or "").split())
+    if "," in raw:
+        last, first = (part.strip() for part in raw.split(",", 1))
+        if last:
+            raw = _person(first.upper(), last.upper())
+    return {rule["outputs"]["target"]: raw or None}
+
+
+def time_by_landing(row, rule, settings):
+    """Copy a time into the day column when a day landing is flagged, into the night column when a night landing is."""
+    i, o = rule["inputs"], rule["outputs"]
+    value = row.get(i["time"])
+    if blank(value):
+        return {}
+    if rule["params"].get("rounding") == "tc":
+        value = block_to_decimal(parse_block(value), "tc", settings["tc_rounding"]["rules"])
+        if value is None:
+            return {}
+    out = {}
+    if not blank(row.get(i["landing_day"])):
+        out[o["day"]] = value
+    if not blank(row.get(i["landing_night"])):
+        out[o["night"]] = value
+    return out
+
+
+def skip_blank(row, rule, settings):
+    """Leave out the rows where the column is empty."""
+    if blank(row.get(rule["inputs"]["source"])):
+        raise SkipRow()
+    return {}
+
+
 FUNCTIONS = {"copy": copy, "date_parts": date_parts, "datetime_date": datetime_date,
              "tc_round": tc_round, "day_night": day_night, "registration": format_registration,
              "aircraft_type": normalize_type, "icao_code": to_icao, "crew": crew_from_list,
              "flight_remarks": flight_remarks,
-             "not_flying": skip_not_flying, "zero_block": skip_zero_block}
+             "not_flying": skip_not_flying, "zero_block": skip_zero_block,
+             "date_dmy": date_dmy, "last_first_name": last_first_name,
+             "time_by_landing": time_by_landing, "skip_blank": skip_blank}
+
+TRANSFORMS.update({
+    "date_dmy": {"label": "Date from text dd/mm/yy", "inputs": [("source", "Date column (A)", True)],
+                 "outputs": [("target", "Column of B (date)", True)], "params": []},
+    "last_first_name": {"label": "Name 'LAST, FIRST' to 'F.Last'", "inputs": [("source", "Name column (A)", True)],
+                        "outputs": [("target", "Column of B", True)], "params": []},
+    "time_by_landing": {"label": "Time to day/night column from landing flags",
+                        "inputs": [("time", "Time column (A)", True), ("landing_day", "Day landing column (A)", True),
+                                   ("landing_night", "Night landing column (A)", True)],
+                        "outputs": [("day", "Day column of B", True), ("night", "Night column of B", True)],
+                        "params": [("rounding", "Rounding", ROUNDING_CHOICES)]},
+    "skip_blank": {"label": "Skip rows where a column is empty", "inputs": [("source", "Column (A)", True)],
+                   "outputs": [], "params": []},
+})

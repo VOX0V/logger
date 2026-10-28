@@ -1,0 +1,20 @@
+# Conversion profile: Air Creebec (raw database A -> logbook database B).
+# Pairs with importer/creebec_import.yml (same id: creebec). Rows imported with that
+# profile are converted with these rules INSTEAD of the default (ticked) rules.
+# Same rule format as the converter catalog. Simulator rows and the sun-based day/night split
+# are not handled yet (a time is written only when a day or night landing is flagged).
+name: Air Creebec
+rules:
+- {id: skip_no_flight_time, name: Skip rows without flight time (simulator sessions), group: Filters, transform: skip_blank, inputs: {source: flt_time}}
+- {id: date, name: Date (dd/mm/yy), group: Date, transform: date_dmy, inputs: {source: date}, outputs: {target: date}}
+- {id: type, name: Aircraft type, group: Aircraft, transform: aircraft_type, inputs: {source: type}, outputs: {target: aircraft_type}}
+- {id: registration, name: Registration, group: Aircraft, transform: registration, inputs: {source: registration}, outputs: {target: registration}}
+- {id: pic, name: Pilot in command (LAST, FIRST -> F.Last), group: Crew, transform: last_first_name, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
+- {id: departure, name: Departure (ICAO), group: Airports, transform: icao_code, inputs: {source: departure}, outputs: {target: departure}}
+- {id: arrival, name: Arrival (ICAO), group: Airports, transform: icao_code, inputs: {source: arrival}, outputs: {target: arrival}}
+- {id: ifr, name: IFR = flight time (TC rounding), group: Time, transform: tc_round, inputs: {time: flt_time}, outputs: {target: ifr}, params: {rounding: tc}}
+- {id: me_pic, name: Multi-engine PIC day/night (pic_time by landing), group: Time, transform: time_by_landing, inputs: {time: pic_time, landing_day: ldg_day, landing_night: ldg_night}, outputs: {day: multi_engine_pic_day, night: multi_engine_pic_night}, params: {rounding: tc}}
+- {id: me_copi, name: Multi-engine copilot day/night (copi_time by landing), group: Time, transform: time_by_landing, inputs: {time: copi_time, landing_day: ldg_day, landing_night: ldg_night}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {rounding: tc}}
+- {id: cc_pic, name: Cross-country PIC day/night (pic_time by landing), group: Time, transform: time_by_landing, inputs: {time: pic_time, landing_day: ldg_day, landing_night: ldg_night}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {rounding: tc}}
+- {id: landings_day, name: Landings day, group: Landings, transform: copy, inputs: {source: ldg_day}, outputs: {target: landings_day}}
+- {id: landings_night, name: Landings night, group: Landings, transform: copy, inputs: {source: ldg_night}, outputs: {target: landings_night}}

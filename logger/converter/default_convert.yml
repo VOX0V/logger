@@ -1,0 +1,17 @@
+# Default conversion profile (default_convert.yml): plain copy of the basic columns of the raw database A into the logbook database B.
+# Used for rows without a conversion profile of their own (default import): it comes AFTER the ticked
+# converter rules, so it only fills the columns they leave empty.
+name: Default
+rules:
+- {id: date, name: Date from year / month / day, group: Date, transform: date_parts, inputs: {year: year, month: month, day: day}, outputs: {target: date}}
+- {id: type, name: Aircraft type, group: Aircraft, transform: copy, inputs: {source: type}, outputs: {target: aircraft_type}}
+- {id: registration, name: Registration, group: Aircraft, transform: copy, inputs: {source: registration}, outputs: {target: registration}}
+- {id: pic, name: Pilot in command, group: Crew, transform: copy, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
+- {id: copilot, name: Copilot, group: Crew, transform: copy, inputs: {source: copilot}, outputs: {target: copilot}}
+- {id: departure, name: Departure, group: Airports, transform: copy, inputs: {source: departure}, outputs: {target: departure}}
+- {id: arrival, name: Arrival, group: Airports, transform: copy, inputs: {source: arrival}, outputs: {target: arrival}}
+- {id: remarks, name: Remarks, group: Misc, transform: copy, inputs: {source: remarks}, outputs: {target: remarks}}
+- {id: se_dual_day, name: Single engine dual day, group: Time, transform: copy, inputs: {source: single_engine_dual_day}, outputs: {target: single_engine_dual_day}}
+- {id: se_pic_day, name: Single engine PIC day, group: Time, transform: copy, inputs: {source: single_engine_pic_day}, outputs: {target: single_engine_pic_day}}
+- {id: se_dual_night, name: Single engine dual night, group: Time, transform: copy, inputs: {source: single_engine_dual_night}, outputs: {target: single_engine_dual_night}}
+- {id: se_pic_night, name: Single engine PIC night, group: Time, transform: copy, inputs: {source: single_engine_pic_night}, outputs: {target: single_engine_pic_night}}

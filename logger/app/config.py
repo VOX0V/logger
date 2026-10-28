@@ -102,7 +102,7 @@ def technical_name(display_name):
     if value[0].isdigit():
         value = "_" + value
     safe_identifier(value)
-    if value in {"id", "created_at", "updated_at", "import_source"}:
+    if value in {"id", "created_at", "updated_at", "import_source", "import_profile"}:
         raise ValueError(f"Nom de colonne réservé: {value}")
     return value
 

@@ -361,7 +361,7 @@ def import_files():
                 data=file.read(); rows=None if profile else read_logbook_workbook(file.filename,data)
                 if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
                 else: rows,matched=importable_rows(file.filename,data,categories,profile=profile)
-                stats=import_rows(file.filename,rows,config); total+=len(rows)
+                stats=import_rows(file.filename,rows,config,profile=profile["id"] if profile else None); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} ligne(s) lue(s), {matched} colonne(s) reconnue(s) — {stats['added']} vol(s) ajouté(s), {stats['completed']} vol(s) complété(s) ({sum(stats['filled'].values())} champ(s) rempli(s)), {stats['unchanged']} inchangé(s), {stats['disagreements']} désaccord(s).")
                 if stats["filled"]: flash("Champs complétés : "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
                 for d,c,old,new in stats["samples"][:3]: flash(f"Désaccord (valeur de la base conservée) — {d}, {c} : base « {old} », fichier « {new} ».")

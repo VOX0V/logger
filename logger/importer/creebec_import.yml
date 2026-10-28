@@ -1,0 +1,26 @@
+# Import profile: Air Creebec (creebec_import.yml; converted by converter/creebec_convert.yml).
+# One YAML file per airline, shared by all accounts. A profile only maps the headers of the
+# airline file to database columns: values are imported untouched (raw data, no transformation).
+# If a column does not exist yet in the user's database it is created from the definition below
+# (display_name, group, data_type). Existing columns only need "header" and "column".
+name: Air Creebec
+# sheet: Sheet     # optional; by default the sheet named "raw", else the active sheet
+columns:
+  - {header: Date, column: date, display_name: Date, group: date, data_type: text}
+  - {header: dep, column: departure}
+  - {header: dep_time, column: dep_time, display_name: dep_time, group: route, data_type: text}
+  - {header: arr, column: arrival}
+  - {header: arr_time, column: arr_time, display_name: arr_time, group: route, data_type: text}
+  - {header: type, column: type}
+  - {header: Reg, column: registration}
+  - {header: flt_time, column: flt_time, display_name: flt_time, group: time, data_type: text}
+  - {header: pic, column: pilot_in_command}
+  - {header: to_day, column: to_day, display_name: to_day, group: takeoff_landing, data_type: integer}
+  - {header: to_night, column: to_night, display_name: to_night, group: takeoff_landing, data_type: integer}
+  - {header: ldg_day, column: ldg_day, display_name: ldg_day, group: takeoff_landing, data_type: integer}
+  - {header: ldg_night, column: ldg_night, display_name: ldg_night, group: takeoff_landing, data_type: integer}
+  - {header: pic_time, column: pic_time, display_name: pic_time, group: time, data_type: text}
+  - {header: copi_time, column: copi_time, display_name: copi_time, group: time, data_type: text}
+  - {header: Instr, column: instr, display_name: Instr, group: simulator, data_type: text}
+  - {header: sim_time, column: sim_time, display_name: sim_time, group: simulator, data_type: text}
+  - {header: sim_type, column: sim_type, display_name: sim_type, group: simulator, data_type: text}
