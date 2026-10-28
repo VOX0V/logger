@@ -44,14 +44,14 @@ def refresh_logbook(config, username=None):
         return keep
 
     def rules_for(profile_id):
-        """Conversion profile of the row's import profile. Rows without one use the ticked rules,
-        then the 'default' profile fills the columns they leave empty."""
+        """Conversion profile of the row's import profile. Rows without one use the ticked rules;
+        when no rule is ticked at all, the 'default' profile (plain copy) is used."""
         if profile_id not in rule_sets:
             found = profile_rules(profile_id) if profile_id else None
             if found is not None:
                 rule_sets[profile_id] = checked(found, profile_id)
             else:
-                rule_sets[profile_id] = usable + checked(profile_rules("default") or [], "default")
+                rule_sets[profile_id] = usable or checked(profile_rules("default") or [], "default")
         return rule_sets[profile_id]
 
     try:

@@ -46,6 +46,8 @@ TRANSFORMS = {
         "inputs": [("time", "Colonne temps de bloc (A)", True),
                    ("utc_ms", "Colonne heure UTC d'arrivée (A)", True),
                    ("airport", "Colonne aéroport d'arrivée (A)", True),
+                   ("date", "Date column (A), when the UTC arrival is a time of day only (hh:mm)", False),
+                   ("start", "UTC departure time column (A), to pass midnight", False),
                    ("type", "Colonne type d'appareil (A) — filtre moteur (par défaut : colonne « type »)", False)],
         "outputs": [("day", "Colonne de B pour le jour", True), ("night", "Colonne de B pour la nuit", True)],
         "params": [("engine", "Filtre moteur", ENGINE_CHOICES), ("rounding", "Arrondi", ROUNDING_CHOICES)],
@@ -215,6 +217,38 @@ def is_night(arr_utc, lat, lon, after_sunset_min, before_sunrise_min):
     return night_start <= arr_utc <= night_end
 
 
+def utc_from_date_time(date_value, time_value, start_value=None):
+    """UTC datetime from a date (dd/mm/yy, dd/mm/yyyy or ISO) and a time of day (H:MM[:SS]).
+    When `start_value` (a time of day) is later than `time_value`, the time belongs to the next day."""
+    if blank(date_value) or blank(time_value):
+        return None
+    text = str(date_value).strip()
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})", text)
+    try:
+        if m:
+            year = int(m.group(3))
+            day = date(year + 2000 if year < 100 else year, int(m.group(2)), int(m.group(1)))
+        else:
+            day = date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+    def clock(value):
+        t = re.fullmatch(r"(\d{1,2}):(\d{2})(?::(\d{2}))?", str(value).strip())
+        if not t or int(t.group(1)) > 23 or int(t.group(2)) > 59:
+            return None
+        return int(t.group(1)), int(t.group(2)), int(t.group(3) or 0)
+
+    end = clock(time_value)
+    if end is None:
+        return None
+    begin = None if blank(start_value) else clock(start_value)
+    result = datetime(day.year, day.month, day.day, *end)
+    if begin is not None and end < begin:
+        result += timedelta(days=1)
+    return result
+
+
 def day_night(row, rule, settings):
     i, o, p = rule["inputs"], rule["outputs"], rule["params"]
     engine = p.get("engine", "any")
@@ -239,6 +273,8 @@ def day_night(row, rule, settings):
     if airport is None:
         raise Problem(f"Aéroport inconnu : {code or '(vide)'}")
     arr_utc = parse_utc(row.get(i["utc_ms"]))
+    if arr_utc is None and i.get("date"):       # time of day only: combine it with the date column
+        arr_utc = utc_from_date_time(row.get(i["date"]), row.get(i["utc_ms"]), row.get(i.get("start") or ""))
     if arr_utc is None:
         raise Problem("Heure UTC d'arrivée absente ou illisible")
     night = is_night(arr_utc, airport["latitude"], airport["longitude"],

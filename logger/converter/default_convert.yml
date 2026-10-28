@@ -1,6 +1,6 @@
 # Default conversion profile (default_convert.yml): plain copy of the basic columns of the raw database A into the logbook database B.
-# Used for rows without a conversion profile of their own (default import): it comes AFTER the ticked
-# converter rules, so it only fills the columns they leave empty.
+# Used for rows without a conversion profile of their own (default import) only when no converter rule
+# is ticked; as soon as rules are ticked, they alone decide what is copied.
 name: Default
 rules:
 - {id: date, name: Date from year / month / day, group: Date, transform: date_parts, inputs: {year: year, month: month, day: day}, outputs: {target: date}}

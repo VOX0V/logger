@@ -1,12 +1,18 @@
 # Changelog
 
+## 0.3.9 — Day/night from the sun for Air Creebec
+
+- Air Creebec day/night time no longer depends on `ldg_day` / `ldg_night`: it uses the sun position (ephem) at the arrival airport, taking `date` + `arr_time` as UTC (`dep_time` is used to pass midnight).
+- The `day_night` transform accepts an optional date column (and an optional UTC departure time column) when the UTC arrival is a time of day only.
+- Fix: the default conversion profile is used only when no converter rule is ticked.
+
 ## 0.3.8 — Conversion profiles
 
 - **Conversion profiles**: new `logger/converter/` folder, one `<company>_convert.yml` file per airline matching its import profile (`creebec_convert.yml` first), using the same rule format as the converter catalog.
 - Raw database A gets an `import_profile` column filled at import (empty = default rules). During conversion, rows with a conversion profile use its rules instead of the ticked rules.
 - New transforms: `date_dmy`, `last_first_name`, `time_by_landing` (optional Transport Canada rounding), `skip_blank`.
 - Air Creebec times use the Transport Canada rounding table.
-- `converter/default_convert.yml`: plain copy of the basic columns of A into B for rows without a conversion profile, applied after the ticked rules (it only fills empty columns).
+- `converter/default_convert.yml`: plain copy of the basic columns of A into B used for rows without a conversion profile only when no converter rule is ticked (ticked rules always win).
 
 ## 0.3.7 — Import profiles
 
