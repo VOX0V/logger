@@ -48,6 +48,7 @@ MIGRATIONS = [
                              "daynight_xc_pic"]},
     {"id": "1.7.2", "disable": [], "front": ["skip_not_flying"], "append": []},   # filter: first in the catalog
     {"id": "1.7.3", "disable": [], "front": ["skip_zero_block"], "append": []},
+    {"id": "1.8.0", "disable": [], "front": [], "append": [], "labels": True},   # English labels of the bundled rules
 ]
 
 
@@ -67,6 +68,14 @@ def _migrate_shared():
         for r in rules:
             if r.get("id") in m["disable"]:
                 r["default"] = False          # replaced by the new rules, kept in the catalog
+        if m.get("labels"):
+            legacy = yaml.safe_load((defaults_dir() / "converter_rules_legacy_fr.yml").read_text(encoding="utf-8")) or {}
+            for r in rules:
+                was, now = legacy.get(r.get("id")), bundled.get(r.get("id"))
+                if was and now:
+                    for key in ("name", "group"):
+                        if r.get(key) == was[key]:
+                            r[key] = now[key]
     save_rules(rules)
     marker.write_text(yaml.safe_dump(done + [m["id"] for m in todo]), encoding="utf-8")
 
@@ -129,15 +138,15 @@ def build_rule(form, transform, rule_id):
     """Build and validate a rule from the admin form. Raises ValueError."""
     spec = TRANSFORMS.get(transform)
     if not spec:
-        raise ValueError("Type de transformation inconnu.")
+        raise ValueError("Unknown transform type.")
     name = form.get("name", "").strip()
     if not name:
-        raise ValueError("Le nom de la règle est obligatoire.")
+        raise ValueError("The rule name is required.")
     params = {}
     for key, _label, choices in spec["params"]:
         value = form.get(f"param_{key}", choices[0][0])
         if value not in {c[0] for c in choices}:
-            raise ValueError("Paramètre invalide.")
+            raise ValueError("Invalid parameter.")
         params[key] = value
     inputs, outputs = {}, {}
     for slot, label, required in spec["inputs"]:
@@ -146,13 +155,13 @@ def build_rule(form, transform, rule_id):
             required = params.get("engine", "any") != "any"
         if not value:
             if required:
-                raise ValueError(f"« {label} » est obligatoire.")
+                raise ValueError(f"“{label} ” is required.")
             continue
         inputs[slot] = safe_identifier(value)
     for slot, label, _required in spec["outputs"]:
         value = form.get(f"out_{slot}", "").strip()
         if not value:
-            raise ValueError(f"« {label} » est obligatoire.")
+            raise ValueError(f"“{label} ” is required.")
         outputs[slot] = safe_identifier(value)
     return {"id": rule_id, "name": name, "group": form.get("group", "").strip() or "Autres", "transform": transform,
             "inputs": inputs, "outputs": outputs, "params": params, "default": form.get("default") == "1"}
@@ -196,19 +205,19 @@ def rounding_from_text(text):
             continue
         m = re.fullmatch(r"(\d+)-(\d+)=(\d+(?:\.\d+)?)(\+1h)?", line)
         if not m:
-            raise ValueError(f"Ligne d'arrondi invalide : « {line} » (format attendu : 0-2=0.0 ou 57-60=0.0+1h)")
+            raise ValueError(f"Invalid rounding line: “ {line} ” (expected format: 0-2=0.0 or 57-60=0.0+1h)")
         lo, hi = int(m.group(1)), int(m.group(2))
         if lo > hi or hi > 60:
-            raise ValueError(f"Plage de minutes invalide : « {line} »")
+            raise ValueError(f"Invalid minute range: “ {line}”")
         rule = {"min": lo, "max": hi, "decimal": float(m.group(3))}
         if m.group(4):
             rule["add_hour"] = True
         rules.append(rule)
     if not rules:
-        raise ValueError("Le tableau d'arrondi ne peut pas être vide.")
+        raise ValueError("The rounding table cannot be empty.")
     covered = {m for r in rules for m in range(r["min"], r["max"] + 1)}
     if covered != set(range(0, 61)):
-        raise ValueError("Le tableau d'arrondi doit couvrir toutes les minutes de 0 à 60.")
+        raise ValueError("The rounding table must cover all minutes from 0 to 60.")
     return rules
 
 
@@ -265,7 +274,7 @@ def load_profile(username=None):
 
 
 def save_profile(pilot_name, first_name, employee_number, username=None, license_number=None, phone=None):
-    """license_number / phone : None = laisser inchangé (utilisé par la page « Flight time breakdown »)."""
+    """license_number / phone : None = laisser inchangé (utilisé par la page “Flight time breakdown”)."""
     ensure_user_selection(username or current_username())
     data = _selection_data(username)
     data["pilot_name"], data["first_name"] = str(pilot_name).strip()[:60], str(first_name).strip()[:60]

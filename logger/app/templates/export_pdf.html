@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head"><h2>PDF</h2><div><a class="btn secondary" href="{{url_for('hubs.export')}}">Retour à Export</a></div></div>
+<div class="page-head"><h2>PDF</h2><div><a class="btn secondary" href="{{url_for('hubs.export')}}">Back to Export</a></div></div>
 <div class="card"><h3>Logbook</h3>
-{% if years %}<form method="get" action="{{url_for('main.logbook_pdf')}}"><div class="field"><label>Année</label><select name="year">{% for y in years %}<option value="{{y}}"{% if y == selected %} selected{% endif %}>{{y}}</option>{% endfor %}</select></div>
-<button class="btn">Exporter cette année</button></form>
-<p><a class="btn secondary" href="{{url_for('main.logbook_pdf', year='all')}}">Logbook complet</a></p>
-{% else %}<p class="muted">Aucune donnée dans le logbook.</p>{% endif %}</div>
-<div class="card"><h3>Breakdown</h3><p><a class="btn" href="{{url_for('breakdown.pdf')}}" target="_blank">Exporter le Breakdown</a></p></div>
+{% if years %}<form method="get" action="{{url_for('main.logbook_pdf')}}"><div class="field"><label>Year</label><select name="year">{% for y in years %}<option value="{{y}}"{% if y == selected %} selected{% endif %}>{{y}}</option>{% endfor %}</select></div>
+<button class="btn">Export this year</button></form>
+<p><a class="btn secondary" href="{{url_for('main.logbook_pdf', year='all')}}">Full logbook</a></p>
+{% else %}<p class="muted">No data in the logbook.</p>{% endif %}</div>
+<div class="card"><h3>Breakdown</h3><p><a class="btn" href="{{url_for('breakdown.pdf')}}" target="_blank">Export the Breakdown</a></p></div>
 {% endblock %}

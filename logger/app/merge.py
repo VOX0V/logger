@@ -184,7 +184,7 @@ def plan_merge(existing, incoming, cols, ctx):
             elif not same_value(c, old, new, ctx):
                 stats["disagreements"] += 1
                 if len(stats["samples"]) < MAX_SAMPLES:
-                    stats["samples"].append((d or "sans date", c, old, new))
+                    stats["samples"].append((d or "no date", c, old, new))
         if changes:
             updates.append((match["id"], changes))
             stats["completed"] += 1

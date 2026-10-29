@@ -34,9 +34,11 @@ def drop_unused_logbook_columns(conn, config, username=None):
 
 
 def ensure_profile_column(conn):
-    """Column of A telling which import profile a row came from (NULL = default rules)."""
+    """Column of A telling which import profile a row came from. Always filled: 'default' for the default import."""
     if "import_profile" not in [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]:
-        conn.execute("ALTER TABLE users ADD COLUMN import_profile TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN import_profile TEXT NOT NULL DEFAULT 'default'")
+    else:
+        conn.execute("UPDATE users SET import_profile='default' WHERE import_profile IS NULL OR import_profile=''")
 
 
 def import_rows(source, rows, config, username=None, profile=None):
@@ -57,7 +59,7 @@ def import_rows(source, rows, config, username=None, profile=None):
     if inserts and cols:
         sql = f'INSERT INTO users (import_source,import_profile,{quoted}) VALUES (?,?,{",".join("?" for _ in cols)})'
         for row in inserts:
-            conn.execute(sql, [source, profile] + [row.get(c) for c in cols])
+            conn.execute(sql, [source, profile or "default"] + [row.get(c) for c in cols])
     conn.commit(); conn.close()
     return stats
 

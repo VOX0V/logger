@@ -41,7 +41,7 @@ const formatHours = (value) => { const [i, d] = Math.abs(Number(value || 0)).toF
 {% set page_index=loop.index0 %}
 {% set summary=(year_summaries[y][page_index] if year_summaries[y] else []) %}
 {% set ns=namespace(first_date='',last_date='') %}
-{% for r in pageRows %}{% if loop.first %}{% set ns.first_date=(r|fr_date) %}{% endif %}{% if loop.last %}{% set ns.last_date=(r|fr_date) %}{% endif %}{% endfor %}
+{% for r in pageRows %}{% if loop.first %}{% set ns.first_date=(r|long_date) %}{% endif %}{% if loop.last %}{% set ns.last_date=(r|long_date) %}{% endif %}{% endfor %}
 <div class="logbook-page">
 <div class="logbook-wrap">
 <div class="logbook-layout-metadata" hidden>{{ columns|tojson }}</div>
@@ -125,12 +125,12 @@ const formatHours = (value) => { const [i, d] = Math.abs(Number(value || 0)).toF
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}{% if c.key=='me_dual_day' %}<td class="gap"></td><td class="gap"></td>{% endif %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key=='instruction_night' %} outer-right{% endif %}">{{s3.get(c.key,0)|hours1}}</td>{% endfor %}
 </tr>
 <tr class="footer-row">
- <td colspan="3" class="page-label">Page : {{(year_page_offset[y] + page_index) * 2 + 2}}</td>
- <td colspan="7" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
+ <td colspan="3" class="page-label">Page: {{(year_page_offset[y] + page_index) * 2 + 2}}</td>
+ <td colspan="7" class="period">Period from: {{ns.first_date}} to: {{ns.last_date}}</td>
  <td colspan="4" class="email">{{ g.user.email or '' }}</td>
  <td colspan="2"></td>
- <td colspan="3" class="page-label">Page : {{(year_page_offset[y] + page_index) * 2 + 3}}</td>
- <td colspan="11" class="period">Période du : {{ns.first_date}} au : {{ns.last_date}}</td>
+ <td colspan="3" class="page-label">Page: {{(year_page_offset[y] + page_index) * 2 + 3}}</td>
+ <td colspan="11" class="period">Period from: {{ns.first_date}} to: {{ns.last_date}}</td>
  <td colspan="4" class="email">{{ g.user.email or '' }}</td>
 </tr>
 </tbody>
@@ -140,7 +140,7 @@ const formatHours = (value) => { const [i, d] = Math.abs(Number(value || 0)).toF
 {% endfor %}
 <div class="hbar" id="hbar"><div id="hbar-inner"></div></div>
 </div>
-{% else %}<div class="card"><p class="muted">Aucune donnée. Actualise depuis Données converties.</p></div>
+{% else %}<div class="card"><p class="muted">No data. Refresh from Work data.</p></div>
 {% endfor %}
 <script nonce="{{ csp_nonce }}">
 async function saveCell(cell){
@@ -159,7 +159,7 @@ async function saveCell(cell){
   window.addEventListener('resize',size); size();
 })();
 document.querySelectorAll('.logbook-table td.editable').forEach(cell=>{
-  cell.addEventListener('blur',()=>saveCell(cell).catch(()=>alert("Échec de l'enregistrement — réessaie.")));
+  cell.addEventListener('blur',()=>saveCell(cell).catch(()=>alert("Save failed — try again.")));
   cell.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();cell.blur();}});
 });
 </script>

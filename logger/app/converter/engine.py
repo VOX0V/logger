@@ -8,7 +8,7 @@ from ..db import connect, logbook_connect, safe_identifier
 from ..config import load_logbook_db_config, configurable_columns
 from ..models import sync_logbook_columns, drop_unused_logbook_columns, ensure_profile_column
 from .profiles import profile_rules
-from .catalog import active_rules, load_settings, pilot_name, rule_missing_columns
+from .catalog import load_settings, pilot_name, rule_missing_columns
 from .transforms import FUNCTIONS, Skip, SkipRow, Problem, blank
 
 
@@ -20,14 +20,6 @@ def refresh_logbook(config, username=None):
     settings = load_settings()
     settings["pilot_name"] = pilot_name(username)
     warnings = Counter()
-
-    usable = []
-    for rule in active_rules(username):
-        missing = rule_missing_columns(rule, a_columns, b_columns)
-        if missing:
-            warnings[f"Règle « {rule['name']} » ignorée : colonne(s) manquante(s) ({', '.join(missing)})"] += 0
-        else:
-            usable.append(rule)
 
     conn = logbook_connect(username)
     uc = connect(username)
@@ -44,18 +36,19 @@ def refresh_logbook(config, username=None):
         return keep
 
     def rules_for(profile_id):
-        """Conversion profile of the row's import profile. Rows without one use the ticked rules;
-        when no rule is ticked at all, the 'default' profile (plain copy) is used."""
+        """Conversion profile converter/<id>_convert.yml of the row's import profile; the 'default'
+        profile (plain copy) when that profile has no conversion file."""
         if profile_id not in rule_sets:
-            found = profile_rules(profile_id) if profile_id else None
-            if found is not None:
-                rule_sets[profile_id] = checked(found, profile_id)
-            else:
-                rule_sets[profile_id] = usable or checked(profile_rules("default") or [], "default")
+            found = profile_rules(profile_id)
+            if found is None and profile_id != "default":
+                warnings[f"No conversion profile for import profile '{profile_id}': default profile used"] += 0
+                found = profile_rules("default")
+            rule_sets[profile_id] = checked(found or [], profile_id)
         return rule_sets[profile_id]
 
     try:
         ensure_profile_column(uc)
+        uc.commit()
         conn.execute("CREATE TABLE IF NOT EXISTS logbook (id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,import_source TEXT)")
         sync_logbook_columns(conn, config, username)
         drop_unused_logbook_columns(conn, config, username)
@@ -69,7 +62,7 @@ def refresh_logbook(config, username=None):
             source = dict(row)
             out = {}
             skipped = False
-            for rule in rules_for(source.get("import_profile")):
+            for rule in rules_for(source.get("import_profile") or "default"):
                 try:
                     result = FUNCTIONS[rule["transform"]](source, rule, settings)
                 except SkipRow:
@@ -100,8 +93,8 @@ def refresh_logbook(config, username=None):
         uc.close(); conn.close()
 
     if ignored:
-        warnings["Lignes ignorées (pas aux commandes)"] += ignored
-    messages = [msg if count == 0 else f"{msg} — {count} ligne(s)" for msg, count in sorted(warnings.items())]
+        warnings["Rows skipped (not at the controls)"] += ignored
+    messages = [msg if count == 0 else f"{msg} — {count} row(s)" for msg, count in sorted(warnings.items())]
     return {"rows": len(rows) - ignored, "warnings": messages}
 
 
@@ -115,18 +108,18 @@ def list_logbook_rows(username=None):
 def update_logbook_date_part(row_id, part, value, username=None):
     """Change l'année, le mois ou le jour d'une ligne et recompose la date ISO (refuse une date impossible)."""
     from datetime import date
-    if part not in ("year", "month", "day"): raise ValueError("Partie de date invalide.")
+    if part not in ("year", "month", "day"): raise ValueError("Invalid date part.")
     conn = logbook_connect(username)
     try:
         row = conn.execute('SELECT "date" FROM logbook WHERE id=?', (row_id,)).fetchone()
-        if not row: raise ValueError("Ligne introuvable.")
+        if not row: raise ValueError("Row not found.")
         try: y, m, d = (int(x) for x in str(row["date"] or "")[:10].split("-"))
-        except ValueError: raise ValueError("Cette ligne n'a pas de date à modifier.")
+        except ValueError: raise ValueError("This row has no date to modify.")
         try: n = int(str(value).strip())
-        except ValueError: raise ValueError("Valeur numérique attendue.")
+        except ValueError: raise ValueError("Numeric value expected.")
         y, m, d = (n, m, d) if part == "year" else (y, n, d) if part == "month" else (y, m, n)
         try: new = date(y, m, d).isoformat()
-        except ValueError: raise ValueError(f"Date impossible : {y:04d}-{m:02d}-{d:02d}.")
+        except ValueError: raise ValueError(f"Impossible date: {y:04d}-{m:02d}-{d:02d}.")
         conn.execute('UPDATE logbook SET "date"=?, updated_at=CURRENT_TIMESTAMP WHERE id=?', (new, row_id))
         conn.commit()
     finally:

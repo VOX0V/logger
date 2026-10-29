@@ -16,12 +16,12 @@
 .bd-reg p{margin:0 0 4px;font-weight:bold;font-size:11px;line-height:1.25}
 </style>
 <div class="page-head"><h2>{{title}}</h2></div>
-{% if error %}<div class="card">{{error}} À corriger dans Mon compte (Réglages du Breakdown ou Éditeur YAML).</div>
+{% if error %}<div class="card">{{error}} To fix in My account (Breakdown settings or YAML editor).</div>
 {% else %}
-{% if rep.unassigned %}<div class="card muted">Heures du logbook absentes du tableau (choisis ces types dans les lignes) : {% for c, h in rep.unassigned %}{{c}} ({{fmt(h)}}){% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
-{% if not rep.name or not rep.license %}<div class="card muted">Nom, numéro de licence et téléphone se saisissent dans <a href="{{url_for('accounts.me')}}">Mon compte</a>.</div>{% endif %}
+{% if rep.unassigned %}<div class="card muted">Logbook hours missing from the table (choose these types in the rows): {% for c, h in rep.unassigned %}{{c}} ({{fmt(h)}}){% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
+{% if not rep.name or not rep.license %}<div class="card muted">Name, license number and phone are entered in <a href="{{url_for('accounts.me')}}">My account</a>.</div>{% endif %}
 <form method="post" action="{{url_for('breakdown.save_rows')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<p><button class="btn">Enregistrer les types du tableau</button></p>
+<p><button class="btn">Save the table types</button></p>
 <div class="bd-wrap"><div class="bd-sheet" style="width:{{ '%.2f'|format(geo.inner*k) }}px;padding:{{ '%.2f'|format(geo.m*k) }}px">
 <div style="height:{{ '%.2f'|format(cfg.title_height_u*k) }}px"><h1 class="bd-title">{{title}}</h1></div>
 <div class="bd-box" style="width:{{ '%.2f'|format((geo.tw.left+geo.tw.middle)*k) }}px;height:{{ '%.2f'|format(cfg.rac_bar_height_u*k) }}px;line-height:{{ '%.2f'|format(cfg.rac_bar_height_u*k) }}px;text-align:center;font-weight:bold;font-size:12px">{{rac_title}}</div>
@@ -29,10 +29,10 @@
 <div class="bd-box" style="display:flex;flex-direction:column;justify-content:space-between;font-size:12px">
  <div style="height:{{ '%.2f'|format(cfg.photo_height_u*k) }}px"></div>
  <div style="flex:1;padding:6px 0 0 14%">Phone number : <span style="margin-left:6px">{{rep.phone}}</span><br>Email address : <span style="margin-left:6px">{{rep.email}}</span></div>
- <div style="height:{{ '%.2f'|format(cfg.totals_height_u*k) }}px;border-top:{{st.border}};font-weight:bold;display:flex;flex-direction:column;justify-content:space-around;padding-left:18%"><span>Airplane total : {{fmt(rep.cat.airplane)}}</span><span>Helicopter total : {{fmt(rep.cat.helicopter)}}</span><span>Jet engine / turboshaft total : {{fmt(rep.cat.turbine)}}</span></div></div>
+ <div style="height:{{ '%.2f'|format(cfg.totals_height_u*k) }}px;border-top:{{st.border}};font-weight:bold;display:flex;flex-direction:column;justify-content:space-around;padding-left:18%"><span>Airplane total: {{fmt(rep.cat.airplane)}}</span><span>Helicopter total: {{fmt(rep.cat.helicopter)}}</span><span>Jet engine / turboshaft total: {{fmt(rep.cat.turbine)}}</span></div></div>
 <div class="bd-box bd-reg" style="padding:4px 6px;overflow:hidden">{% for t in rac_text %}<p{% if t[:3] in ('(2)','(3)') %} style="margin-top:8px"{% endif %}>{{t}}</p>{% endfor %}</div>
 <div style="display:flex;flex-direction:column;justify-content:space-between">
- <div class="bd-box" style="height:{{ '%.2f'|format(cfg.cert_height_u*k) }}px;text-align:center;font-size:12px;padding-top:3px"><strong style="font-size:10px">{{certify}}</strong><br>Name : <strong>{{rep.name}}</strong><br>License number : <strong>{{rep.license}}</strong><br>Date : <strong>{{dmy(rep.date)}}</strong><br><span style="display:block;margin-top:6px">Signature :</span></div>
+ <div class="bd-box" style="height:{{ '%.2f'|format(cfg.cert_height_u*k) }}px;text-align:center;font-size:12px;padding-top:3px"><strong style="font-size:10px">{{certify}}</strong><br>Name : <strong>{{rep.name}}</strong><br>License number : <strong>{{rep.license}}</strong><br>Date: <strong>{{dmy(rep.date)}}</strong><br><span style="display:block;margin-top:6px">Signature :</span></div>
  <table class="bd-q" style="width:100%"><tr><th colspan="3">Qualifications tracking</th></tr><tr><td>Qualification</td><td>Expiry date</td><td>Days remaining</td></tr>
  {% for q in rep.quals %}<tr><td>{{q.name}}</td><td>{{dmy(q.expiry)}}</td><td{% if q.days < 0 %} style="color:#b91c1c"{% endif %}>{{spaced(q.days)}}</td></tr>{% endfor %}</table></div>
 </div>
@@ -40,7 +40,7 @@
 <thead><tr><th colspan="2" rowspan="2" style="font-size:{{st.header_font_size*1.4}}px">AIRCRAFT</th>{% for t, cs, rs in headers[0] %}<th colspan="{{cs}}" rowspan="{{rs}}">{{t}}</th>{% endfor %}</tr>
 <tr>{% for t, cs, rs in headers[1] %}<th colspan="{{cs}}" rowspan="{{rs}}">{{t}}</th>{% endfor %}</tr>
 <tr><th>Type</th><th>TOTAL</th>{% for t, cs, rs in headers[2] %}<th>{{t}}</th>{% endfor %}</tr></thead><tbody>
-{% for ln in rep.lines %}<tr{% if colors[loop.index0] %} style="background:{{colors[loop.index0]}}"{% endif %}><td><select name="row_{{loop.index0}}" aria-label="Type, ligne {{loop.index}}"><option value=""></option>{% for code in codes %}<option value="{{code}}"{% if code|upper == ln.code %} selected{% endif %}>{{code}}</option>{% endfor %}</select></td>{{cell(ln.total)}}{% for v in ln.cells %}{{cell(v)}}{% endfor %}</tr>{% endfor %}
+{% for ln in rep.lines %}<tr{% if colors[loop.index0] %} style="background:{{colors[loop.index0]}}"{% endif %}><td><select name="row_{{loop.index0}}" aria-label="Type, row {{loop.index}}"><option value=""></option>{% for code in codes %}<option value="{{code}}"{% if code|upper == ln.code %} selected{% endif %}>{{code}}</option>{% endfor %}</select></td>{{cell(ln.total)}}{% for v in ln.cells %}{{cell(v)}}{% endfor %}</tr>{% endfor %}
 <tr style="background:{{st.total_background}};font-weight:bold"><td>TOTAL</td><td>{{fmt(rep.total)}}</td>{% for v in rep.cells_total %}<td>{{fmt(v)}}</td>{% endfor %}</tr>
 <tr style="background:{{st.total_background}};font-weight:bold"><td></td><td></td>{% for s in sections %}<td colspan="{{cols|selectattr(0,'equalto',s)|list|length}}">{{fmt(rep.section_totals[loop.index0])}}</td>{% endfor %}</tr>
 </tbody></table></div></div></form>

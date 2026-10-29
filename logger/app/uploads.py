@@ -13,13 +13,13 @@ def check_xlsx(source):
     try:
         archive = zipfile.ZipFile(io.BytesIO(source) if isinstance(source, (bytes, bytearray)) else source)
     except (zipfile.BadZipFile, OSError):
-        raise ValueError("Le fichier Excel est illisible ou corrompu.")
+        raise ValueError("The Excel file is unreadable or corrupted.")
     with archive:
         infos = archive.infolist()
         total = sum(i.file_size for i in infos)
         packed = sum(i.compress_size for i in infos) or 1
         if len(infos) > MAX_ENTRIES or total > MAX_UNCOMPRESSED or (total > 20 * 1024 * 1024 and total / packed > MAX_RATIO):
-            raise ValueError("Fichier Excel refusé : contenu décompressé démesuré.")
+            raise ValueError("Excel file rejected: excessive uncompressed content.")
 
 
 _NUMBER = re.compile(r"^[+-]?\d+([.,]\d+)?$")

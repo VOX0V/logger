@@ -1,8 +1,8 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Journal de sécurité</h2></div>
-<div class="card"><form method="get" action="{{ url_for('security.index') }}"><div class="grid"><div class="field"><label>Filtrer par événement</label><input name="event" value="{{ event_filter }}" maxlength="64" placeholder="login_failure, csrf_failure, account_create…"></div></div><button class="btn">Filtrer</button> <a class="btn secondary" href="{{ url_for('security.index') }}">Tout afficher</a></form>
-<p class="muted">300 derniers événements, heures en UTC. Conservation : {{ retention }} jours. Aucun mot de passe ni jeton n'est enregistré.</p></div>
-<div class="card"><div class="table-wrap"><table class="data"><thead><tr><th>Date (UTC)</th><th>Événement</th><th>Résultat</th><th>Compte</th><th>IP</th><th>Cible</th><th>Détail</th><th>Requête</th></tr></thead><tbody>
+<div class="page-head"><h2>Security log</h2></div>
+<div class="card"><form method="get" action="{{ url_for('security.index') }}"><div class="grid"><div class="field"><label>Filter by event</label><input name="event" value="{{ event_filter }}" maxlength="64" placeholder="login_failure, csrf_failure, account_create…"></div></div><button class="btn">Filter</button> <a class="btn secondary" href="{{ url_for('security.index') }}">Show all</a></form>
+<p class="muted">Last 300 events, times in UTC. Retention: {{ retention }} days. No password or token is recorded.</p></div>
+<div class="card"><div class="table-wrap"><table class="data"><thead><tr><th>Date (UTC)</th><th>Event</th><th>Result</th><th>Account</th><th>IP</th><th>Target</th><th>Detail</th><th>Request</th></tr></thead><tbody>
 {% for e in events %}<tr><td>{{ e.ts }}</td><td>{{ e.event }}</td><td>{{ e.outcome }}</td><td>{{ e.username or e.account_id or '' }}</td><td>{{ e.ip }}</td><td>{{ e.target or '' }}</td><td>{{ e.reason or '' }}</td><td>{{ e.request_id }}</td></tr>
-{% else %}<tr><td colspan="8">Aucun événement.</td></tr>{% endfor %}
+{% else %}<tr><td colspan="8">No events.</td></tr>{% endfor %}
 </tbody></table></div></div>{% endblock %}

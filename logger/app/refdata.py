@@ -11,8 +11,8 @@ from .importer import _read_table, FileImportError
 
 ENGINES = ("single", "multi")
 ENGINE_LABELS = {"single": "Monomoteur", "multi": "Multimoteur"}
-CATEGORIES = (("airplane", "Avion"), ("helicopter", "Hélicoptère"), ("simulator", "Simulateur"))
-ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turbopropulseur"), ("turbine", "Turbine (hélicoptère)"),
+CATEGORIES = (("airplane", "Avion"), ("helicopter", "Helicopter"), ("simulator", "Simulateur"))
+ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turbopropulseur"), ("turbine", "Turbine (helicopter)"),
                 ("turbofan", "Turbofan"))
 
 # Starting list of aircraft types (inserted once, when the table is created). To be checked by the user.
@@ -45,14 +45,14 @@ def _clean(value):
 def _float(value, label, lo, hi, required=True):
     if value in (None, ""):
         if required:
-            raise ValueError(f"{label} obligatoire.")
+            raise ValueError(f"{label} required.")
         return None
     try:
         number = float(str(value).replace(",", "."))
     except ValueError:
-        raise ValueError(f"{label} invalide.")
+        raise ValueError(f"{label} invalid.")
     if not lo <= number <= hi:
-        raise ValueError(f"{label} hors limites ({lo} à {hi}).")
+        raise ValueError(f"{label}  out of range ({lo}  to  {hi}).")
     return number
 
 
@@ -135,7 +135,7 @@ def save_airport(airport_id, form):
     icao = (_clean(form.get("icao_code")) or "").upper() or None
     iata = (_clean(form.get("iata_code")) or "").upper() or None
     if not (icao or iata):
-        raise ValueError("Un code ICAO ou IATA est obligatoire.")
+        raise ValueError("An ICAO or IATA code is required.")
     lat = _float(form.get("latitude"), "Latitude", -90, 90)
     lon = _float(form.get("longitude"), "Longitude", -180, 180)
     elev = _float(form.get("elevation"), "Altitude", -1000, 20000, required=False)
@@ -151,7 +151,7 @@ def save_airport(airport_id, form):
     except Exception as exc:
         conn.rollback()
         if "UNIQUE" in str(exc):
-            raise ValueError("Ce code ICAO ou IATA existe déjà.")
+            raise ValueError("This ICAO or IATA code already exists.")
         raise
     finally:
         conn.close()
@@ -215,10 +215,10 @@ def get_aircraft(aircraft_id):
 def save_aircraft(aircraft_id, form):
     registration = (_clean(form.get("registration")) or "").upper()
     if not registration:
-        raise ValueError("Immatriculation obligatoire.")
+        raise ValueError("Registration required.")
     engine = _clean(form.get("engine"))
     if engine not in (None,) + ENGINES:
-        raise ValueError("Type de moteur invalide.")
+        raise ValueError("Invalid engine type.")
     values = (registration, _clean(form.get("type")), engine, _clean(form.get("notes")))
     conn = aircrafts_connect()
     try:
@@ -230,7 +230,7 @@ def save_aircraft(aircraft_id, form):
     except Exception as exc:
         conn.rollback()
         if "UNIQUE" in str(exc):
-            raise ValueError("Cette immatriculation existe déjà.")
+            raise ValueError("This registration already exists.")
         raise
     finally:
         conn.close()
@@ -268,14 +268,14 @@ def get_aircraft_type(type_id):
 def save_aircraft_type(type_id, form):
     code = (_clean(form.get("code")) or "").upper()
     if not code:
-        raise ValueError("Code du type obligatoire.")
+        raise ValueError("Type code required.")
     category, engines, engine_type = _clean(form.get("category")), _clean(form.get("engines")), _clean(form.get("engine_type"))
     if category not in (None,) + tuple(c for c, _ in CATEGORIES):
-        raise ValueError("Catégorie invalide.")
+        raise ValueError("Invalid category.")
     if engines not in (None,) + ENGINES:
-        raise ValueError("Nombre de moteurs invalide.")
+        raise ValueError("Invalid number of engines.")
     if engine_type not in (None,) + tuple(c for c, _ in ENGINE_TYPES):
-        raise ValueError("Type de moteur invalide.")
+        raise ValueError("Invalid engine type.")
     values = (code, _clean(form.get("make")), _clean(form.get("model")), category, engines, engine_type, _clean(form.get("notes")))
     conn = aircrafts_connect()
     try:
@@ -288,7 +288,7 @@ def save_aircraft_type(type_id, form):
     except Exception as exc:
         conn.rollback()
         if "UNIQUE" in str(exc):
-            raise ValueError("Ce type existe déjà.")
+            raise ValueError("This type already exists.")
         raise
     finally:
         conn.close()
@@ -324,11 +324,11 @@ def export_aircraft_types_xlsx():
     categories, engine_types = dict(CATEGORIES), dict(ENGINE_TYPES)
     rows = [(t["code"], t["make"], t["model"], categories.get(t["category"], ""), ENGINE_LABELS.get(t["engines"], ""),
              engine_types.get(t["engine_type"], ""), t["notes"]) for t in list_aircraft_types()]
-    return _xlsx("Types d'appareils", ["Code", "Marque", "Modèle", "Catégorie", "Moteurs", "Type de moteur", "Notes"], rows)
+    return _xlsx("Aircraft types", ["Code", "Marque", "Model", "Category", "Engines", "Engine type", "Notes"], rows)
 
 
 def export_airports_xlsx():
-    labels = {"icao_code": "ICAO", "iata_code": "IATA", "full_name": "Nom", "country": "Pays",
+    labels = {"icao_code": "ICAO", "iata_code": "IATA", "full_name": "Name", "country": "Pays",
               "latitude": "Latitude", "longitude": "Longitude"}
     conn = airport_connect()
     cursor = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, '')")
@@ -336,20 +336,20 @@ def export_airports_xlsx():
     keep = [c for c in columns if c != "id"]
     rows = [tuple(r[c] for c in keep) for r in cursor.fetchall()]
     conn.close()
-    return _xlsx("Aéroports", [labels.get(c, c) for c in keep], rows)
+    return _xlsx("Airports", [labels.get(c, c) for c in keep], rows)
 
 
 # ---------------- Excel import ----------------
 
 AIRPORT_COLUMNS = {
     "icao_code": ("icao", "icao_code"), "iata_code": ("iata", "iata_code"),
-    "full_name": ("nom", "full_name", "name"), "country": ("pays", "country"),
+    "full_name": ("name", "full_name", "name"), "country": ("pays", "country"),
     "latitude": ("latitude", "lat"), "longitude": ("longitude", "lon", "lng"),
     "elevation": ("elevation", "altitude"), "timezone": ("timezone", "fuseau horaire"), "notes": ("notes",)}
 AIRCRAFT_COLUMNS = {
     "code": ("code", "type"), "make": ("marque", "make"), "model": ("modele", "model"),
-    "category": ("categorie", "category"), "engines": ("moteurs", "engines"),
-    "engine_type": ("type de moteur", "engine_type"), "notes": ("notes",)}
+    "category": ("categorie", "category"), "engines": ("engines", "engines"),
+    "engine_type": ("engine type", "engine_type"), "notes": ("notes",)}
 
 
 def _hdr(value):
@@ -383,7 +383,7 @@ def _code_for(value, pairs):
 def import_airports(filename, data):
     rows, present = _file_rows(filename, data, AIRPORT_COLUMNS)
     if not ({"icao_code", "iata_code"} & present):
-        raise FileImportError("Colonne ICAO ou IATA introuvable dans le fichier.")
+        raise FileImportError("ICAO or IATA column not found in the file.")
     added = updated = skipped = 0
     conn = airport_connect()
     try:
@@ -428,7 +428,7 @@ def import_airports(filename, data):
 def import_aircraft_types(filename, data):
     rows, present = _file_rows(filename, data, AIRCRAFT_COLUMNS)
     if "code" not in present:
-        raise FileImportError("Colonne « Code » introuvable dans le fichier.")
+        raise FileImportError("Column “Code” not found in the file.")
     added = updated = skipped = 0
     conn = aircrafts_connect()
     try:

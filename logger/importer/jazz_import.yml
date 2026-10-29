@@ -1,0 +1,14 @@
+# Import profile: Jazz (jazz_import.yml; converted by converter/jazz_convert.yml).
+# PLACEHOLDER: only the basic columns, with the app's own standard headers. To be defined with a Jazz sample file.
+name: Jazz
+columns:
+- {header: year, column: year}
+- {header: month, column: month}
+- {header: day, column: day}
+- {header: type, column: type}
+- {header: reg, column: registration}
+- {header: pic, column: pilot_in_command}
+- {header: copi, column: copilot}
+- {header: dep, column: departure}
+- {header: arr, column: arrival}
+- {header: remarks, column: remarks}

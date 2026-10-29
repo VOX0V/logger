@@ -1,17 +1,38 @@
-# Default conversion profile (default_convert.yml): plain copy of the basic columns of the raw database A into the logbook database B.
-# Used for rows without a conversion profile of their own (default import) only when no converter rule
-# is ticked; as soon as rules are ticked, they alone decide what is copied.
+# Default conversion profile (default_convert.yml): plain copy of the raw database A into the logbook database B,
+# cell for cell, WITHOUT any change (no rounding, no cleaning): every column of B that has an A column of the same
+# name is copied as is. Only two columns differ: B 'date' is assembled from A year / month / day, and B 'aircraft_type'
+# comes from A 'type'.
+# Used for every row imported with the default import (import_profile = 'default'), and for rows whose import profile
+# has no conversion file of its own.
 name: Default
 rules:
 - {id: date, name: Date from year / month / day, group: Date, transform: date_parts, inputs: {year: year, month: month, day: day}, outputs: {target: date}}
 - {id: type, name: Aircraft type, group: Aircraft, transform: copy, inputs: {source: type}, outputs: {target: aircraft_type}}
 - {id: registration, name: Registration, group: Aircraft, transform: copy, inputs: {source: registration}, outputs: {target: registration}}
-- {id: pic, name: Pilot in command, group: Crew, transform: copy, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
+- {id: pilot_in_command, name: Pilot in command, group: Crew, transform: copy, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
 - {id: copilot, name: Copilot, group: Crew, transform: copy, inputs: {source: copilot}, outputs: {target: copilot}}
 - {id: departure, name: Departure, group: Airports, transform: copy, inputs: {source: departure}, outputs: {target: departure}}
 - {id: arrival, name: Arrival, group: Airports, transform: copy, inputs: {source: arrival}, outputs: {target: arrival}}
 - {id: remarks, name: Remarks, group: Misc, transform: copy, inputs: {source: remarks}, outputs: {target: remarks}}
-- {id: se_dual_day, name: Single engine dual day, group: Time, transform: copy, inputs: {source: single_engine_dual_day}, outputs: {target: single_engine_dual_day}}
-- {id: se_pic_day, name: Single engine PIC day, group: Time, transform: copy, inputs: {source: single_engine_pic_day}, outputs: {target: single_engine_pic_day}}
-- {id: se_dual_night, name: Single engine dual night, group: Time, transform: copy, inputs: {source: single_engine_dual_night}, outputs: {target: single_engine_dual_night}}
-- {id: se_pic_night, name: Single engine PIC night, group: Time, transform: copy, inputs: {source: single_engine_pic_night}, outputs: {target: single_engine_pic_night}}
+- {id: single_engine_dual_day, name: Single engine dual day, group: Time, transform: copy, inputs: {source: single_engine_dual_day}, outputs: {target: single_engine_dual_day}}
+- {id: single_engine_pic_day, name: Single engine pic day, group: Time, transform: copy, inputs: {source: single_engine_pic_day}, outputs: {target: single_engine_pic_day}}
+- {id: single_engine_dual_night, name: Single engine dual night, group: Time, transform: copy, inputs: {source: single_engine_dual_night}, outputs: {target: single_engine_dual_night}}
+- {id: single_engine_pic_night, name: Single engine pic night, group: Time, transform: copy, inputs: {source: single_engine_pic_night}, outputs: {target: single_engine_pic_night}}
+- {id: multi_engine_dual_day, name: Multi engine dual day, group: Time, transform: copy, inputs: {source: multi_engine_dual_day}, outputs: {target: multi_engine_dual_day}}
+- {id: multi_engine_pic_day, name: Multi engine pic day, group: Time, transform: copy, inputs: {source: multi_engine_pic_day}, outputs: {target: multi_engine_pic_day}}
+- {id: multi_engine_copi_day, name: Multi engine copi day, group: Time, transform: copy, inputs: {source: multi_engine_copi_day}, outputs: {target: multi_engine_copi_day}}
+- {id: multi_engine_dual_night, name: Multi engine dual night, group: Time, transform: copy, inputs: {source: multi_engine_dual_night}, outputs: {target: multi_engine_dual_night}}
+- {id: multi_engine_pic_night, name: Multi engine pic night, group: Time, transform: copy, inputs: {source: multi_engine_pic_night}, outputs: {target: multi_engine_pic_night}}
+- {id: multi_engine_copi_night, name: Multi engine copi night, group: Time, transform: copy, inputs: {source: multi_engine_copi_night}, outputs: {target: multi_engine_copi_night}}
+- {id: ifr, name: Ifr, group: Time, transform: copy, inputs: {source: ifr}, outputs: {target: ifr}}
+- {id: hood, name: Hood, group: Time, transform: copy, inputs: {source: hood}, outputs: {target: hood}}
+- {id: ftd, name: Ftd, group: Time, transform: copy, inputs: {source: ftd}, outputs: {target: ftd}}
+- {id: ifr_approach, name: Ifr approach, group: Time, transform: copy, inputs: {source: ifr_approach}, outputs: {target: ifr_approach}}
+- {id: cross_country_dual_day, name: Cross country dual day, group: Time, transform: copy, inputs: {source: cross_country_dual_day}, outputs: {target: cross_country_dual_day}}
+- {id: cross_country_pic_day, name: Cross country pic day, group: Time, transform: copy, inputs: {source: cross_country_pic_day}, outputs: {target: cross_country_pic_day}}
+- {id: cross_country_dual_night, name: Cross country dual night, group: Time, transform: copy, inputs: {source: cross_country_dual_night}, outputs: {target: cross_country_dual_night}}
+- {id: cross_country_pic_night, name: Cross country pic night, group: Time, transform: copy, inputs: {source: cross_country_pic_night}, outputs: {target: cross_country_pic_night}}
+- {id: landings_day, name: Landings day, group: Landings, transform: copy, inputs: {source: landings_day}, outputs: {target: landings_day}}
+- {id: landings_night, name: Landings night, group: Landings, transform: copy, inputs: {source: landings_night}, outputs: {target: landings_night}}
+- {id: instruction_day, name: Instruction day, group: Instruction, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}}
+- {id: instruction_night, name: Instruction night, group: Instruction, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}}

@@ -25,7 +25,7 @@ except ImportError:  # pragma: no cover - Windows development machines
 def safe_identifier(value):
     value = str(value or "").strip()
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
-        raise ValueError(f"Nom de colonne technique invalide: {value}")
+        raise ValueError(f"Invalid technical column name: {value}")
     return value
 
 
@@ -100,9 +100,9 @@ def valid_username(username):
 def user_root(username=None):
     username = username or current_username()
     if not username:
-        raise RuntimeError("Aucun utilisateur courant.")
+        raise RuntimeError("No current user.")
     if not valid_username(username):
-        raise ValueError(f"Nom d'utilisateur invalide: {username}")
+        raise ValueError(f"Invalid username: {username}")
     return users_root() / username
 
 

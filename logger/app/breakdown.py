@@ -1,4 +1,4 @@
-"""« Flight time breakdown » (RAC 401.08 — Personal Logs): hours per aircraft type, built from the logbook database.
+"""“Flight time breakdown” (RAC 401.08 — Personal Logs): hours per aircraft type, built from the logbook database.
 Layout taken from the 'Report EN' sheet of the earlier Excel logbook (English only for now).
 Page size, column widths and heights come from the user's breakdown.yml, in u (1 u = 0,01 po), like the logbook layout."""
 import io
@@ -158,17 +158,17 @@ def geometry(cfg):
     m, W, H = cfg["margin_u"], cfg["page_width_u"], cfg["page_height_u"]
     inner, widths = W - 2 * m, [c["width"] for c in cfg["columns"]]
     if abs(sum(widths) - inner) > 0.01:
-        raise ValueError(f"Breakdown : les colonnes totalisent {sum(widths):g} u au lieu de {inner:g} u (page_width_u - 2 x margin_u).")
+        raise ValueError(f"Breakdown: the columns total {sum(widths):g} u instead of {inner:g} u (page_width_u - 2 x margin_u).")
     tw = cfg["top_widths_u"]
     if abs(tw["left"] + tw["middle"] + tw["right"] - inner) > 0.01:
-        raise ValueError(f"Breakdown : top_widths_u totalise {tw['left'] + tw['middle'] + tw['right']:g} u au lieu de {inner:g} u.")
+        raise ValueError(f"Breakdown : top_widths_u totalise {tw['left'] + tw['middle'] + tw['right']:g} u instead of {inner:g} u.")
     n_table = 3 + len(cfg["rows"]) + 2
     y_top = m + cfg["title_height_u"] + cfg["rac_bar_height_u"] + cfg["gap_u"]
     y_table = y_top + cfg["top_height_u"] + cfg["gap_u"]
     bottom = y_table + n_table * cfg["row_height_u"] + m
     if bottom > H:
-        raise ValueError(f"Breakdown : la mise en page demande {bottom:g} u de hauteur pour une page de {H:g} u "
-                         "(réduis row_height_u, top_height_u ou le nombre de lignes).")
+        raise ValueError(f"Breakdown: the layout requires {bottom:g} u of height for a page of {H:g} u "
+                         "(reduce row_height_u, top_height_u or the number of rows).")
     return {"m": m, "W": W, "H": H, "inner": inner, "widths": widths, "tw": tw, "y_title": m,
             "y_rac": m + cfg["title_height_u"], "y_top": y_top, "y_table": y_table, "n_table": n_table}
 
@@ -220,8 +220,8 @@ def build_pdf(rep, cfg, geo, lb_styles):
     ty = y_top + top_h - cfg["totals_height_u"]
     c.line(X(xl), Y(ty), X(xl + tl), Y(ty))
     cat = rep["cat"]
-    for i, (label, val) in enumerate((("Airplane total :", cat["airplane"]), ("Helicopter total :", cat["helicopter"]),
-                                      ("Jet engine / turboshaft total :", cat["turbine"]))):
+    for i, (label, val) in enumerate((("Airplane total:", cat["airplane"]), ("Helicopter total:", cat["helicopter"]),
+                                      ("Jet engine / turboshaft total:", cat["turbine"]))):
         yy = ty + (i + 1) * cfg["totals_height_u"] / 4
         text(xl + tl * 0.66, yy, label, 7.5, True, "r")
         text(xl + tl * 0.69, yy, fmt(val), 7.5, True)
@@ -244,15 +244,15 @@ def build_pdf(rep, cfg, geo, lb_styles):
     cert = cfg["cert_height_u"]
     box(xr, y_top, tw["right"], cert)
     text(xr + tw["right"] / 2, y_top + 11, CERTIFY, 6.5, True, "c")
-    for i, (label, val) in enumerate((("Name :", rep["name"]), ("License number :", rep["license"]), ("Date :", dmy(rep["date"])))):
+    for i, (label, val) in enumerate((("Name :", rep["name"]), ("License number :", rep["license"]), ("Date:", dmy(rep["date"])))):
         yy = y_top + 28 + i * 16
         text(xr + tw["right"] * 0.34, yy, label, 7.5, False, "r")
         text(xr + tw["right"] * 0.37, yy, val, 9, True)
-    text(xr + tw["right"] * 0.34, y_top + cert - 8, "Signature :", 7.5, False, "r")
+    text(xr + tw["right"] * 0.34, y_top + cert - 8, "Signature:", 7.5, False, "r")
     n_q = len(rep["quals"])
     qrh = min(cfg["qual_row_height_u"], (top_h - cert - 4) / (n_q + 2))
     if qrh < 7:
-        raise ValueError("Breakdown : trop de qualifications pour le bloc du haut (augmente top_height_u ou réduis cert_height_u).")
+        raise ValueError("Breakdown: too many qualifications for the top block (increase top_height_u or reduce cert_height_u).")
     q = [["Qualifications tracking", "", ""], ["Qualification", "Expiry date", "Days remaining"]]
     q += [[x["name"], dmy(x["expiry"]), spaced(x["days"])] for x in rep["quals"]]
     qt = Table(q, colWidths=[X(tw["right"]) * p for p in (0.42, 0.29, 0.29)], rowHeights=[X(qrh)] * len(q))
@@ -383,12 +383,12 @@ def save_rows():
     chosen = [allowed.get(request.form.get(f"row_{i}", "").strip().upper(), "") for i in range(len(cfg["rows"]))]
     dup = sorted({c for c in chosen if c and chosen.count(c) > 1})
     if dup:
-        flash("Un type ne peut apparaître que sur une seule ligne : " + ", ".join(dup) + ". Rien n'a été enregistré.")
+        flash("A type can only appear on one row: " + ", ".join(dup) + ". Nothing was saved.")
         return redirect(url_for("breakdown.index"))
     cfg["rows"] = chosen
     save_breakdown(cfg)
     log_event("config_change", target="breakdown:lignes")
-    flash("Types du rapport enregistrés.")
+    flash("Report types saved.")
     return redirect(url_for("breakdown.index"))
 
 
@@ -435,7 +435,7 @@ def save_settings():
         geometry(cfg)
         save_breakdown(cfg)
         log_event("config_change", target="layout:breakdown")
-        flash("Configuration du rapport Breakdown enregistrée.")
+        flash("Breakdown report configuration saved.")
     except Exception as exc:
         flash(f"Configuration impossible — {safe_message(exc)}")
     return redirect(url_for("breakdown.settings"))

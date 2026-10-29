@@ -7,18 +7,18 @@
 .cfg-error{background:#fdecec;border:1px solid #e0a3a3;color:#7a1f1f;padding:8px 12px;border-radius:6px;margin-bottom:10px;white-space:pre-wrap}
 @media(max-width:800px){.cfg{grid-template-columns:1fr}}
 </style>
-<div class="page-head"><h2>Configuration (YAML)</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">Mon compte</a></div></div>
+<div class="page-head"><h2>Configuration (YAML)</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">My account</a></div></div>
 <div class="cfg">
   <div class="cfg-files">{% for k, f in files.items() %}<a class="{% if k==key %}active{% endif %}" href="{{url_for('yamledit.editor', file=k)}}">{{f[0]}}</a>{% endfor %}</div>
   <div class="card">
     <h3>{{label}} <span class="muted" style="font-weight:400">— {{filename}}</span></h3>
-    {% if error %}<div class="cfg-error"><strong>Non enregistré.</strong> {{error}}</div>{% endif %}
+    {% if error %}<div class="cfg-error"><strong>Not saved.</strong> {{error}}</div>{% endif %}
     <form method="post" id="cfgform"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="file" value="{{key}}">
       <textarea name="content" id="cfgtext" spellcheck="false" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>{{content}}</textarea>
-      <p><button class="btn" name="action" value="save" id="cfgsave">Enregistrer</button>
-         <button class="btn secondary" name="action" value="validate">Vérifier sans enregistrer</button>
-         {% if has_backup %}<button class="btn secondary" name="action" value="restore">Restaurer la sauvegarde précédente</button>{% endif %}
-         <span class="muted">Ctrl+S pour enregistrer</span></p>
+      <p><button class="btn" name="action" value="save" id="cfgsave">Save</button>
+         <button class="btn secondary" name="action" value="validate">Check without saving</button>
+         {% if has_backup %}<button class="btn secondary" name="action" value="restore">Restore the previous backup</button>{% endif %}
+         <span class="muted">Ctrl+S to save</span></p>
     </form>
   </div>
 </div>

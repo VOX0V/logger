@@ -40,15 +40,15 @@ def _read_logbook_value(row, col):
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-_MOIS = ("janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre")
+_MONTHS = ("January","February","March","April","May","June","July","August","September","October","November","December")
 
-@main_bp.app_template_filter("fr_date")
-def _fr_date(row):
-    """Date d'une ligne du logbook en toutes lettres : 5 juin 2013 (1er janvier 2013). Vide si incomplète."""
+@main_bp.app_template_filter("long_date")
+def _long_date(row):
+    """Date of a logbook row in words: June 5, 2013. Empty when incomplete."""
     try: y,m,d=int(row.get("year")),int(row.get("month")),int(row.get("day"))
     except (TypeError,ValueError): return ""
     if not 1<=m<=12: return ""
-    return f"{'1er' if d==1 else d} {_MOIS[m-1]} {y}"
+    return f"{_MONTHS[m-1]} {d}, {y}"
 
 @main_bp.app_template_filter("two")
 def _two(value):
@@ -130,7 +130,7 @@ def data_table_export(fmt):
 @login_required
 def export_user_data():
     username=current_username(); folder=user_root(username)
-    log_event("data_export", target="dossier utilisateur (sauvegarde)")
+    log_event("data_export", target="user folder (backup)")
     buf=io.BytesIO()
     with zipfile.ZipFile(buf,"w",zipfile.ZIP_DEFLATED) as zf:
         for f in sorted(folder.iterdir()):
@@ -191,7 +191,7 @@ def _logbook_context():
     data=[{"id":row["id"],**{c["key"]:_read_logbook_value(row,c) for c in columns}} for row in rows]
     by_year={}
     for item in data:
-        y=str(item.get("year") or "Sans date")
+        y=str(item.get("year") or "No date")
         by_year.setdefault(y,[]).append(item)
     years=sorted(by_year,key=lambda v:(v.isdigit(),v))   # croissant ; "Sans date" en premier (à gauche)
     year_pages={y:[by_year[y][i:i+30] for i in range(0,len(by_year[y]),30)] for y in years}
@@ -227,22 +227,22 @@ def logbook_pdf():
     ctx=_logbook_context(); requested=request.args.get("year","")
     years=ctx["years"] if requested=="all" else ([requested] if requested in ctx["years"] else [])
     if not years:
-        flash("Aucune donnée à exporter pour cette année."); return redirect(url_for("main.logbook"))
+        flash("No data to export for this year."); return redirect(url_for("main.logbook"))
     user=g.user
     email=(user["email"] if hasattr(user,"keys") and "email" in user.keys() else getattr(user,"email","")) if user else ""
     try: pdf=build_logbook_pdf(ctx,years,email or "")
     except ValueError as exc:
         flash(str(exc)); return redirect(url_for("main.logbook"))
-    name=f"{current_username()}_logbook_{'toutes-annees' if requested=='all' else requested}.pdf"
+    name=f"{current_username()}_logbook_{'all-years' if requested=='all' else requested}.pdf"
     return send_file(io.BytesIO(pdf),mimetype="application/pdf",as_attachment=True,download_name=name)
 
 @main_bp.route("/logbook/refresh",methods=["POST"])
 @login_required
 def refresh_logbook_data():
     try:
-        result=refresh_logbook(load_config()); flash(f"logbook.db actualisé à partir de user.db ({result['rows']} ligne(s)).")
+        result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
         for warning in result["warnings"]: flash(f"Attention — {warning}")
-    except Exception as exc: flash(f"Actualisation du logbook impossible — {safe_message(exc)}")
+    except Exception as exc: flash(f"Logbook refresh impossible — {safe_message(exc)}")
     return redirect(url_for("main.logbook_db_page"))
 
 @main_bp.route("/logbook/cell",methods=["POST"])
@@ -253,7 +253,7 @@ def edit_logbook_cell():
         if column in DATE_EXPR:
             update_logbook_date_part(row_id,column,value); return ("",204)
         allowed={c["column"] for c in logbook_columns(load_config())}
-        if column not in allowed: raise ValueError("Colonne logbook invalide.")
+        if column not in allowed: raise ValueError("Invalid logbook column.")
         update_logbook_cell(row_id,column,value if value != "" else None)
         return ("",204)
     except Exception as exc:
@@ -284,7 +284,7 @@ def save_logbook_settings():
             c["width"]=int(float(request.form.get("width_"+c["key"],c.get("width",51))))
         problems=cssafe.layout_problems(layout)
         if problems: raise ValueError(" ".join(problems))
-        save_logbook_layout(layout); log_event("config_change", target="layout:logbook"); flash("Configuration d'affichage du logbook enregistrée.")
+        save_logbook_layout(layout); log_event("config_change", target="layout:logbook"); flash("Logbook display configuration saved.")
     except Exception as exc: flash(f"Configuration impossible — {safe_message(exc)}")
     return redirect(url_for("main.logbook_settings"))
 
@@ -293,8 +293,8 @@ def save_logbook_settings():
 def delete_layout_column(key):
     layout=load_logbook_layout(); before=len(layout["columns"])
     layout["columns"]=[c for c in layout["columns"] if c["key"]!=key]
-    if len(layout["columns"])==before: flash("Colonne introuvable.")
-    else: save_logbook_layout(layout); log_event("config_change", target=f"layout:colonne-retiree:{key}"); flash("Colonne retirée de l'affichage du Logbook.")
+    if len(layout["columns"])==before: flash("Column not found.")
+    else: save_logbook_layout(layout); log_event("config_change", target=f"layout:colonne-retiree:{key}"); flash("Column removed from the Logbook display.")
     return redirect(url_for("main.logbook_settings"))
 
 # Existing user database settings/import routes.
@@ -310,8 +310,8 @@ def new_category():
     if request.method=="POST":
         try:
             display=request.form.get("display_name",request.form.get("affichage","")).strip(); group=request.form.get("group","").strip(); new_group=request.form.get("new_group","").strip(); group=new_group if group=="__new__" else group; rules=[x.strip() for x in request.form.get("import_rules",request.form.get("import","")).splitlines() if x.strip()]
-            if not display or not group or not rules: raise ValueError("Display name, groupe et règles d'import sont obligatoires.")
-            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1","import_rules":rules}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Colonne ajoutée à userdb.yml."); return redirect(url_for("main.settings"))
+            if not display or not group or not rules: raise ValueError("Display name, group and import rules are required.")
+            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1","import_rules":rules}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Column added to userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("category_form.html",category=None,groups=sorted({c.get("group") for c in categories}),positions=[len(categories)+1],action=url_for("main.new_category"))
 
@@ -319,12 +319,12 @@ def new_category():
 @login_required
 def edit_category(position):
     config=load_config(); categories=_columns(config); category=next((c for c in categories if int(c["position"])==position),None)
-    if not category: flash("Colonne introuvable."); return redirect(url_for("main.settings"))
+    if not category: flash("Column not found."); return redirect(url_for("main.settings"))
     if request.method=="POST":
         try:
             display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); group=request.form.get("new_group","").strip() if group=="__new__" else group; rules=[x.strip() for x in request.form.get("import_rules","").splitlines() if x.strip()]
-            if not display or not group or not rules: raise ValueError("Display name, groupe et règles d'import sont obligatoires.")
-            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Colonne modifiée dans userdb.yml."); return redirect(url_for("main.settings"))
+            if not display or not group or not rules: raise ValueError("Display name, group and import rules are required.")
+            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Column updated in userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("category_form.html",category=category,groups=sorted({c.get("group") for c in categories}),positions=list(range(1,len(categories)+1)),action=url_for("main.edit_category",position=position))
 
@@ -333,14 +333,14 @@ def edit_category(position):
 @fresh_login_required
 def delete_category(position):
     config=load_config(); categories=_columns(config); target=next((c for c in categories if int(c["position"])==position),None)
-    if not target: flash("Colonne introuvable."); return redirect(url_for("main.settings"))
-    categories.remove(target); _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); backup_sqlite(user_db_path(),"pre-drop"); conn=connect(); drop_unused_columns(conn,config); conn.commit(); conn.close(); log_event("data_destroy", target=f"colonne-supprimee:{target['column']}"); flash(f"Colonne {target['column']} supprimée de user.db."); return redirect(url_for("main.settings"))
+    if not target: flash("Column not found."); return redirect(url_for("main.settings"))
+    categories.remove(target); _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); backup_sqlite(user_db_path(),"pre-drop"); conn=connect(); drop_unused_columns(conn,config); conn.commit(); conn.close(); log_event("data_destroy", target=f"colonne-supprimee:{target['column']}"); flash(f"Column {target['column']} deleted from user.db."); return redirect(url_for("main.settings"))
 
 @main_bp.route("/data/clear",methods=["POST"])
 @login_required
 @fresh_login_required
 def clear_data():
-    conn=connect(); conn.execute("DELETE FROM users"); conn.commit(); conn.close(); log_event("data_destroy", target="donnees-brutes:toutes-les-lignes"); flash("Les données de user.db ont été supprimées. Les YAML sont conservés."); return redirect(url_for("main.index"))
+    conn=connect(); conn.execute("DELETE FROM users"); conn.commit(); conn.close(); log_event("data_destroy", target="donnees-brutes:toutes-les-lignes"); flash("The user.db data was deleted. The YAML files are kept."); return redirect(url_for("main.index"))
 
 @main_bp.route("/import",methods=["GET","POST"])
 @login_required
@@ -348,7 +348,7 @@ def import_files():
     config=load_config(); categories=_columns(config)
     if request.method=="POST":
         files=[f for f in request.files.getlist("files") if f and f.filename]
-        if not files: flash("Sélectionnez au moins un fichier Excel."); return redirect(url_for("main.import_files"))
+        if not files: flash("Select at least one Excel file."); return redirect(url_for("main.import_files"))
         profile=None; profile_id=request.form.get("profile","").strip()
         if profile_id:
             try:
@@ -362,9 +362,9 @@ def import_files():
                 if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
                 else: rows,matched=importable_rows(file.filename,data,categories,profile=profile)
                 stats=import_rows(file.filename,rows,config,profile=profile["id"] if profile else None); total+=len(rows)
-                flash(f"{file.filename}: {stats['read']} ligne(s) lue(s), {matched} colonne(s) reconnue(s) — {stats['added']} vol(s) ajouté(s), {stats['completed']} vol(s) complété(s) ({sum(stats['filled'].values())} champ(s) rempli(s)), {stats['unchanged']} inchangé(s), {stats['disagreements']} désaccord(s).")
-                if stats["filled"]: flash("Champs complétés : "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
-                for d,c,old,new in stats["samples"][:3]: flash(f"Désaccord (valeur de la base conservée) — {d}, {c} : base « {old} », fichier « {new} ».")
+                flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
+                if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
+                for d,c,old,new in stats["samples"][:3]: flash(f"Disagreement (database value kept) — {d}, {c} : base “{old} ”, file “ {new}”.")
             except Exception as exc: flash(f"{file.filename}: import impossible — {safe_message(exc)}")
-        log_event("data_import", target=f"{len(files)} fichier(s), {total} ligne(s) lue(s)"); flash(f"Import terminé: {total} ligne(s) lue(s)."); return redirect(url_for("main.index"))
+        log_event("data_import", target=f"{len(files)} file(s), {total} row(s) read"); flash(f"Import complete: {total} row(s) read."); return redirect(url_for("main.index"))
     return render_template("import.html",categories=categories,profiles=list_profiles())

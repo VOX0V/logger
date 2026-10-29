@@ -98,12 +98,12 @@ def technical_name(display_name):
     value = __import__("re").sub(r"[^a-z0-9]+", "_", value)
     value = __import__("re").sub(r"_+", "_", value).strip("_")
     if not value:
-        raise ValueError("Le display_name doit produire un nom de colonne technique valide.")
+        raise ValueError("The display_name must produce a valid technical column name.")
     if value[0].isdigit():
         value = "_" + value
     safe_identifier(value)
     if value in {"id", "created_at", "updated_at", "import_source", "import_profile"}:
-        raise ValueError(f"Nom de colonne réservé: {value}")
+        raise ValueError(f"Reserved column name: {value}")
     return value
 
 

@@ -2,7 +2,7 @@ night:
   after_sunset_minutes: 30
   before_sunrise_minutes: 30
 tc_rounding:
-  comment: Tableau 4.1 Transport Canada - Arrondi des minutes en décimales
+  comment: Table 4.1 Transport Canada - Rounding of minutes to decimals
   rules:
   - min: 0
     max: 2

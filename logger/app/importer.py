@@ -36,7 +36,7 @@ def sqlite_value(value):
 def _select_sheet(workbook, sheet_name=None):
     if sheet_name:
         if sheet_name not in workbook.sheetnames:
-            raise FileImportError(f'La feuille "{sheet_name}" n\'existe pas dans ce fichier.')
+            raise FileImportError(f'The sheet “{sheet_name}” does not exist in this file.')
         return workbook[sheet_name]
     for name in workbook.sheetnames:
         if normalize(name) == "raw":
@@ -56,24 +56,24 @@ def _read_table(filename, file_bytes, sheet_name=None):
             sheet = _select_sheet(workbook, sheet_name)
             rows = list(sheet.iter_rows(values_only=True))
         except Exception as exc:
-            raise FileImportError("Le fichier Excel est illisible ou corrompu.") from exc
+            raise FileImportError("The Excel file is unreadable or corrupted.") from exc
         finally:
             try:
                 workbook.close()
             except Exception:
                 pass
         if not rows:
-            raise FileImportError("Le fichier Excel est vide.")
+            raise FileImportError("The Excel file is empty.")
         return list(rows[0]), rows[1:]
     if ext == "csv":
         try:
             rows = list(csv.reader(io.StringIO(file_bytes.decode("utf-8-sig"))))
         except UnicodeDecodeError as exc:
-            raise FileImportError("Le fichier CSV n'est pas encodé en UTF-8.") from exc
+            raise FileImportError("The CSV file is not UTF-8 encoded.") from exc
         if not rows:
-            raise FileImportError("Le fichier CSV est vide.")
+            raise FileImportError("The CSV file is empty.")
         return rows[0], rows[1:]
-    raise FileImportError("Format de fichier non supporté : utilisez un fichier .xlsx, .xlsm ou .csv.")
+    raise FileImportError("Unsupported file format: use an .xlsx, .xlsm or .csv file.")
 
 
 def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=None):
@@ -103,7 +103,7 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=N
     if not source_indexes and profile is not None:
         raise FileImportError(f"No column of this file matches the headers of the '{profile['name']}' import profile.")
     if not source_indexes:
-        raise FileImportError("Aucune colonne de ce fichier ne correspond à une règle d'import configurée dans Settings.")
+        raise FileImportError("No column of this file matches an import rule configured in Settings.")
 
     rows_out = []
     for values in rows:
@@ -119,5 +119,5 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=N
         if row:
             rows_out.append(row)
     if not rows_out:
-        raise FileImportError("Aucune donnée à importer dans le fichier.")
+        raise FileImportError("No data to import in the file.")
     return rows_out, len(source_indexes)

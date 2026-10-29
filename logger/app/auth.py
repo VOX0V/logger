@@ -12,7 +12,7 @@ from .seclog import clear_pair, client_ip, is_blocked, log_event, normalize_user
 
 auth_bp = Blueprint("auth", __name__)
 
-GENERIC_LOGIN_ERROR = "Identifiants invalides ou trop de tentatives. Réessayez plus tard."
+GENERIC_LOGIN_ERROR = "Invalid credentials or too many attempts. Try again later."
 EXEMPT_ENDPOINTS = {"static", "healthz"}
 FORCED_CHANGE_ALLOWED = {"accounts.me", "accounts.revoke_my_sessions", "auth.logout", "static", "healthz"}
 
@@ -61,15 +61,15 @@ def load_logged_in_user():
     if account is None or not account["active"] or session.get("sv") != account["session_version"]:
         session.clear()
         log_event("session_invalid", "denied", account_id=account_id if isinstance(account_id, int) else None,
-                  reason="expirée" if expired else "révoquée, compte inactif ou supprimé")
+                  reason="expired" if expired else "revoked, inactive or deleted account")
         return None
     g.user, g.username, g.role = account, account["username"], account["role"]
     session["last_seen"] = now
     session.permanent = True
     if account["must_change"] and request.endpoint not in FORCED_CHANGE_ALLOWED:
         if not _navigation():
-            return Response("Changement de mot de passe requis.", status=403, mimetype="text/plain")
-        flash("Choisis un nouveau mot de passe pour continuer.")
+            return Response("Password change required.", status=403, mimetype="text/plain")
+        flash("Choose a new password to continue.")
         return redirect(url_for("accounts.me"))
     return None
 
@@ -124,7 +124,7 @@ def login():
         log_event("login_success", account_id=account["id"], username=account["username"])
         return redirect(url_for("main.home"))
     record_failure(name, ip)
-    log_event("login_failure", "denied", username=name, reason="compte désactivé" if ok else None)
+    log_event("login_failure", "denied", username=name, reason="account disabled" if ok else None)
     return render_template("login.html", error=GENERIC_LOGIN_ERROR), 401   # même réponse dans tous les cas d'échec
 
 
@@ -175,9 +175,9 @@ def fresh_login_required(view):
             return _unauthenticated()
         if time.time() - float(session.get("auth_at", 0)) > current_app.config["REAUTH_SECONDS"]:
             if not _navigation():
-                return Response("Réauthentification requise.", status=401, mimetype="text/plain")
+                return Response("Re-authentication required.", status=401, mimetype="text/plain")
             target = request.full_path.rstrip("?") if request.method == "GET" else _referrer_path()
-            flash("Pour cette action sensible, confirme d'abord ton mot de passe, puis recommence.")
+            flash("For this sensitive action, first confirm your password, then try again.")
             return redirect(url_for("auth.reauth", next=safe_next(target)))
         return view(*args, **kwargs)
     return wrapped
@@ -193,5 +193,5 @@ def reauth():
             session["auth_at"] = time.time()
             log_event("reauth")
             return redirect(target)
-        error = "Mot de passe incorrect ou trop de tentatives. Réessayez plus tard."
+        error = "Incorrect password or too many attempts. Try again later."
     return render_template("reauth.html", error=error, next=target), (401 if error else 200)

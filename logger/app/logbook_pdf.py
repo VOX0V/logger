@@ -55,12 +55,12 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
     st = layout["styles"]
     n_rows = int(layout.get("rows_per_page", 30))
     entries = cfg["left_columns_u"] if side == "left" else cfg["right_columns_u"]
-    name = "les colonnes de gauche + gutter_left_u" if side == "left" else "les colonnes de droite + gutter_right_u"
+    name = "the left columns + gutter_left_u" if side == "left" else "the right columns + gutter_right_u"
     if sum(int(e["u"]) for e in entries) != cfg["page_width_u"]:
-        raise ValueError(f"PDF : {name} totalise {sum(int(e['u']) for e in entries)} u au lieu de {cfg['page_width_u']} (gouttière comprise).")
+        raise ValueError(f"PDF : {name} totalise {sum(int(e['u']) for e in entries)} u instead of {cfg['page_width_u']} (gutter included).")
     data = [e for e in entries if e["key"] != "gutter"]
     if len(data) != (14 if side == "left" else 18):
-        raise ValueError(f"PDF : la feuille {'gauche' if side == 'left' else 'droite'} doit contenir {14 if side == 'left' else 18} colonnes de données (hors espaceurs).")
+        raise ValueError(f"PDF: the sheet {'gauche' if side == 'left' else 'droite'} must contain {14 if side == 'left' else 18} data columns (excluding spacers).")
     first = next(i for i, e in enumerate(entries) if e["key"] != "gutter")
     x0 = sum(int(e["u"]) for e in entries[:first]) * U            # gouttière à gauche : la feuille droite démarre après elle
     cw = [int(e["u"]) * U for e in data]
@@ -153,8 +153,8 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
                 put(r, j, num(s, k), 1, bold)
     first, last = dates
     mail_c = 10 if side == "left" else 14
-    label(F, 0, f"Page : {page_no}", 3)
-    label(F, 3, f"Période du : {first} au : {last}", mail_c - 3)
+    label(F, 0, f"Page: {page_no}", 3)
+    label(F, 3, f"Period from: {first} to: {last}", mail_c - 3)
     label(F, mail_c, email or "", nc - mail_c)
     cmds += spans
     cmds += [
@@ -180,7 +180,7 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
 
     rh = int(cfg["row_height_u"])
     if rh * (F + 1) > cfg["page_height_u"] - int(cfg["offset_top_u"]):
-        raise ValueError(f"PDF : {F + 1} lignes de {rh} u dépassent la hauteur de page ({cfg['page_height_u']} u).")
+        raise ValueError(f"PDF : {F + 1} rows of {rh} u exceed the page height ({cfg['page_height_u']} u).")
     t = Table(grid, colWidths=cw, rowHeights=[rh * U] * (F + 1))
     t.setStyle(TableStyle(cmds))
     return t, total_w, x0
@@ -188,7 +188,7 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
 
 def build_logbook_pdf(ctx, years, email=""):
     """PDF des années demandées. ctx : contexte de main._logbook_context(). Retourne les octets du PDF."""
-    from .main import _fr_date
+    from .main import _long_date
     layout, columns = ctx["layout"], ctx["columns"]
     cfg = pdf_settings(layout)
     W, H = cfg["page_width_u"] * U, cfg["page_height_u"] * U
@@ -201,7 +201,7 @@ def build_logbook_pdf(ctx, years, email=""):
         for idx, rows in enumerate(ctx["year_pages"][y]):
             summary = ctx["year_summaries"][y][idx] if ctx["year_summaries"].get(y) else []
             grand = ctx["year_grand"][y][idx]
-            dates = (_fr_date(rows[0]) if rows else "", _fr_date(rows[-1]) if rows else "")
+            dates = (_long_date(rows[0]) if rows else "", _long_date(rows[-1]) if rows else "")
             number = (ctx["year_page_offset"][y] + idx) * 2 + 2
             for side, page_no in (("left", number), ("right", number + 1)):
                 table, tw, x0 = _page_table(side, y, rows, summary, grand, layout, columns, cfg, page_no, dates, email)

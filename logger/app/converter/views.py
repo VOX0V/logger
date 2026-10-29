@@ -49,7 +49,7 @@ def index():
 @login_required
 def select():
     catalog.save_selection(request.form.getlist("enabled"))
-    flash("Sélection des règles enregistrée. Clique sur Actualiser dans logbook.db pour l'appliquer.")
+    flash("Rule selection saved. Click Refresh in logbook.db to apply it.")
     return redirect(url_for("converter.index"))
 
 
@@ -68,15 +68,15 @@ def save_settings_route():
         after = int(request.form.get("after_sunset_minutes", ""))
         before = int(request.form.get("before_sunrise_minutes", ""))
         if not (0 <= after <= 180 and 0 <= before <= 180):
-            raise ValueError("Les marges de nuit doivent être entre 0 et 180 minutes.")
+            raise ValueError("Night margins must be between 0 and 180 minutes.")
         rules = catalog.rounding_from_text(request.form.get("tc_rounding", ""))
         current = catalog.load_settings()
         catalog.save_settings({**current, "night": {"after_sunset_minutes": after, "before_sunrise_minutes": before},
                                "tc_rounding": {"comment": current["tc_rounding"].get("comment", ""), "rules": rules}})
         log_event("config_change", target="converter:reglages")
-        flash("Réglages du convertisseur enregistrés.")
+        flash("Converter settings saved.")
     except ValueError as exc:
-        flash(f"Réglages non enregistrés — {exc}")
+        flash(f"Settings not saved — {exc}")
     return redirect(url_for("converter.settings_page"))
 
 
@@ -110,7 +110,7 @@ def rule_new():
             rules.append(catalog.build_rule(request.form, transform, rule_id))
             catalog.save_rules(rules)
             log_event("config_change", target=f"converter:regle-ajoutee:{rule_id}")
-            flash("Règle ajoutée au catalogue.")
+            flash("Rule added to the catalog.")
             return redirect(url_for("converter.index"))
         except ValueError as exc:
             flash(str(exc))
@@ -123,13 +123,13 @@ def rule_edit(rule_id):
     rules = catalog.load_rules()
     rule = next((r for r in rules if r["id"] == rule_id), None)
     if not rule:
-        flash("Règle introuvable."); return redirect(url_for("converter.index"))
+        flash("Rule not found."); return redirect(url_for("converter.index"))
     if request.method == "POST":
         try:
             updated = catalog.build_rule(request.form, rule["transform"], rule_id)
             catalog.save_rules([updated if r["id"] == rule_id else r for r in rules])
             log_event("config_change", target=f"converter:regle-modifiee:{rule_id}")
-            flash("Règle modifiée.")
+            flash("Rule updated.")
             return redirect(url_for("converter.index"))
         except ValueError as exc:
             flash(str(exc))
@@ -144,7 +144,7 @@ def rule_delete(rule_id):
     rules = catalog.load_rules()
     catalog.save_rules([r for r in rules if r["id"] != rule_id])
     log_event("data_destroy", target=f"converter:regle-supprimee:{rule_id}")
-    flash("Règle supprimée du catalogue (elle est aussi décochée chez tous les comptes).")
+    flash("Rule deleted from the catalog (it is also unticked for all accounts).")
     return redirect(url_for("converter.index"))
 
 
@@ -162,11 +162,11 @@ def airports():
 def airport_form(airport_id=None):
     airport = get_airport(airport_id) if airport_id else None
     if airport_id and not airport:
-        flash("Aéroport introuvable."); return redirect(url_for("converter.airports"))
+        flash("Airport not found."); return redirect(url_for("converter.airports"))
     if request.method == "POST":
         try:
             save_airport(airport_id, request.form)
-            flash("Aéroport enregistré.")
+            flash("Airport saved.")
             return redirect(url_for("converter.airports"))
         except ValueError as exc:
             flash(str(exc))
@@ -178,7 +178,7 @@ def airport_form(airport_id=None):
 def airport_delete(airport_id):
     delete_airport(airport_id)
     log_event("data_destroy", target=f"aeroport:{airport_id}")
-    flash("Aéroport supprimé.")
+    flash("Airport deleted.")
     return redirect(url_for("converter.airports"))
 
 
@@ -197,11 +197,11 @@ def aircrafts():
 def aircraft_form(aircraft_id=None):
     aircraft = get_aircraft_type(aircraft_id) if aircraft_id else None
     if aircraft_id and not aircraft:
-        flash("Type introuvable."); return redirect(url_for("converter.aircrafts"))
+        flash("Type not found."); return redirect(url_for("converter.aircrafts"))
     if request.method == "POST":
         try:
             save_aircraft_type(aircraft_id, request.form)
-            flash("Type enregistré.")
+            flash("Type saved.")
             return redirect(url_for("converter.aircrafts"))
         except ValueError as exc:
             flash(str(exc))
@@ -215,7 +215,7 @@ def aircraft_form(aircraft_id=None):
 def aircraft_delete(aircraft_id):
     delete_aircraft_type(aircraft_id)
     log_event("data_destroy", target=f"avion:{aircraft_id}")
-    flash("Type supprimé.")
+    flash("Type deleted.")
     return redirect(url_for("converter.aircrafts"))
 
 
@@ -226,7 +226,7 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 @admin_required
 def aircrafts_export():
     return Response(export_aircraft_types_xlsx(), mimetype=XLSX,
-                    headers={"Content-Disposition": 'attachment; filename="types_appareils.xlsx"'})
+                    headers={"Content-Disposition": 'attachment; filename="aircraft_types.xlsx"'})
 
 
 @converter_bp.route("/airports/export")
@@ -239,11 +239,11 @@ def airports_export():
 def _do_import(importer, back):
     f = request.files.get("file")
     if not f or not f.filename:
-        flash("Choisis un fichier à importer.")
+        flash("Choose a file to import.")
     else:
         try:
             added, updated, skipped = importer(f.filename, f.read())
-            flash(f"Import terminé : {added} ajouté(s), {updated} mis à jour, {skipped} ignoré(s).")
+            flash(f"Import complete: {added} added, {updated} updated, {skipped} ignored.")
         except FileImportError as exc:
             flash(str(exc))
     return redirect(url_for(back))

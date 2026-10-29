@@ -8,10 +8,21 @@ from openpyxl import Workbook
 from app import create_app
 from conftest import CsrfClient
 
-# Identifiants de test : conformes à la politique de sécurité (l'application refuse « test » / « admin » au démarrage).
+# Identifiants de test : conformes à la politique de sécurité (l'application refuse “test” / “admin” au démarrage).
 TEST_SECRET = "0f9c1e7b52d84a36b8e1c07d93a45f6e1b2c3d4e5f60718293a4b5c6d7e8f901"
 ADMIN_PW = "correct horse battery staple 42"
 USER_PW = "a long enough test passphrase 1"
+
+
+
+def use_rules(app, ids):
+    """Conversion rules of the 'default' import profile for the current test (the engine converts by profile):
+    the catalog rules with these ids, in catalog order."""
+    from app.converter import engine, profiles
+    from app.converter.catalog import load_rules, normalize_rule
+    with app.app_context():
+        chosen = [normalize_rule(r) for r in load_rules() if r['id'] in ids]
+    engine.profile_rules = lambda pid: chosen if pid == 'default' else profiles.profile_rules(pid)
 
 
 def _env_without_secrets():
@@ -58,13 +69,13 @@ def test_user_db_and_logbook_db_pages(client):
     login(client)
     assert client.get('/data').status_code == 200
     assert client.get('/logbook').status_code == 200
-    assert 'Données brutes' in client.get('/data').get_data(as_text=True)
+    assert 'Raw data' in client.get('/data').get_data(as_text=True)
     assert 'Logbook' in client.get('/logbook').get_data(as_text=True)
 
 
 def test_import_and_refresh_logbook(client, app):
     login(client)
-    r = client.post('/import', data={'files': [(excel(['year', 'month', 'day', 'reg', 'dep', 'arr'], [2026, 9, 27, 'C-AAA', 'YUL', 'YYZ']), 'flight.xlsx')]}, content_type='multipart/form-data')
+    r = client.post('/import', data={'profile': 'aircanada', 'files': [(excel(['year', 'month', 'day', 'reg', 'dep', 'arr'], [2026, 9, 27, 'C-AAA', 'YUL', 'YYZ']), 'flight.xlsx')]}, content_type='multipart/form-data')
     assert r.status_code == 302
     r = client.post('/logbook/refresh', follow_redirects=True); assert r.status_code == 200
     with app.app_context():
@@ -72,7 +83,7 @@ def test_import_and_refresh_logbook(client, app):
         rows = list_logbook_rows(username="admin")
     row = rows[0]
     assert row['date'] == '2026-09-27'; assert row['registration'] == 'C-AAA'
-    assert row['departure'] == 'CYUL' and row['arrival'] == 'CYYZ'      # IATA -> ICAO (règles departure_icao / arrival_icao, cochées par défaut)
+    assert row['departure'] == 'CYUL' and row['arrival'] == 'CYYZ'      # IATA -> ICAO (rules departure_icao / arrival_icao of the aircanada conversion profile)
 
 
 def test_logbook_cell_edit(client, app):
@@ -111,7 +122,7 @@ def test_non_admin_cannot_manage_accounts(client, app):
         create_account("pilot1", USER_PW, role="user")
     login(client, "pilot1", USER_PW)
     r = client.get('/accounts', follow_redirects=True)
-    assert 'Nouveau compte' not in r.get_data(as_text=True)
+    assert 'New account' not in r.get_data(as_text=True)
 
 
 def test_admin_can_create_account_and_data_is_isolated(client, app):
@@ -130,7 +141,7 @@ def test_admin_can_create_account_and_data_is_isolated(client, app):
 # ---------------- convertisseur ----------------
 
 def _aircraft_type(app, code, engines):
-    """Crée un type d'appareil de test. Le filtre moteur des règles jour/nuit lit le type (colonne « type »), plus l'immatriculation."""
+    """Crée un type d'appareil de test. Le filtre moteur des règles jour/nuit lit le type (colonne “type”), plus l'immatriculation."""
     with app.app_context():
         from app.refdata import save_aircraft_type
         save_aircraft_type(None, {"code": code, "category": "airplane", "engines": engines})
@@ -194,7 +205,7 @@ def test_refresh_with_day_night_rule(client, app):
         pass
     _aircraft_type(app, 'TST1', 'single')
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC', type='TST1', arr='YUL', block='01:23:00', fcv_on_millis_utc=1728680385000)
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
+    use_rules(client.application, ['date_from_parts', 'registration_format', 'daynight_single_pic'])
     r = client.post('/logbook/refresh', follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
@@ -212,10 +223,10 @@ def test_refresh_warns_on_unknown_airport_and_aircraft(client, app):
     _aircraft_type(app, 'TST1', 'single')
     _import_flight(client, year=2024, month=10, day=11, reg='C-XXXX', type='ZZ99', arr='YUL', block='01:00:00', fcv_on_millis_utc=1728680385000)   # type inconnu
     _import_flight(client, year=2024, month=10, day=12, reg='C-XXXX', type='TST1', arr='ZZZ', block='01:00:00', fcv_on_millis_utc=1728680385000)   # aéroport inconnu
-    client.post('/converter/select', data={'enabled': ['daynight_single_pic']})
+    use_rules(client.application, ['daynight_single_pic'])
     page = html.unescape(client.post('/logbook/refresh', follow_redirects=True).get_data(as_text=True))
-    assert "Type d'appareil inconnu : ZZ99" in page
-    assert 'Aéroport inconnu : ZZZ' in page
+    assert "Unknown aircraft type: ZZ99" in page
+    assert 'Unknown airport: ZZZ' in page
 
 
 def test_engine_filter_skips_other_engine(client, app):
@@ -224,7 +235,7 @@ def test_engine_filter_skips_other_engine(client, app):
         pass
     _aircraft_type(app, 'TST2', 'multi')
     _import_flight(client, year=2024, month=10, day=11, reg='C-FMUL', type='TST2', arr='YUL', block='02:00:00', fcv_on_millis_utc=1728680385000)
-    client.post('/converter/select', data={'enabled': ['daynight_single_pic', 'daynight_multi_pic']})
+    use_rules(client.application, ['daynight_single_pic', 'daynight_multi_pic'])
     client.post('/logbook/refresh')
     with app.app_context():
         from app.converter import list_logbook_rows
@@ -236,7 +247,7 @@ def test_engine_filter_skips_other_engine(client, app):
 def test_first_rule_wins_for_same_column(client, app):
     login(client)
     _import_flight(client, year=2024, month=10, day=11, dep_datetime_local='2020-01-01 10:00:00')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'date_from_departure']})
+    use_rules(client.application, ['date_from_parts', 'date_from_departure'])
     client.post('/logbook/refresh')
     with app.app_context():
         from app.converter import list_logbook_rows
@@ -250,7 +261,7 @@ def test_only_admin_edits_catalog_and_users_tick_their_own(client, app):
     login(client, "pilot3", USER_PW)
     assert client.get('/converter').status_code == 200
     r = client.get('/converter/rule/new', follow_redirects=True)
-    assert 'Nouvelle règle' not in r.get_data(as_text=True) or 'Type de transformation' not in r.get_data(as_text=True)
+    assert 'New rule' not in r.get_data(as_text=True) or 'Transform type' not in r.get_data(as_text=True)
     assert client.post('/converter/rule/copy_remarks/delete').status_code == 403   # non-admin : refusé (avant la 0.2.0 : redirection 302)
     from app.converter.catalog import load_rules
     with app.app_context():
@@ -266,12 +277,12 @@ def test_admin_creates_edits_deletes_rule(client, app):
     login(client)
     r = client.post('/converter/rule/new', data={'save': '1', 'transform': 'tc_round', 'name': 'Bloc décimal', 'group': 'Temps',
                     'in_time': 'block_time', 'out_target': 'remarks', 'param_rounding': 'tc'}, follow_redirects=True)
-    assert 'Règle ajoutée' in r.get_data(as_text=True)
+    assert 'Rule added' in r.get_data(as_text=True)
     r = client.post('/converter/rule/bloc_decimal/edit', data={'name': 'Bloc décimal 2', 'group': 'Temps', 'in_time': 'block_time',
                     'out_target': 'remarks', 'param_rounding': 'none'}, follow_redirects=True)
-    assert 'Règle modifiée' in r.get_data(as_text=True)
+    assert 'Rule updated' in r.get_data(as_text=True)
     r = client.post('/converter/rule/new', data={'save': '1', 'transform': 'copy', 'name': 'Sans sortie', 'in_source': 'year'}, follow_redirects=True)
-    assert 'obligatoire' in r.get_data(as_text=True)
+    assert 'required' in r.get_data(as_text=True)
     client.post('/converter/rule/bloc_decimal/delete')
     from app.converter.catalog import get_rule
     with app.app_context():
@@ -281,13 +292,13 @@ def test_admin_creates_edits_deletes_rule(client, app):
 def test_admin_settings_and_reference_pages(client, app):
     login(client)
     r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-29=0.0\n30-60=0.5'}, follow_redirects=True)
-    assert 'enregistrés' in r.get_data(as_text=True)
+    assert 'saved' in r.get_data(as_text=True)
     from app.converter.catalog import load_settings
     with app.app_context():
         st = load_settings()
     assert st['night'] == {'after_sunset_minutes': 15, 'before_sunrise_minutes': 20}
     r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-10=0.0'}, follow_redirects=True)
-    assert 'non enregistrés' in r.get_data(as_text=True)
+    assert 'not saved' in r.get_data(as_text=True)
     for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
     r = client.post('/converter/aircrafts/new', data={'code': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
@@ -363,7 +374,7 @@ def test_grid_rejects_unknown_columns_without_crashing(client, app):
 def test_logbook_db_grid_matches_converted_data(client, app):
     login(client)
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
+    use_rules(client.application, ['date_from_parts', 'registration_format'])
     client.post('/logbook/refresh')
     r = client.get('/logbook-db/rows')
     assert r.get_json()['data'][0]['registration'] == 'C-GABC'
@@ -392,7 +403,7 @@ def test_logbook_page_matches_template_structure(client, app):
     le modèle) est retirée. Remarks est une colonne unique et large (fusion J:K)."""
     login(client)
     _import_flight(client, year=2024, month=10, day=11, reg='C-GABC')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
+    use_rules(client.application, ['date_from_parts', 'registration_format'])
     client.post('/logbook/refresh')
     r = client.get('/logbook')
     assert r.status_code == 200
@@ -429,7 +440,7 @@ def test_logbook_page_uses_manual_pagination_not_table_wide_calc(client, app):
         ws.append([2024, 1, (i % 28) + 1, 'C-GABC', '01:00:00'])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
+    use_rules(client.application, ['date_from_parts', 'registration_format', 'daynight_single_pic'])
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     assert "pagination: true" not in body and "pagination:true" not in body
@@ -448,7 +459,7 @@ def test_logbook_page_totals_forwarded_and_to_date(client, app):
         ws.append([2024, 1, (i % 28) + 1, 'C-GABC', 'TST1', 'YUL', '00:20:00', 1728680385000])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format', 'daynight_single_pic']})
+    use_rules(client.application, ['date_from_parts', 'registration_format', 'daynight_single_pic'])
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     summaries = json.loads(re.search(r'const yearSummaries = (\{.*?\});', body).group(1))["2024"]
@@ -494,8 +505,8 @@ def test_logbook_table_is_30_rows_one_decimal_and_editable(client, app):
     ws.append([2014, 3, 10, 'RH44', 'C-FARY', 'V.Fuzeau', 0.2, None])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_aircraft_type', 'registration_format',
-                'copy_pilot_in_command', 'copy_single_engine_pic_day', 'copy_single_engine_dual_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_aircraft_type', 'registration_format',
+                'copy_pilot_in_command', 'copy_single_engine_pic_day', 'copy_single_engine_dual_day'])
     client.post('/logbook/refresh')
     rows = _logbook_html_rows(client.get('/logbook').get_data(as_text=True))
     data = [r for r in rows if 'data-row' in r['cls']]
@@ -530,8 +541,8 @@ def test_grand_total_is_totals_to_date_single_plus_multi_engine_only(client, app
     ws.append([2024, 2, 1, None, 2, 5, 4, 3])               # page 2 : 2.0 h multi + 5 IFR + 4 campagne + 3 atterrissages
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day',
-                'copy_multi_engine_pic_day', 'copy_ifr', 'copy_cross_country_pic_day', 'copy_landings_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day',
+                'copy_multi_engine_pic_day', 'copy_ifr', 'copy_cross_country_pic_day', 'copy_landings_day'])
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
     cells = re.findall(r'class="grand-total"[^>]*>([^<]*)<', body)
@@ -551,7 +562,7 @@ def test_totals_forwarded_carry_over_from_year_to_year(client, app):
     ws.append([2014, 5, 5, 2.5, None])                       # inséré après : l'ordre du fichier ne doit pas compter
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day', 'copy_ifr']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day', 'copy_ifr'])
     client.post('/logbook/refresh')
     def page(year): return client.get(f'/logbook?year={year}').get_data(as_text=True)
     def pick(year, key):
@@ -571,7 +582,7 @@ def _logbook_with_years(client, years):
     for y in years: ws.append([y, 1, 1, 1])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day'])
     client.post('/logbook/refresh')
     return client.get('/logbook').get_data(as_text=True)
 
@@ -595,7 +606,7 @@ def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     header = re.search(r'<header>.*?</header>', client.get('/data').get_data(as_text=True), re.S).group(0)
     assert header.index('v' + app.config['APP_VERSION']) < header.index('class="header-btn"') < header.index('<nav>')        # bouton juste à droite de la version
     assert header.count('>Logbook<') == 1
-    for gone in ('Données brutes', 'Convertisseur', 'Données converties'):
+    for gone in ('Raw data', 'Convertisseur', 'Work data'):
         assert gone not in header                                                                  # retirés de la barre du haut
     assert 'Logout' in header and 'admin' in header
     for entry in ('Logbook', 'Breakdown', 'Data', 'Export', 'Audit'):
@@ -604,7 +615,7 @@ def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     for link in ('>Import<', '>Raw data<', '>Converter<', '>Work data<'):
         assert link in data                                                                        # ...les pages de données sont dans Data
     account = client.get('/accounts/me').get_data(as_text=True)
-    for link in ('>Réglages du logbook<', '>Réglages du Breakdown<', '>Configuration (YAML)<'):
+    for link in ('>Logbook settings<', '>Breakdown settings<', '>Configuration (YAML)<'):
         assert link in account                                                                     # ...et tous les réglages dans Mon compte
 
 
@@ -614,10 +625,10 @@ def test_sans_date_tab_goes_left_and_never_active_when_dated_years_exist(client,
     ws.append([2015, 1, 1, 1]); ws.append([None, None, None, 1])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day'])
     client.post('/logbook/refresh')
     body = client.get('/logbook').get_data(as_text=True)
-    assert re.findall(r'<a class="year-tab[^"]*" data-year="([^"]+)"', body) == ['Sans date', '2015']
+    assert re.findall(r'<a class="year-tab[^"]*" data-year="([^"]+)"', body) == ['No date', '2015']
     assert re.search(r'class="year-tab active" data-year="2015"', body)
 
 
@@ -647,9 +658,9 @@ def test_page_numbers_start_at_2_and_3_and_follow_across_years(client, app):
     ws.append([2015, 1, 1, 1])                                         # 2015 : la feuille suivante
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day'])
     client.post('/logbook/refresh')
-    pages = lambda year: re.findall(r'Page : (\d+)<', client.get(f'/logbook?year={year}').get_data(as_text=True))
+    pages = lambda year: re.findall(r'Page: (\d+)<', client.get(f'/logbook?year={year}').get_data(as_text=True))
     assert pages('2014') == ['2', '3', '4', '5']                       # comme C39=2 et S39=C39+1 du modèle, puis +2 par feuille
     assert pages('2015') == ['6', '7']
 
@@ -660,7 +671,7 @@ def test_month_and_day_always_two_digits_and_dates_in_words(client, app):
     body = client.get('/logbook?year=2014').get_data(as_text=True)
     first = [r for r in _logbook_html_rows(body) if 'data-row' in r['cls']][0]['cells']
     assert first[0]['txt'].strip() == '01' and first[1]['txt'].strip() == '01'
-    assert 'Période du : 1er janvier 2014 au : 1er janvier 2014' in body
+    assert 'Period from: January 1, 2014 to: January 1, 2014' in body
     from app.main import _two
     assert [_two(v) for v in (5, '5', 12, '', None)] == ['05', '05', '12', '', '']
 
@@ -686,9 +697,9 @@ def test_two_empty_borderless_columns_between_single_and_multi_engine(client, ap
 def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, app):
     login(client)
     r = client.post('/accounts/me', data={'action': 'email', 'email': 'pas un mail'}, follow_redirects=True)
-    assert 'Adresse e-mail invalide' in r.get_data(as_text=True)
+    assert 'Invalid email address' in r.get_data(as_text=True)
     r = client.post('/accounts/me', data={'action': 'email', 'email': 'pilote@example.com'}, follow_redirects=True)
-    assert 'Adresse e-mail enregistrée' in r.get_data(as_text=True)
+    assert 'Email address saved' in r.get_data(as_text=True)
     assert 'value="pilote@example.com"' in client.get('/accounts/me').get_data(as_text=True)
     body = _logbook_with_years(client, [2014])
     assert body.count('class="email">pilote@example.com<') == 2        # pied de la page de gauche et de droite, comme L39 / AF39
@@ -698,7 +709,7 @@ def test_email_setting_is_validated_saved_and_printed_in_both_footers(client, ap
     assert 'pilote@example.com' not in client.get('/logbook').get_data(as_text=True)
     # le mot de passe se change toujours avec l'ancien formulaire (sans champ "action")
     r = client.post('/accounts/me', data={'current_password': ADMIN_PW, 'new_password': 'x1 is now a much longer passphrase', 'confirm_password': 'x1 is now a much longer passphrase'}, follow_redirects=True)
-    assert 'Mot de passe modifié' in r.get_data(as_text=True)
+    assert 'Password changed' in r.get_data(as_text=True)
 
 
 def test_accounts_db_without_email_column_is_migrated(tmp_path):
@@ -721,7 +732,7 @@ def test_numbers_use_thousands_space_and_decimal_comma_everywhere(client, app):
     ws.append([2014, 1, 1, 1234.5])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'copy_single_engine_pic_day']})
+    use_rules(client.application, ['date_from_parts', 'copy_single_engine_pic_day'])
     client.post('/logbook/refresh')
     body = client.get('/logbook?year=2014').get_data(as_text=True)
     first = [r for r in _logbook_html_rows(body) if 'data-row' in r['cls']][0]['cells']
@@ -745,7 +756,7 @@ def test_converted_data_splits_date_and_is_editable(client, app):
     for y, m, d, r in ((2014, 1, 5, 'C-AAA'), (2014, 3, 9, 'C-BBB'), (2015, 3, 12, 'C-CCC')): ws.append([y, m, d, r])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     client.post('/import', data={'files': [(buf, 'f.xlsx')]}, content_type='multipart/form-data')
-    client.post('/converter/select', data={'enabled': ['date_from_parts', 'registration_format']})
+    use_rules(client.application, ['date_from_parts', 'registration_format'])
     client.post('/logbook/refresh')
     rows = client.get('/logbook-db/rows').get_json()['data']
     assert [(r['year'], r['month'], r['day']) for r in rows] == [('2014', '01', '05'), ('2014', '03', '09'), ('2015', '03', '12')]
@@ -761,20 +772,20 @@ def test_converted_data_splits_date_and_is_editable(client, app):
     assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'month', 'value': '2'}).status_code == 204
     assert client.get('/logbook-db/rows?filter[0][field]=registration&filter[0][value]=BBB').get_json()['data'][0]['month'] == '02'
     r = client.post('/logbook/cell', data={'row_id': rid, 'column': 'day', 'value': '31'})
-    assert r.status_code == 400 and 'Date impossible' in r.get_data(as_text=True)         # 31 février
+    assert r.status_code == 400 and 'Impossible date' in r.get_data(as_text=True)         # 31 février
     assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'year', 'value': 'abc'}).status_code == 400
     # une colonne ordinaire s'édite aussi, et la page l'annonce (éditeur + avertissement avant Actualiser)
     assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'registration', 'value': 'C-ZZZ'}).status_code == 204
     page = client.get('/logbook-db').get_data(as_text=True)
-    assert 'editor: "input"' in page and 'data-confirm=' in page and 'efface les modifications' in page   # confirmation via data-confirm (static/app.js), plus de confirm() inline : CSP
+    assert 'editor: "input"' in page and 'data-confirm=' in page and 'erases the changes' in page   # confirmation via data-confirm (static/app.js), plus de confirm() inline : CSP
 
 
 def test_yaml_editor_lists_files_and_rejects_unknown_ones(client, app):
     assert client.get('/config').status_code == 302                          # connexion obligatoire
     login(client)
     page = client.get('/config').get_data(as_text=True)
-    for label in ('Données brutes — structure', 'Données brutes — affichage', 'Données converties — structure',
-                  'Données converties — affichage', 'Logbook — mise en page'):
+    for label in ('Raw data — structure', 'Raw data — display', 'Work data — structure',
+                  'Work data — display', 'Logbook — layout'):
         assert label in page
     for key in ('data', 'data_view', 'logbook', 'logbook_view', 'layout'):
         assert client.get(f'/config?file={key}').status_code == 200
@@ -789,18 +800,18 @@ def test_yaml_editor_validates_before_saving_and_keeps_a_backup(client, app):
     original = path.read_text(encoding="utf-8")
     save = lambda text, key='data', action='save': client.post('/config', data={'file': key, 'content': text, 'action': action}, follow_redirects=True).get_data(as_text=True)
     # YAML invalide : message avec la ligne, rien n'est écrit
-    assert 'YAML invalide' in save("database:\n  columns:\n  - column: x\n   bad: [")
-    assert 'doit commencer par des clés' in save("- juste\n- une liste")
-    assert 'liste non vide' in save("database:\n  columns: 3")
-    assert 'en double' in save(original + "  - column: year\n    display_name: encore year\n    data_type: text\n")
-    assert 'réservé' in save(original + "  - column: id2\n    display_name: x\n    data_type: text\n  - column: import_source\n    display_name: x\n    data_type: text\n")
-    assert 'data_type doit être' in save(original + "  - column: nouvelle\n    display_name: n\n    data_type: pourcentage\n")
+    assert 'Invalid YAML' in save("database:\n  columns:\n  - column: x\n   bad: [")
+    assert 'must start with keys' in save("- juste\n- une liste")
+    assert 'non-empty list' in save("database:\n  columns: 3")
+    assert 'Duplicate' in save(original + "  - column: year\n    display_name: encore year\n    data_type: text\n")
+    assert 'reserved' in save(original + "  - column: id2\n    display_name: x\n    data_type: text\n  - column: import_source\n    display_name: x\n    data_type: text\n")
+    assert 'data_type must be' in save(original + "  - column: nouvelle\n    display_name: n\n    data_type: pourcentage\n")
     assert path.read_text(encoding="utf-8") == original                       # aucun enregistrement refusé n'a touché le fichier
     assert not path.with_name(path.name + ".bak").exists()
-    assert 'Fichier valide' in save(original, action='validate')
+    assert 'Valid file' in save(original, action='validate')
     # enregistrement valable : nouvelle colonne, sauvegarde de l'ancienne version, base mise à jour
     new = original + "  - column: extra_note\n    display_name: extra note\n    position: 99\n    group: misc\n    data_type: text\n    nullable: true\n    visible: true\n    editable: true\n    import_rules:\n    - extra\n"
-    assert 'Fichier enregistré' in save(new)
+    assert 'File saved' in save(new)
     assert path.read_text(encoding="utf-8") == new
     assert path.with_name(path.name + ".bak").read_text(encoding="utf-8") == original
     assert client.get('/data/rows').status_code == 200                       # la colonne existe déjà dans la base
@@ -812,7 +823,7 @@ def test_yaml_editor_validates_before_saving_and_keeps_a_backup(client, app):
     assert client.get('/data').status_code == 200
     # restauration : l'ancienne version est chargée dans l'éditeur sans rien appliquer
     page = client.post('/config', data={'file': 'data', 'content': new, 'action': 'restore'}).get_data(as_text=True)
-    assert 'Sauvegarde précédente chargée' in page and 'extra_note' not in page.split('<textarea')[1].split('</textarea>')[0]
+    assert 'Previous backup loaded' in page and 'extra_note' not in page.split('<textarea')[1].split('</textarea>')[0]
     assert path.read_text(encoding="utf-8") == new
 
 
@@ -821,10 +832,10 @@ def test_yaml_editor_checks_layout_and_view_files_and_keeps_each_user_apart(clie
     layout_path = Path(app.config["USERS_DIR"]) / "admin" / "admin_layout.yml"
     layout = layout_path.read_text(encoding="utf-8")
     post = lambda key, text, action='save': client.post('/config', data={'file': key, 'content': text, 'action': action}, follow_redirects=True).get_data(as_text=True)
-    assert 'rows_per_page doit être un nombre' in post('layout', layout + "\nrows_per_page: abc\n")
-    assert 'align doit être' in post('data_view', "columns:\n- column: year\n  align: haut\n")
-    assert 'frozen doit être' in post('logbook_view', "columns:\n- column: year\n  frozen: oui\n")
-    assert 'Fichier enregistré' in post('layout', layout.replace("row_height_u: 22", "row_height_u: 20"))
+    assert 'rows_per_page must be a number' in post('layout', layout + "\nrows_per_page: abc\n")
+    assert 'align must be' in post('data_view', "columns:\n- column: year\n  align: haut\n")
+    assert 'frozen must be' in post('logbook_view', "columns:\n- column: year\n  frozen: oui\n")
+    assert 'File saved' in post('layout', layout.replace("row_height_u: 22", "row_height_u: 20"))
     assert 'row_height_u: 20' in layout_path.read_text(encoding="utf-8")
     assert _logbook_with_years(client, [2014])                               # la page Logbook s'affiche avec le fichier modifié
     # un autre compte ne voit que ses propres fichiers

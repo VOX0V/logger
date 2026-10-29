@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head"><h2>Ajouter un vol</h2><div><a class="btn secondary" href="{{url_for('main.logbook')}}">Annuler</a></div></div>
+<div class="page-head"><h2>Add a flight</h2><div><a class="btn secondary" href="{{url_for('main.logbook')}}">Cancel</a></div></div>
 <form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<p class="muted">Le vol est ajouté aux données brutes (source « Saisie manuelle »). Clique ensuite sur Actualiser dans Work data pour l'afficher dans le Logbook. Pour une ligne vide dans le logbook : une date et la remarque « vide ».</p>
+<p class="muted">The flight is added to the raw data (source “Manual entry”). Then click Refresh in Work data to show it in the Logbook. For an empty row in the logbook: a date and the remark “empty”.</p>
 <div class="field"><label>Date</label><input type="date" name="date" required value="{{values.get('date', today)}}"></div>
 <datalist id="aircraft-types">{% for t in types %}<option value="{{t}}">{% endfor %}</datalist>
 {% for title, fields in groups %}<h3>{{title}}</h3><div class="grid">
 {% for col, label in fields %}<div class="field"><label>{{label}}</label>
-{% if title == 'Vol' %}<input type="text" name="{{col}}" maxlength="{{300 if col == 'remarks' else 100}}" value="{{values.get(col, '')}}"{% if col == 'type' %} list="aircraft-types"{% endif %}>
+{% if title == 'Flight' %}<input type="text" name="{{col}}" maxlength="{{300 if col == 'remarks' else 100}}" value="{{values.get(col, '')}}"{% if col == 'type' %} list="aircraft-types"{% endif %}>
 {% elif title == 'Atterrissages' %}<input type="number" name="{{col}}" step="1" min="0" max="99" value="{{values.get(col, '')}}">
 {% else %}<input type="number" name="{{col}}" step="0.1" min="0" max="24" inputmode="decimal" value="{{values.get(col, '')}}">{% endif %}</div>{% endfor %}
 </div>{% endfor %}
-<p><button class="btn">Ajouter le vol</button></p></form>
+<p><button class="btn">Add flight</button></p></form>
 {% endblock %}

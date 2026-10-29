@@ -1,0 +1,62 @@
+# Import profile: Air Canada (aircanada_import.yml; converted by converter/aircanada_convert.yml).
+# Starting point = the historical default import rules of the app (aliases of defaults/default-userdb.yml), to be
+# reviewed in detail. Values are imported untouched.
+name: Air Canada
+columns:
+- {header: year, column: year, display_name: year, group: date, data_type: integer}
+- {header: month, column: month, display_name: month, group: date, data_type: integer}
+- {header: day, column: day, display_name: day, group: date, data_type: integer}
+- {header: type, column: type, display_name: type, group: aircraft, data_type: text}
+- {header: fcv_aircraft_type, column: type}
+- {header: reg, column: registration, display_name: registration, group: aircraft, data_type: text}
+- {header: fcv_tail_number, column: registration}
+- {header: pic, column: pilot_in_command, display_name: pilot in command, group: crew, data_type: text}
+- {header: copi, column: copilot, display_name: copilot, group: crew, data_type: text}
+- {header: dep, column: departure, display_name: departure, group: airports, data_type: text}
+- {header: dep_airport, column: departure}
+- {header: arr, column: arrival, display_name: arrival, group: airports, data_type: text}
+- {header: arr_airport, column: arrival}
+- {header: remarks, column: remarks, display_name: remarks, group: misc, data_type: text}
+- {header: se dual day, column: single_engine_dual_day, display_name: single engine dual day, group: time, data_type: text}
+- {header: se pic day, column: single_engine_pic_day, display_name: single engine pic day, group: time, data_type: text}
+- {header: se dual night, column: single_engine_dual_night, display_name: single engine dual night, group: time, data_type: text}
+- {header: se pic night, column: single_engine_pic_night, display_name: single engine pic night, group: time, data_type: text}
+- {header: me dual day, column: multi_engine_dual_day, display_name: multi engine dual day, group: time, data_type: text}
+- {header: me pic day, column: multi_engine_pic_day, display_name: multi engine pic day, group: time, data_type: text}
+- {header: me copi day, column: multi_engine_copi_day, display_name: multi engine copi day, group: time, data_type: text}
+- {header: me dual night, column: multi_engine_dual_night, display_name: multi engine dual night, group: time, data_type: text}
+- {header: me pic night, column: multi_engine_pic_night, display_name: multi engine pic night, group: time, data_type: text}
+- {header: me copi night, column: multi_engine_copi_night, display_name: multi engine copi night, group: time, data_type: text}
+- {header: ifr, column: ifr, display_name: ifr, group: time, data_type: text}
+- {header: hood, column: hood, display_name: hood, group: time, data_type: text}
+- {header: ftd, column: ftd, display_name: ftd, group: time, data_type: text}
+- {header: appr, column: ifr_approach, display_name: ifr approach, group: time, data_type: text}
+- {header: cc dual day, column: cross_country_dual_day, display_name: cross country dual day, group: time, data_type: text}
+- {header: cc pic day, column: cross_country_pic_day, display_name: cross country pic day, group: time, data_type: text}
+- {header: cc dual night, column: cross_country_dual_night, display_name: cross country dual night, group: time, data_type: text}
+- {header: cc pic night, column: cross_country_pic_night, display_name: cross country pic night, group: time, data_type: text}
+- {header: ldg day, column: landings_day, display_name: landings day, group: misc, data_type: text}
+- {header: ldg night, column: landings_night, display_name: landings night, group: misc, data_type: text}
+- {header: instruction day, column: instruction_day, display_name: instruction day, group: misc, data_type: text}
+- {header: instruction night, column: instruction_night, display_name: instruction night, group: misc, data_type: text}
+- {header: flight_number, column: flight_number, display_name: flight number, group: misc, data_type: text}
+- {header: deadhead, column: deadhead, display_name: deadhead, group: misc, data_type: text}
+- {header: airplane_change, column: airplane_change, display_name: airplane change, group: misc, data_type: text}
+- {header: fcv_skd_dep_datetime_local, column: scheduled_departure_local, display_name: scheduled departure local, group: time, data_type: text}
+- {header: fcv_skd_arr_datetime_local, column: scheduled_arrival_local, display_name: scheduled arrival local, group: time, data_type: text}
+- {header: dep_datetime_local, column: departure_local, display_name: departure local, group: time, data_type: text}
+- {header: fcv_off_datetime_local, column: off_block_local, display_name: off block local, group: time, data_type: text}
+- {header: fcv_on_datetime_local, column: on_block_local, display_name: on block local, group: time, data_type: text}
+- {header: arr_datetime_local, column: arrival_local, display_name: arrival local, group: time, data_type: text}
+- {header: dep_datetime_utc, column: departure_utc, display_name: departure utc, group: time, data_type: text}
+- {header: fcv_off_datetime_utc, column: off_block_utc, display_name: off block utc, group: time, data_type: text}
+- {header: fcv_on_datetime_utc, column: on_block_utc, display_name: on block utc, group: time, data_type: text}
+- {header: arr_datetime_utc, column: arrival_utc, display_name: arrival utc, group: time, data_type: text}
+- {header: dep_millis_utc, column: departure_millis_utc, display_name: departure millis utc, group: time, data_type: text}
+- {header: fcv_off_millis_utc, column: off_block_millis_utc, display_name: off block millis utc, group: time, data_type: text}
+- {header: fcv_on_millis_utc, column: on_block_millis_utc, display_name: on block millis utc, group: time, data_type: text}
+- {header: arr_millis_utc, column: arrival_millis_utc, display_name: arrival millis utc, group: time, data_type: text}
+- {header: block, column: block_time, display_name: block time, group: time, data_type: text}
+- {header: nautical_miles, column: nautical_miles, display_name: nautical miles, group: misc, data_type: text}
+- {header: tail_number, column: tail_number, display_name: tail number, group: aircraft, data_type: text}
+- {header: crew_list, column: crew_list, display_name: crew list, group: crew, data_type: text}

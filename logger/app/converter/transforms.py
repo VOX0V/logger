@@ -11,87 +11,87 @@ import ephem
 
 from ..refdata import find_airport, find_aircraft_type
 
-ENGINE_CHOICES = [("any", "Tous les avions"), ("single", "Monomoteur seulement"), ("multi", "Multimoteur seulement")]
-ROUNDING_CHOICES = [("tc", "Arrondi Transport Canada"), ("none", "Aucun arrondi (heures + minutes/60)")]
+ENGINE_CHOICES = [("any", "All aircraft"), ("single", "Single-engine only"), ("multi", "Multi-engine only")]
+ROUNDING_CHOICES = [("tc", "Transport Canada rounding"), ("none", "No rounding (hours + minutes/60)")]
 
 # transform id -> description used to validate rules and to build the admin form.
 # inputs/outputs: (slot, label, required); params: (key, label, choices)
 TRANSFORMS = {
     "copy": {
-        "label": "Copie d'une colonne",
-        "inputs": [("source", "Colonne de A", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Copy of a column",
+        "inputs": [("source", "Column of A", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [],
     },
     "date_parts": {
-        "label": "Date à partir de année / mois / jour",
-        "inputs": [("year", "Colonne année (A)", True), ("month", "Colonne mois (A)", True), ("day", "Colonne jour (A)", True)],
-        "outputs": [("target", "Colonne de B (date)", True)],
+        "label": "Date from year / month / day",
+        "inputs": [("year", "Year column (A)", True), ("month", "Month column (A)", True), ("day", "Day column (A)", True)],
+        "outputs": [("target", "Column of B (date)", True)],
         "params": [],
     },
     "datetime_date": {
-        "label": "Date extraite d'une date/heure",
-        "inputs": [("source", "Colonne date/heure (A)", True)],
-        "outputs": [("target", "Colonne de B (date)", True)],
+        "label": "Date extracted from a date/time",
+        "inputs": [("source", "Date/time column (A)", True)],
+        "outputs": [("target", "Column of B (date)", True)],
         "params": [],
     },
     "tc_round": {
-        "label": "Temps de bloc en heures décimales",
-        "inputs": [("time", "Colonne temps de bloc (A)", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Block time in decimal hours",
+        "inputs": [("time", "Block time column (A)", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [("rounding", "Arrondi", ROUNDING_CHOICES)],
     },
     "day_night": {
-        "label": "Temps de bloc en jour ou en nuit",
-        "inputs": [("time", "Colonne temps de bloc (A)", True),
-                   ("utc_ms", "Colonne heure UTC d'arrivée (A)", True),
-                   ("airport", "Colonne aéroport d'arrivée (A)", True),
+        "label": "Block time into day or night",
+        "inputs": [("time", "Block time column (A)", True),
+                   ("utc_ms", "UTC arrival time column (A)", True),
+                   ("airport", "Arrival airport column (A)", True),
                    ("date", "Date column (A), when the UTC arrival is a time of day only (hh:mm)", False),
                    ("start", "UTC departure time column (A), to pass midnight", False),
-                   ("type", "Colonne type d'appareil (A) — filtre moteur (par défaut : colonne « type »)", False)],
-        "outputs": [("day", "Colonne de B pour le jour", True), ("night", "Colonne de B pour la nuit", True)],
-        "params": [("engine", "Filtre moteur", ENGINE_CHOICES), ("rounding", "Arrondi", ROUNDING_CHOICES)],
+                   ("type", "Aircraft type column (A) — engine filter (default: “type” column)", False)],
+        "outputs": [("day", "Column of B for day", True), ("night", "Column of B for night", True)],
+        "params": [("engine", "Engine filter", ENGINE_CHOICES), ("rounding", "Arrondi", ROUNDING_CHOICES)],
     },
     "registration": {
-        "label": "Immatriculation (majuscules, tiret ajouté)",
-        "inputs": [("source", "Colonne immatriculation (A)", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Registration (upper case, dash added)",
+        "inputs": [("source", "Registration column (A)", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [],
     },
     "aircraft_type": {
-        "label": "Type d'appareil (table de correspondance)",
-        "inputs": [("source", "Colonne type (A)", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Aircraft type (mapping table)",
+        "inputs": [("source", "Type column (A)", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [],
     },
     "icao_code": {
-        "label": "Aéroport en code ICAO",
-        "inputs": [("source", "Colonne aéroport (A), IATA ou ICAO", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Airport as ICAO code",
+        "inputs": [("source", "Airport column (A), IATA or ICAO", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [],
     },
     "crew": {
-        "label": "Équipage à partir de la liste d'équipage",
-        "inputs": [("crew", "Colonne liste d'équipage (A)", True)],
-        "outputs": [("captain", "Colonne de B pour le capitaine", True), ("copilot", "Colonne de B pour le copilote", True)],
+        "label": "Crew from the crew list",
+        "inputs": [("crew", "Crew list column (A)", True)],
+        "outputs": [("captain", "Column of B for the captain", True), ("copilot", "Column of B for the copilot", True)],
         "params": [],
     },
     "zero_block": {
-        "label": "Ignorer les vols au temps de bloc 0:00 (non opérés)",
-        "inputs": [("time", "Colonne temps de bloc (A)", True)],
+        "label": "Skip flights with 0:00 block time (not operated)",
+        "inputs": [("time", "Block time column (A)", True)],
         "outputs": [],
         "params": [],
     },
     "not_flying": {
-        "label": "Ignorer les vols où je ne suis pas aux commandes",
-        "inputs": [("crew", "Colonne liste d'équipage (A)", True), ("deadhead", "Colonne deadhead (A)", True)],
+        "label": "Skip flights where I am not at the controls",
+        "inputs": [("crew", "Crew list column (A)", True), ("deadhead", "Deadhead column (A)", True)],
         "outputs": [],
         "params": [],
     },
     "flight_remarks": {
-        "label": "Remarques : préfixe + numéro de vol",
-        "inputs": [("source", "Colonne numéro de vol (A)", True)],
-        "outputs": [("target", "Colonne de B", True)],
+        "label": "Remarks: prefix + flight number",
+        "inputs": [("source", "Flight number column (A)", True)],
+        "outputs": [("target", "Column of B", True)],
         "params": [],
     },
 }
@@ -150,7 +150,7 @@ def parse_block(value):
     try:
         number = float(text.replace(",", "."))
     except ValueError:
-        raise Problem(f"Temps de bloc illisible : {text}")
+        raise Problem(f"Unreadable block time: {text}")
     return None if number == 0 else ("dec", number)
 
 
@@ -258,11 +258,11 @@ def day_night(row, rule, settings):
         code = mapping.get(raw, raw)
         aircraft_type = find_aircraft_type(code)
         if aircraft_type is None:
-            raise Problem(f"Type d'appareil inconnu : {code or '(vide)'}")
+            raise Problem(f"Unknown aircraft type: {code or '(empty)'}")
         if not aircraft_type["engines"]:
             if aircraft_type["category"] == "simulator":
                 raise Skip()                    # a simulator has no engine filter to match
-            raise Problem(f"Nombre de moteurs non renseigné pour le type : {code}")
+            raise Problem(f"Number of engines not set for type: {code}")
         if aircraft_type["engines"] != engine:
             raise Skip()
     value = block_to_decimal(parse_block(row.get(i["time"])), p.get("rounding", "tc"), settings["tc_rounding"]["rules"])
@@ -271,12 +271,12 @@ def day_night(row, rule, settings):
     code = str(row.get(i["airport"]) or "").strip()
     airport = find_airport(code)
     if airport is None:
-        raise Problem(f"Aéroport inconnu : {code or '(vide)'}")
+        raise Problem(f"Unknown airport: {code or '(empty)'}")
     arr_utc = parse_utc(row.get(i["utc_ms"]))
     if arr_utc is None and i.get("date"):       # time of day only: combine it with the date column
         arr_utc = utc_from_date_time(row.get(i["date"]), row.get(i["utc_ms"]), row.get(i.get("start") or ""))
     if arr_utc is None:
-        raise Problem("Heure UTC d'arrivée absente ou illisible")
+        raise Problem("UTC arrival time missing or unreadable")
     night = is_night(arr_utc, airport["latitude"], airport["longitude"],
                      settings["night"]["after_sunset_minutes"], settings["night"]["before_sunrise_minutes"])
     return {o["day"]: None if night else value, o["night"]: value if night else None}
@@ -318,7 +318,7 @@ def crew_from_list(row, rule, settings):
     No crew list or no match: captain 'NAME' and the user as copilot (as in the earlier project)."""
     pilot = str(settings.get("pilot_name") or "").strip()
     if not pilot:
-        raise Problem("Nom de famille du pilote non renseigné (page Mon compte) : liste d'équipage non lue")
+        raise Problem("Pilot family name not set (My account page): crew list not read")
     crew = str(row.get(rule["inputs"]["crew"]) or "").strip().upper()
     captain, copilot = "NAME", f"{pilot[0].upper()}.{pilot.capitalize()}"
     found = False

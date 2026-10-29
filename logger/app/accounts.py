@@ -112,19 +112,19 @@ def get_account_by_username(username):
 def create_account(username, password, role="user", *, must_change=False):
     username = (username or "").strip()
     if not valid_username(username):
-        raise ValueError("Nom d'utilisateur invalide (3-32 caractères, lettres/chiffres/_/-).")
+        raise ValueError("Invalid username (3-32 characters, letters/digits/_/-).")
     if role not in ROLES:
-        raise ValueError("Rôle invalide.")
+        raise ValueError("Invalid role.")
     passwords.check_policy(password, username)
     if get_account_by_username(username):
-        raise ValueError("Ce nom d'utilisateur existe déjà.")
+        raise ValueError("This username already exists.")
     conn = accounts_connect()
     try:
         conn.execute("INSERT INTO accounts (username, password_hash, role, must_change, password_changed_at) VALUES (?,?,?,?,?)",
                      (username, passwords.hash_password(password), role, 1 if must_change else 0, _now_iso()))
         conn.commit()
     except sqlite3.IntegrityError:
-        raise ValueError("Ce nom d'utilisateur existe déjà.")
+        raise ValueError("This username already exists.")
     finally:
         conn.close()
     archive_user_dir(username)      # dossier orphelin d'un ancien compte du même nom : mis de côté, jamais hérité
@@ -140,7 +140,7 @@ def set_password(account_id, new_password, *, must_change=False):
     """Change le mot de passe et révoque TOUTES les sessions du compte."""
     account = get_account_by_id(account_id)
     if not account:
-        raise ValueError("Compte introuvable.")
+        raise ValueError("Account not found.")
     passwords.check_policy(new_password, account["username"])
     conn = accounts_connect()
     conn.execute("UPDATE accounts SET password_hash=?, must_change=?, password_changed_at=? WHERE id=?",
@@ -157,7 +157,7 @@ def set_email(account_id, email):
     """Adresse e-mail du propriétaire du logbook (imprimée en bas des pages). Vide = effacer."""
     email = (email or "").strip()
     if email and (len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email)):
-        raise ValueError("Adresse e-mail invalide.")
+        raise ValueError("Invalid email address.")
     conn = accounts_connect()
     conn.execute("UPDATE accounts SET email=? WHERE id=?", (email or None, account_id))
     conn.commit(); conn.close()
@@ -169,14 +169,14 @@ def _is_last_active_admin(account):
 
 def set_role(account_id, role):
     if role not in ROLES:
-        raise ValueError("Rôle invalide.")
+        raise ValueError("Invalid role.")
     account = get_account_by_id(account_id)
     if not account:
-        raise ValueError("Compte introuvable.")
+        raise ValueError("Account not found.")
     if role == account["role"]:
         return
     if role != "admin" and _is_last_active_admin(account):
-        raise ValueError("Impossible de retirer le dernier administrateur.")
+        raise ValueError("Cannot remove the last administrator.")
     conn = accounts_connect()
     conn.execute("UPDATE accounts SET role=? WHERE id=?", (role, account_id))
     _bump_sessions(conn, account_id)                      # changement de privilège : les sessions existantes sont révoquées
@@ -186,11 +186,11 @@ def set_role(account_id, role):
 def set_active(account_id, active):
     account = get_account_by_id(account_id)
     if not account:
-        raise ValueError("Compte introuvable.")
+        raise ValueError("Account not found.")
     if bool(account["active"]) == bool(active):
         return
     if not active and _is_last_active_admin(account):
-        raise ValueError("Impossible de désactiver le dernier administrateur.")
+        raise ValueError("Cannot deactivate the last administrator.")
     conn = accounts_connect()
     conn.execute("UPDATE accounts SET active=? WHERE id=?", (1 if active else 0, account_id))
     if not active:
@@ -203,7 +203,7 @@ def delete_account(account_id):
     if not account:
         return None
     if _is_last_active_admin(account):
-        raise ValueError("Impossible de supprimer le dernier administrateur.")
+        raise ValueError("Cannot delete the last administrator.")
     conn = accounts_connect()
     conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
     conn.commit(); conn.close()
@@ -235,7 +235,7 @@ def me():
         if action == "email":
             try:
                 set_email(g.user["id"], request.form.get("email", ""))
-                flash("Adresse e-mail enregistrée.")
+                flash("Email address saved.")
             except ValueError as exc:
                 flash(str(exc))
             return redirect(url_for("accounts.me"))
@@ -244,7 +244,7 @@ def me():
             catalog.save_profile(request.form.get("pilot_name", ""), request.form.get("first_name", ""),
                                  request.form.get("employee_number", ""), g.username,
                                  license_number=request.form.get("license_number", ""), phone=request.form.get("phone", ""))
-            flash("Identité enregistrée. Clique sur Actualiser dans logbook.db pour appliquer le nom de famille.")
+            flash("Identity saved. Click Refresh in logbook.db to apply the family name.")
             return redirect(url_for("accounts.me"))
         if action in ("qualification_add", "qualification_delete"):
             from datetime import date
@@ -257,25 +257,25 @@ def me():
                 except ValueError:
                     expiry = ""
                 if not name or not expiry:
-                    flash("Indique le nom de la qualification et une date d'expiration valide.")
+                    flash("Enter the qualification name and a valid expiry date.")
                 else:
                     catalog.save_qualifications(items + [{"name": name, "expiry": expiry}], g.username)
-                    flash("Qualification ajoutée.")
+                    flash("Qualification added.")
             else:
                 try:
                     del items[int(request.form.get("index", ""))]
                     catalog.save_qualifications(items, g.username)
-                    flash("Qualification supprimée.")
+                    flash("Qualification deleted.")
                 except (ValueError, IndexError):
-                    flash("Qualification introuvable.")
+                    flash("Qualification not found.")
             return redirect(url_for("accounts.me"))
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "")
         confirm = request.form.get("confirm_password", "")
         if not verify_with_throttle(g.user, current, event="password_change"):
-            flash("Mot de passe actuel incorrect (ou trop de tentatives, réessaie plus tard).")
+            flash("Current password incorrect (or too many attempts, try again later).")
         elif new != confirm:
-            flash("La confirmation ne correspond pas au nouveau mot de passe.")
+            flash("The confirmation does not match the new password.")
         else:
             try:
                 set_password(g.user["id"], new)
@@ -283,8 +283,8 @@ def me():
                 flash(str(exc))
             else:
                 start_session(get_account_by_id(g.user["id"]))      # session fraîche ; les autres sessions sont révoquées
-                log_event("password_change", account_id=g.user["id"], username=g.username, reason="autres sessions révoquées")
-                flash("Mot de passe modifié. Les autres sessions ont été déconnectées.")
+                log_event("password_change", account_id=g.user["id"], username=g.username, reason="other sessions revoked")
+                flash("Password changed. Your other sessions have been signed out.")
         return redirect(url_for("accounts.me"))
     from .converter import catalog
     from datetime import date
@@ -301,7 +301,7 @@ def revoke_my_sessions():
     revoke_sessions(account_id)
     log_event("sessions_revoked", account_id=account_id, username=g.username, target="self")
     session.clear()
-    flash("Toutes tes sessions ont été déconnectées. Reconnecte-toi.")
+    flash("All your sessions have been signed out. Sign in again.")
     return redirect(url_for("auth.login"))
 
 
@@ -320,7 +320,7 @@ def new_account():
             role = request.form.get("role", "user")
             account = create_account(request.form.get("username", ""), request.form.get("password", ""), role, must_change=True)
             log_event("account_create", target=f"{account['username']} role={role}")
-            flash("Compte créé. L'utilisateur devra choisir un nouveau mot de passe à sa première connexion.")
+            flash("Account created. The user will have to choose a new password at first sign-in.")
             return redirect(url_for("accounts.list_view"))
         except ValueError as exc:
             flash(str(exc))
@@ -333,7 +333,7 @@ def new_account():
 def edit_account(account_id):
     account = get_account_by_id(account_id)
     if not account:
-        flash("Compte introuvable."); return redirect(url_for("accounts.list_view"))
+        flash("Account not found."); return redirect(url_for("accounts.list_view"))
     is_self = account_id == g.user["id"]
     if request.method == "POST":
         try:
@@ -341,10 +341,10 @@ def edit_account(account_id):
             role = request.form.get("role", account["role"])
             active = request.form.get("active") == "1"
             if is_self and (role != account["role"] or not active):
-                raise ValueError("Tu ne peux pas modifier ton propre rôle ni désactiver ton propre compte.")
+                raise ValueError("You cannot change your own role or deactivate your own account.")
             if new_password:
                 if is_self:
-                    raise ValueError("Pour changer ton propre mot de passe, utilise « Mon compte ».")
+                    raise ValueError("To change your own password, use “My account”.")
                 set_password(account_id, new_password, must_change=True)
                 log_event("password_reset_by_admin", target=account["username"])
             if role != account["role"]:
@@ -353,7 +353,7 @@ def edit_account(account_id):
             if bool(account["active"]) != active:
                 set_active(account_id, active)
                 log_event("account_enable" if active else "account_disable", target=account["username"])
-            flash("Compte modifié.")
+            flash("Account updated.")
             return redirect(url_for("accounts.list_view"))
         except ValueError as exc:
             flash(str(exc))
@@ -366,10 +366,10 @@ def edit_account(account_id):
 def revoke_account_sessions(account_id):
     account = get_account_by_id(account_id)
     if not account:
-        flash("Compte introuvable."); return redirect(url_for("accounts.list_view"))
+        flash("Account not found."); return redirect(url_for("accounts.list_view"))
     revoke_sessions(account_id)
     log_event("sessions_revoked", target=account["username"])
-    flash("Sessions révoquées." if account_id != g.user["id"] else "Sessions révoquées (la tienne sera invalidée).")
+    flash("Sessions revoked." if account_id != g.user["id"] else "Sessions revoked (yours will be invalidated).")
     return redirect(url_for("accounts.list_view"))
 
 
@@ -378,13 +378,13 @@ def revoke_account_sessions(account_id):
 @fresh_login_required
 def delete_account_route(account_id):
     if account_id == g.user["id"]:
-        flash("Tu ne peux pas supprimer ton propre compte.")
+        flash("You cannot delete your own account.")
         return redirect(url_for("accounts.list_view"))
     try:
         account = delete_account(account_id)
         if account:
-            log_event("account_delete", target=account["username"], reason="données archivées dans users/.deleted/")
-        flash("Compte supprimé. Ses données ont été mises de côté dans users/.deleted/ (non effacées).")
+            log_event("account_delete", target=account["username"], reason="data archived in users/.deleted/")
+        flash("Account deleted. Its data was set aside in users/.deleted/ (not erased).")
     except ValueError as exc:
         flash(str(exc))
     return redirect(url_for("accounts.list_view"))

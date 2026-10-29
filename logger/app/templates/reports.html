@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-head"><h2>Reports</h2></div>
-<div class="card"><h3>Rapport mensuel des vols</h3>
+<div class="card"><h3>Monthly flight report</h3>
 {% if years %}<form method="get" action="{{url_for('reports.pdf')}}"><div class="grid">
-<div class="field"><label>Mois</label><select name="month">{% for n, label in months %}<option value="{{n}}"{% if n == sel_month %} selected{% endif %}>{{label}}</option>{% endfor %}</select></div>
-<div class="field"><label>Année</label><select name="year">{% for y in years %}<option value="{{y}}"{% if y == sel_year %} selected{% endif %}>{{y}}</option>{% endfor %}</select></div>
-<div class="field"><label>Type d'appareil</label><select name="type"><option value="all">Tous les types</option>{% for t in types %}<option value="{{t}}"{% if t|upper == sel_type %} selected{% endif %}>{{t}}</option>{% endfor %}</select></div>
-</div><button class="btn">Générer le rapport</button></form>
-{% else %}<p class="muted">Aucun vol dans le logbook.</p>{% endif %}</div>
+<div class="field"><label>Month</label><select name="month">{% for n, label in months %}<option value="{{n}}"{% if n == sel_month %} selected{% endif %}>{{label}}</option>{% endfor %}</select></div>
+<div class="field"><label>Year</label><select name="year">{% for y in years %}<option value="{{y}}"{% if y == sel_year %} selected{% endif %}>{{y}}</option>{% endfor %}</select></div>
+<div class="field"><label>Type d'appareil</label><select name="type"><option value="all">All types</option>{% for t in types %}<option value="{{t}}"{% if t|upper == sel_type %} selected{% endif %}>{{t}}</option>{% endfor %}</select></div>
+</div><button class="btn">Generate report</button></form>
+{% else %}<p class="muted">No flights in the logbook.</p>{% endif %}</div>
 {% endblock %}

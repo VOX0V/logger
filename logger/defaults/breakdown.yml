@@ -1,6 +1,6 @@
-# Réglages du rapport « Flight time breakdown » (même système que logbook_layout.yml).
-# Unité u : 1 u = 0,01 po. US Legal paysage 14 x 8,5 po = 1400 x 850 u.
-# La somme des largeurs de colonnes doit être égale à page_width_u - 2 x margin_u (ici 1360 u), et top_widths_u aussi.
+# Settings of the “Flight time breakdown” report (same system as logbook_layout.yml).
+# Unit u: 1 u = 0.01 in. US Legal landscape 14 x 8.5 in = 1400 x 850 u.
+# The sum of the column widths must equal page_width_u - 2 x margin_u (here 1360 u), and so must top_widths_u.
 # Les couleurs des lignes viennent des blocs de couleurs du logbook (styles.data_blocks de la mise en page du logbook).
 title: Flight time breakdown
 page_width_u: 1400

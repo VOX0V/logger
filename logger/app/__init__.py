@@ -177,9 +177,9 @@ def create_app(test_config=None, *, require_admin=True):
             headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
 
-    messages = {400: "Requête invalide ou jeton de sécurité expiré : recharge la page et recommence.", 401: "Authentification requise.",
-                403: "Accès refusé.", 404: "Page introuvable.", 405: "Méthode non autorisée.",
-                413: "Fichier ou requête trop volumineux.", 429: "Trop de requêtes."}
+    messages = {400: "Invalid request or expired security token: reload the page and try again.", 401: "Authentification requise.",
+                403: "Access denied.", 404: "Page not found.", 405: "Method not allowed.",
+                413: "File or request too large.", 429: "Too many requests."}
 
     def error_response(code, message):
         if request.headers.get("Sec-Fetch-Mode", "navigate") != "navigate":      # fetch()/XHR : texte brut
@@ -193,11 +193,11 @@ def create_app(test_config=None, *, require_admin=True):
 
     @app.errorhandler(HTTPException)
     def http_error(error):
-        return error_response(error.code or 500, messages.get(error.code, "Erreur."))
+        return error_response(error.code or 500, messages.get(error.code, "Error."))
 
     @app.errorhandler(Exception)
     def unhandled_error(error):
         app.logger.exception("Erreur non gérée (requête %s)", g.get("request_id", "-"))
-        return error_response(500, "Erreur interne. Communique la référence ci-dessous à l'administrateur.")
+        return error_response(500, "Internal error. Give the reference below to the administrator.")
 
     return app

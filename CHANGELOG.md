@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.13 — English interface
+
+- All user-visible texts are now in English: pages, buttons, messages, errors, audit labels, converter rule labels and groups, dates in words (June 5, 2013), month names of the monthly report, default YAML comments. Code comments, documents and start-up (operator) messages are not translated yet.
+- The bundled converter rules have English names and groups. A catalog migration (`1.8.0`) translates the labels of an existing catalog when they still equal the former French defaults (`defaults/converter_rules_legacy_fr.yml`).
+- Template filter `fr_date` renamed `long_date`; severity labels `ERREUR` / `ANOMALIE` became `ERROR` / `ANOMALY`; quotation marks are typographic English ones.
+- Existing tests updated to the English texts.
+
+## 0.3.12 — Tests adapted to conversion by profile
+
+- Existing tests that ticked converter rules now set the rules of the `default` profile through a test helper (`use_rules` in `tests/test_app.py`, restored after each test by an autouse fixture in `tests/conftest.py`); the default-format import test uses the `aircanada` profile. No product change.
+
+## 0.3.11 — Every row has an import profile
+
+- Column `import_profile` of the raw database is now mandatory: the default import writes `default` (existing empty values become `default`).
+- Conversion is decided row by row from `import_profile`: `converter/<profile>_convert.yml`, or `converter/default_convert.yml` (plain copy) for `default` and for profiles without a conversion file. The ticked converter rules are no longer used by the conversion.
+- New profiles `aircanada` (the app's historical import rules and default-ticked converter rules as starting point) and `jazz` (placeholders: basic columns, plain copy), each with `importer/<id>_import.yml` and `converter/<id>_convert.yml`.
+
+## 0.3.10 — Default conversion profile copies everything
+
+- `converter/default_convert.yml` now copies, cell for cell and without any change, every column of B that has an A column of the same name (date from year / month / day and `aircraft_type` from `type` aside). Still used only when no converter rule is ticked.
+
 ## 0.3.9 — Day/night from the sun for Air Creebec
 
 - Air Creebec day/night time no longer depends on `ldg_day` / `ldg_night`: it uses the sun position (ephem) at the arrival airport, taking `date` + `arr_time` as UTC (`dep_time` is used to pass midnight).

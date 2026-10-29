@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Audit du logbook</h2>
-<p class="muted">{{total}} ligne(s) contrôlée(s) · <a href="{{url_for('main.logbook')}}">Retour au logbook</a></p>
+<h2>Logbook audit</h2>
+<p class="muted">{{total}} row(s) checked · <a href="{{url_for('main.logbook')}}">Back to logbook</a></p>
 <div class="card">
-  <strong>{{counts.get('ERREUR', 0)}}</strong> erreur(s) · <strong>{{counts.get('ANOMALIE', 0)}}</strong> anomalie(s) · <strong>{{counts.get('INFO', 0)}}</strong> information(s)
+  <strong>{{counts.get('ERROR', 0)}}</strong> error(s) · <strong>{{counts.get('ANOMALY', 0)}}</strong> anomalie(s) · <strong>{{counts.get('INFO', 0)}}</strong> information(s)
 </div>
-{% if not groups %}<div class="card">Aucune anomalie détectée.</div>{% endif %}
+{% if not groups %}<div class="card">No anomalies found.</div>{% endif %}
 {% for cat, sev, items, hidden in groups %}
 <details class="card"><summary><strong>{{cat}}</strong> — {{items|length + hidden}} <span class="muted">({{sev}})</span></summary>
-<table style="width:100%;font-size:13px;margin-top:8px"><tr><th style="text-align:left">Date</th><th style="text-align:left">Vol</th><th style="text-align:left">Détail</th></tr>
+<table style="width:100%;font-size:13px;margin-top:8px"><tr><th style="text-align:left">Date</th><th style="text-align:left">Flight</th><th style="text-align:left">Detail</th></tr>
 {% for f in items %}<tr><td>{{f.date}}</td><td>{{f.label}}</td><td>{{f.msg}}</td></tr>{% endfor %}</table>
-{% if hidden %}<p class="muted">+ {{hidden}} autre(s) non affichée(s)</p>{% endif %}
+{% if hidden %}<p class="muted">+ {{hidden}} other(s) not shown</p>{% endif %}
 </details>
 {% endfor %}
 {% endblock %}

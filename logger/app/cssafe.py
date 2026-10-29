@@ -26,7 +26,7 @@ def style_problems(styles):
     """Liste des problèmes (vide = valide) pour le bloc `styles` d'un layout."""
     out = []
     if not isinstance(styles, dict):
-        return ["« styles » doit être un bloc clé: valeur."]
+        return ["“styles” must be a key: value block."]
     checks = {
         "font_family": lambda v: isinstance(v, str) and FONT.match(v),
         "font_size": lambda v: _num(v, 4, 40) is not None, "header_font_size": lambda v: _num(v, 4, 40) is not None,
@@ -37,11 +37,11 @@ def style_problems(styles):
     }
     for key, ok in checks.items():
         if key in styles and not ok(styles[key]):
-            out.append(f"styles.{key} : valeur non autorisée (lettres/chiffres/espaces pour la police, #RRGGBB pour les couleurs, "
-                       "« 1px solid #000000 » pour la bordure).")
+            out.append(f"styles.{key}: value not allowed (letters/digits/spaces for the font, #RRGGBB for colors, "
+                       "“1px solid #000000” for the border).")
     for i, block in enumerate(styles.get("data_blocks", []) or [], 1):
         if isinstance(block, dict) and not (isinstance(block.get("color"), str) and HEX.match(block["color"])):
-            out.append(f"styles.data_blocks n°{i} : couleur #RRGGBB attendue.")
+            out.append(f"styles.data_blocks no.{i} : color #RRGGBB expected.")
     return out
 
 
@@ -49,10 +49,10 @@ def layout_problems(layout):
     out = style_problems(layout.get("styles", {}))
     for key, lo, hi in (("rows_per_page", 1, 200), ("row_height_u", 5, 200)):
         if key in layout and _num(layout[key], lo, hi) is None:
-            out.append(f"{key} : nombre entre {lo} et {hi} attendu.")
+            out.append(f"{key}: number between {lo} and {hi} expected.")
     for i, col in enumerate(layout.get("columns", []) or [], 1):
         if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 1100) is None:
-            out.append(f"columns n°{i} : width entre 0 et 1100 attendu.")
+            out.append(f"columns n°{i} : width between 0 and 1100 expected.")
     return out
 
 
@@ -86,19 +86,19 @@ def breakdown_problems(cfg):
     out = style_problems(cfg.get("styles", {}))
     zc = (cfg.get("styles") or {}).get("zero_color", "#cccccc")
     if not (isinstance(zc, str) and HEX.match(zc)):
-        out.append("styles.zero_color : couleur #RRGGBB attendue.")
+        out.append("styles.zero_color: color #RRGGBB expected.")
     for key, (lo, hi) in BD_NUMBERS.items():
         if key in cfg and _num(cfg[key], lo, hi) is None:
-            out.append(f"{key} : nombre entre {lo} et {hi} attendu.")
+            out.append(f"{key}: number between {lo} and {hi} expected.")
     tw = cfg.get("top_widths_u", {})
     if not isinstance(tw, dict) or any(_num(tw.get(k), 10, 3000) is None for k in ("left", "middle", "right")):
-        out.append("top_widths_u : left, middle et right doivent être des nombres entre 10 et 3000.")
+        out.append("top_widths_u: left, middle and right must be numbers between 10 and 3000.")
     for i, col in enumerate(cfg.get("columns", []) or [], 1):
         if not isinstance(col, dict) or not isinstance(col.get("key"), str) or _num(col.get("width"), 0, 3000) is None:
-            out.append(f"columns n°{i} : « key » et « width » (0 à 3000) attendus.")
+            out.append(f"columns n°{i} : “key” and “width” (0 to 3000) expected.")
     rows = cfg.get("rows", [])
     if not isinstance(rows, list) or len(rows) > 60 or any(not isinstance(x, (str, type(None))) or len(str(x or "")) > 20 for x in rows):
-        out.append("rows : liste de 60 codes de types au plus (20 caractères max chacun, vide = ligne libre).")
+        out.append("rows: list of at most 60 type codes (20 characters max each, empty = free row).")
     return out
 
 

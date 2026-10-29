@@ -83,7 +83,7 @@ def log_event(event, outcome="ok", *, account_id=None, username=None, target=Non
         current_app.logger.info("security %s", json.dumps(record, ensure_ascii=False))
         maybe_purge()
     except Exception:                                   # le journal ne doit jamais casser une requête
-        current_app.logger.exception("Écriture du journal de sécurité impossible")
+        current_app.logger.exception("Security log write impossible")
 
 
 def maybe_purge(force=False):
@@ -147,7 +147,7 @@ def record_failure(username, ip):
         conn.close()
     if recent >= FLOOD_THRESHOLD and t - _last_flood_alert > 300:
         _last_flood_alert = t
-        log_event("login_flood_alert", "alert", reason=f"{recent} échecs en 5 minutes")
+        log_event("login_flood_alert", "alert", reason=f"{recent} failures in 5 minutes")
 
 
 def clear_pair(username, ip):

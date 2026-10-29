@@ -32,7 +32,7 @@ def test_idle_timeout(app, admin, monkeypatch):
     base = time.time()
     monkeypatch.setattr("app.auth.time.time", lambda: base + 61 * 60)
     assert logged_out(admin)
-    assert any("expirée" in (e["reason"] or "") for e in events(app, "session_invalid"))
+    assert any("expired" in (e["reason"] or "") for e in events(app, "session_invalid"))
 
 
 def test_absolute_timeout_even_with_constant_activity(app, admin, monkeypatch):
@@ -71,7 +71,7 @@ def test_admin_deactivation_revokes_target_sessions_immediately(app, admin, make
     from app.accounts import get_account_by_username
     with app.app_context():
         aid = get_account_by_username("alice")["id"]
-    r = admin.post(f"/accounts/{aid}/edit", {"role": "user"})              # case « actif » absente = désactivé
+    r = admin.post(f"/accounts/{aid}/edit", {"role": "user"})              # case “actif” absente = désactivé
     assert r.status_code == 302 and logged_out(alice)
     assert Web(app).login("alice", USER_PW).status_code == 401
 

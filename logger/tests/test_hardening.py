@@ -130,12 +130,12 @@ def test_unexpected_exception_message_is_not_flashed(app, admin, monkeypatch):
     r = admin.post("/logbook/refresh", headers={"Referer": "https://localhost/"})
     page = admin.get("/logbook-db").get_data(as_text=True)
     assert "SECRET-INTERNAL" not in page and "SECRET-INTERNAL" not in r.get_data(as_text=True)
-    assert "Une erreur interne est survenue" in page                       # le message générique est bien affiché (test non vacueux)
+    assert "An internal error occurred" in page                       # le message générique est bien affiché (test non vacueux)
 
 
 def test_error_pages_have_reference_and_no_stack(app, admin):
     r = admin.get("/nope")
-    assert r.status_code == 404 and "Référence" in r.get_data(as_text=True) and "Traceback" not in r.get_data(as_text=True)
+    assert r.status_code == 404 and "Reference" in r.get_data(as_text=True) and "Traceback" not in r.get_data(as_text=True)
 
 
 # ------------------------- téléversements, YAML, CSS, formules -------------------------
@@ -152,7 +152,7 @@ def test_zip_bomb_is_refused_before_parsing():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("xl/worksheets/sheet1.xml", b"\0" * (30 * 1024 * 1024))     # ~30 Mo décompressés, quelques Ko compressés
-    with pytest.raises(ValueError, match="démesuré"):
+    with pytest.raises(ValueError, match="excessive"):
         check_xlsx(buf.getvalue())
     with pytest.raises(ValueError):
         check_xlsx(b"not a zip at all")
@@ -161,7 +161,7 @@ def test_zip_bomb_is_refused_before_parsing():
 def test_yaml_aliases_and_anchors_are_rejected():
     from app.yamledit import Problem, parse
     bomb = "a: &a [x,x,x,x,x,x,x,x,x]\nb: &b [*a,*a,*a,*a,*a,*a,*a,*a,*a]\nc: [*b,*b,*b,*b,*b,*b,*b,*b,*b]\n"
-    with pytest.raises(Problem, match="ancres"):
+    with pytest.raises(Problem, match="anchors"):
         parse(bomb)
 
 

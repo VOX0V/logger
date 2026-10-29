@@ -1,32 +1,32 @@
 {% extends "base.html" %}{% block content %}
-<h2>Mon compte</h2>
-<div class="card"><h3>Réglages</h3><p><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Réglages du logbook</a> <a class="btn secondary" href="{{url_for('breakdown.settings')}}">Réglages du Breakdown</a> <a class="btn secondary" href="{{url_for('main.settings')}}">Colonnes des données brutes</a> {% if g.role=='admin' %}<a class="btn secondary" href="{{url_for('converter.settings_page')}}">Réglages du convertisseur</a> {% endif %}<a class="btn secondary" href="{{url_for('yamledit.editor')}}">Configuration (YAML)</a></p></div>
+<h2>My account</h2>
+<div class="card"><h3>Settings</h3><p><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Logbook settings</a> <a class="btn secondary" href="{{url_for('breakdown.settings')}}">Breakdown settings</a> <a class="btn secondary" href="{{url_for('main.settings')}}">Raw data columns</a> {% if g.role=='admin' %}<a class="btn secondary" href="{{url_for('converter.settings_page')}}">Converter settings</a> {% endif %}<a class="btn secondary" href="{{url_for('yamledit.editor')}}">Configuration (YAML)</a></p></div>
 <div class="card"><p><strong>{{g.username}}</strong> — {{'administrateur' if g.role=='admin' else 'utilisateur'}}</p></div>
-<div class="card"><h3>Adresse e-mail</h3><p class="muted">Adresse du propriétaire du logbook, imprimée en bas de chaque page du Logbook.</p>
+<div class="card"><h3>Email address</h3><p class="muted">Address of the logbook owner, printed at the bottom of every Logbook page.</p>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="email"><div class="grid">
-<div class="field"><label>E-mail</label><input type="email" name="email" value="{{g.user.email or ''}}" autocomplete="email" placeholder="prenom.nom@exemple.com"></div>
-</div><button class="btn">Enregistrer</button></form></div>
-<div class="card"><h3>Identité de pilote</h3><p class="muted">Le nom de famille sert au convertisseur à te retrouver dans la liste d'équipage (indique seulement le nom). Le prénom et le numéro d'employé apparaissent dans l'en-tête des rapports PDF.</p>
+<div class="field"><label>E-mail</label><input type="email" name="email" value="{{g.user.email or ''}}" autocomplete="email" placeholder="first.last@example.com"></div>
+</div><button class="btn">Save</button></form></div>
+<div class="card"><h3>Pilot identity</h3><p class="muted">The family name lets the converter find you in the crew list (enter the family name only). The first name and employee number appear in the header of the PDF reports.</p>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="pilot"><div class="grid">
-<div class="field"><label>Nom de famille</label><input type="text" name="pilot_name" maxlength="60" value="{{profile.pilot_name}}"></div>
-<div class="field"><label>Prénom</label><input type="text" name="first_name" maxlength="60" value="{{profile.first_name}}"></div>
-<div class="field"><label>Numéro d'employé</label><input type="text" name="employee_number" maxlength="20" value="{{profile.employee_number}}"></div>
-<div class="field"><label>Numéro de licence</label><input type="text" name="license_number" maxlength="30" value="{{profile.license_number}}"></div>
-<div class="field"><label>Numéro de téléphone</label><input type="tel" name="phone" maxlength="30" value="{{profile.phone}}" autocomplete="tel"></div>
-</div><button class="btn">Enregistrer</button></form></div>
-<div class="card"><h3>Suivi des qualifications</h3><p class="muted">Médical, IFR, classes, passeports… Les dates d'expiration et les jours restants apparaissent dans « Flight time breakdown » (Rapports).</p>
-{% if quals %}<table style="width:100%;font-size:14px"><tr><th style="text-align:left">Qualification</th><th style="text-align:left">Expiration</th><th style="text-align:right">Jours restants</th><th></th></tr>
-{% for q in quals %}<tr><td>{{q.name}}</td><td>{{q.expiry}}</td><td style="text-align:right{% if q.days < 0 %};color:#b91c1c{% endif %}">{{q.days}}</td><td style="text-align:right"><form style="display:inline" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="qualification_delete"><input type="hidden" name="index" value="{{loop.index0}}"><button class="btn danger" data-confirm="Supprimer cette qualification ?">Supprimer</button></form></td></tr>{% endfor %}</table>{% endif %}
+<div class="field"><label>Family name</label><input type="text" name="pilot_name" maxlength="60" value="{{profile.pilot_name}}"></div>
+<div class="field"><label>First name</label><input type="text" name="first_name" maxlength="60" value="{{profile.first_name}}"></div>
+<div class="field"><label>Employee number</label><input type="text" name="employee_number" maxlength="20" value="{{profile.employee_number}}"></div>
+<div class="field"><label>License number</label><input type="text" name="license_number" maxlength="30" value="{{profile.license_number}}"></div>
+<div class="field"><label>Phone number</label><input type="tel" name="phone" maxlength="30" value="{{profile.phone}}" autocomplete="tel"></div>
+</div><button class="btn">Save</button></form></div>
+<div class="card"><h3>Qualifications tracking</h3><p class="muted">Medical, IFR, classes, passports… Expiry dates and days left appear in “Flight time breakdown” (Reports).</p>
+{% if quals %}<table style="width:100%;font-size:14px"><tr><th style="text-align:left">Qualification</th><th style="text-align:left">Expiration</th><th style="text-align:right">Days left</th><th></th></tr>
+{% for q in quals %}<tr><td>{{q.name}}</td><td>{{q.expiry}}</td><td style="text-align:right{% if q.days < 0 %};color:#b91c1c{% endif %}">{{q.days}}</td><td style="text-align:right"><form style="display:inline" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="qualification_delete"><input type="hidden" name="index" value="{{loop.index0}}"><button class="btn danger" data-confirm="Delete this qualification?">Delete</button></form></td></tr>{% endfor %}</table>{% endif %}
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="qualification_add"><div class="grid">
 <div class="field"><label>Qualification</label><input type="text" name="name" maxlength="60" required placeholder="Medical C1"></div>
-<div class="field"><label>Date d'expiration</label><input type="date" name="expiry" required></div>
-</div><button class="btn">Ajouter</button></form></div>
-<div class="card"><h3>Changer le mot de passe</h3><p class="muted">15 caractères minimum : une phrase de passe convient très bien. Les autres sessions seront déconnectées.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
-<div class="field"><label>Mot de passe actuel</label><input type="password" name="current_password" required autocomplete="current-password"></div>
-<div class="field"><label>Nouveau mot de passe</label><input type="password" name="new_password" required autocomplete="new-password" minlength="15"></div>
+<div class="field"><label>Expiry date</label><input type="date" name="expiry" required></div>
+</div><button class="btn">Add</button></form></div>
+<div class="card"><h3>Change password</h3><p class="muted">At least 15 characters: a passphrase works very well. Your other sessions will be signed out.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
+<div class="field"><label>Current password</label><input type="password" name="current_password" required autocomplete="current-password"></div>
+<div class="field"><label>New password</label><input type="password" name="new_password" required autocomplete="new-password" minlength="15"></div>
 <div class="field"><label>Confirmer</label><input type="password" name="confirm_password" required></div>
-</div><button class="btn">Enregistrer</button></form></div>
-<div class="card"><h3>Sessions</h3><form method="post" action="{{url_for('accounts.revoke_my_sessions')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" data-confirm="Déconnecter toutes tes sessions, y compris celle-ci ?">Déconnecter toutes mes sessions</button></form></div>
+</div><button class="btn">Save</button></form></div>
+<div class="card"><h3>Sessions</h3><form method="post" action="{{url_for('accounts.revoke_my_sessions')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" data-confirm="Sign out all your sessions, including this one?">Sign out all my sessions</button></form></div>
 {% if g.role=='admin' %}<div class="card"><h3>Administration</h3>
-<p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Gérer les comptes</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Aéroports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
+<p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Manage accounts</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Airports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
 {% endblock %}

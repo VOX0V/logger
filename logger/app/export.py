@@ -184,26 +184,26 @@ def index():
         return render_template("export.html", report=None, token=None, filename=None)
     upload = request.files.get("logbook")
     if not upload or not upload.filename.lower().endswith(".xlsx"):
-        flash("Choisis un fichier Excel au format .xlsx.")
+        flash("Choose an Excel file in .xlsx format.")
         return redirect(url_for("export.index"))
     folder = _tmp_dir()
     source = folder / f"{secrets.token_hex(8)}_source.xlsx"
     upload.save(source)
     try:
         if source.stat().st_size > MAX_UPLOAD:
-            raise ValueError("Fichier trop volumineux (25 Mo maximum).")
+            raise ValueError("File too large (25 MB maximum).")
         check_xlsx(source)
         wb = load_workbook(source)
         report = update_workbook(wb, _load_rows())
         token = secrets.token_urlsafe(16)
         wb.save(folder / f"{token}.xlsx")
     except Exception as exc:                        # unreadable or unexpected workbook
-        flash(f"Impossible de traiter ce fichier : {safe_message(exc)}")
+        flash(f"Cannot process this file: {safe_message(exc)}")
         return redirect(url_for("export.index"))
     finally:
         source.unlink(missing_ok=True)              # the uploaded copy is never kept
     stem = re.sub(r"[^\w\- ]+", "", Path(upload.filename).stem).strip() or "logbook"
-    return render_template("export.html", report=report, token=token, filename=f"{stem} - mis à jour.xlsx")
+    return render_template("export.html", report=report, token=token, filename=f"{stem} - updated.xlsx")
 
 
 @export_bp.route("/download/<token>")
@@ -211,16 +211,16 @@ def index():
 def download(token):
     path = _tmp_dir() / f"{re.sub(r'[^A-Za-z0-9_-]', '', token)}.xlsx"
     if not path.exists():
-        flash("Ce fichier n'est plus disponible : relance l'export.")
+        flash("This file is no longer available: run the export again.")
         return redirect(url_for("export.index"))
 
     @after_this_request
     def cleanup(response):
         path.unlink(missing_ok=True)                # the copy is removed once downloaded
         return response
-    name = re.sub(r"[^\w\-. ]+", "", request.args.get("name") or "")[:100] or "logbook - mis à jour.xlsx"
+    name = re.sub(r"[^\w\-. ]+", "", request.args.get("name") or "")[:100] or "logbook - updated.xlsx"
     if not name.lower().endswith(".xlsx"):
         name += ".xlsx"
-    log_event("data_export", target="logbook-excel-mis-a-jour")
+    log_event("data_export", target="logbook-excel-updated")
     return send_file(path, as_attachment=True, download_name=name,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

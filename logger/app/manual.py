@@ -1,5 +1,5 @@
-"""Saisie manuelle d'un vol : la ligne est ajoutée aux données brutes (colonne import_source = « Saisie manuelle »).
-Elle apparaît dans le Logbook après un clic sur « Actualiser » (données converties)."""
+"""Saisie manuelle d'un vol : la ligne est ajoutée aux données brutes (colonne import_source = “Saisie manuelle”).
+Elle apparaît dans le Logbook après un clic sur “Actualiser” (données converties)."""
 from datetime import date
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -11,20 +11,20 @@ from .errors import safe_message
 from .seclog import log_event
 
 manual_bp = Blueprint("manual", __name__, url_prefix="/flight")
-SOURCE = "Saisie manuelle"
+SOURCE = "Manual entry"
 UPPER = ("type", "registration", "departure", "arrival")
 GROUPS = [
-    ("Vol", [("type", "Type d'appareil"), ("registration", "Immatriculation"), ("pilot_in_command", "PIC (pilote)"),
-             ("copilot", "Copilote"), ("departure", "Départ"), ("arrival", "Arrivée"), ("remarks", "Remarques")]),
-    ("Monomoteur — jour", [("single_engine_dual_day", "Dual"), ("single_engine_pic_day", "PIC")]),
-    ("Monomoteur — nuit", [("single_engine_dual_night", "Dual"), ("single_engine_pic_night", "PIC")]),
-    ("Multimoteur — jour", [("multi_engine_dual_day", "Dual"), ("multi_engine_pic_day", "PIC"), ("multi_engine_copi_day", "Co-Pilot")]),
-    ("Multimoteur — nuit", [("multi_engine_dual_night", "Dual"), ("multi_engine_pic_night", "PIC"), ("multi_engine_copi_night", "Co-Pilot")]),
+    ("Flight", [("type", "Aircraft type"), ("registration", "Immatriculation"), ("pilot_in_command", "PIC (pilot)"),
+             ("copilot", "Copilote"), ("departure", "Departure"), ("arrival", "Arrival"), ("remarks", "Remarques")]),
+    ("Single-engine — day", [("single_engine_dual_day", "Dual"), ("single_engine_pic_day", "PIC")]),
+    ("Single-engine — night", [("single_engine_dual_night", "Dual"), ("single_engine_pic_night", "PIC")]),
+    ("Multi-engine — day", [("multi_engine_dual_day", "Dual"), ("multi_engine_pic_day", "PIC"), ("multi_engine_copi_day", "Co-Pilot")]),
+    ("Multi-engine — night", [("multi_engine_dual_night", "Dual"), ("multi_engine_pic_night", "PIC"), ("multi_engine_copi_night", "Co-Pilot")]),
     ("Instruments", [("ifr", "IFR"), ("hood", "Hood"), ("ftd", "FTD"), ("ifr_approach", "IFR app")]),
-    ("Cross-country — jour", [("cross_country_dual_day", "Dual"), ("cross_country_pic_day", "PIC")]),
-    ("Cross-country — nuit", [("cross_country_dual_night", "Dual"), ("cross_country_pic_night", "PIC")]),
-    ("Instruction", [("instruction_day", "Jour"), ("instruction_night", "Nuit")]),
-    ("Atterrissages", [("landings_day", "Jour"), ("landings_night", "Nuit")]),
+    ("Cross-country — day", [("cross_country_dual_day", "Dual"), ("cross_country_pic_day", "PIC")]),
+    ("Cross-country — night", [("cross_country_dual_night", "Dual"), ("cross_country_pic_night", "PIC")]),
+    ("Instruction", [("instruction_day", "Day"), ("instruction_night", "Nuit")]),
+    ("Atterrissages", [("landings_day", "Day"), ("landings_night", "Nuit")]),
 ]
 TEXT_FIELDS = {c for c, _ in GROUPS[0][1]}
 INT_FIELDS = {"landings_day", "landings_night"}
@@ -35,7 +35,7 @@ def _parse(form, present):
     try:
         d = date.fromisoformat(form.get("date", "").strip())
     except ValueError:
-        raise ValueError("Indique une date valide.")
+        raise ValueError("Enter a valid date.")
     row = {"year": d.year, "month": d.month, "day": d.day}
     for col in LABELS:
         value = form.get(col, "").strip()
@@ -47,17 +47,17 @@ def _parse(form, present):
             try:
                 n = int(value)
             except ValueError:
-                raise ValueError(f"{LABELS[col]} : nombre entier attendu.")
+                raise ValueError(f"{LABELS[col]} : integer expected.")
             if not 0 <= n <= 99:
-                raise ValueError(f"{LABELS[col]} : entre 0 et 99.")
+                raise ValueError(f"{LABELS[col]} : between 0 and 99.")
             row[col] = n
         else:
             try:
                 h = float(value.replace(",", "."))
             except ValueError:
-                raise ValueError(f"{LABELS[col]} : nombre attendu (ex. 1.5).")
+                raise ValueError(f"{LABELS[col]} : number expected (e.g. 1.5).")
             if not 0 <= h <= 24:
-                raise ValueError(f"{LABELS[col]} : entre 0 et 24 heures.")
+                raise ValueError(f"{LABELS[col]} : between 0 and 24 hours.")
             row[col] = round(h, 2)
     return row
 
@@ -89,10 +89,10 @@ def new_flight():
         except ValueError as exc:
             flash(str(exc))
         except Exception as exc:
-            flash(f"Vol non ajouté — {safe_message(exc)}")
+            flash(f"Flight not added — {safe_message(exc)}")
         else:
-            log_event("data_import", target="saisie manuelle")
-            flash("Vol ajouté aux données brutes (source « Saisie manuelle »). Clique sur Actualiser dans Work data pour l'afficher dans le Logbook.")
+            log_event("data_import", target="manual entry")
+            flash("Flight added to the raw data (source “Manual entry”). Click Refresh in Work data to show it in the Logbook.")
             return redirect(url_for("main.index"))
     return render_template("flight_form.html", groups=[g for g in groups if g[1]], values=values,
                            types=[t["code"] for t in list_aircraft_types()], today=date.today().isoformat())

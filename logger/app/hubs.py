@@ -39,17 +39,17 @@ def data():
 @login_required
 def export():
     return render_template("hub.html", title="Export", items=_items([
-        ("PDF", "Logbook (une année ou complet) et Breakdown.", "hubs.pdf", False),
-        ("Reports", "Rapport mensuel des vols : choisis le mois, l'année et le type d'appareil.", "reports.index", False),
-        ("Export vers le logbook Excel", "Mettre à jour ton logbook Excel avec les vols.", "export.index", False),
-        ("Raw data (Excel)", "Tableau des données brutes au format Excel.", ("main.data_table_export", {"fmt": "xlsx"}), False),
-        ("Raw data (CSV)", "Tableau des données brutes au format CSV.", ("main.data_table_export", {"fmt": "csv"}), False),
-        ("Work data (Excel)", "Tableau des données converties au format Excel.", ("main.logbook_table_export", {"fmt": "xlsx"}), False),
-        ("Work data (CSV)", "Tableau des données converties au format CSV.", ("main.logbook_table_export", {"fmt": "csv"}), False),
-        ("Work data (sauvegarde)", "Sauvegarde des données converties (logbook.db).", "main.export_logbook_data", False),
-        ("Sauvegarde du dossier utilisateur", "Télécharger une copie de ton dossier utilisateur.", "main.export_user_data", False),
-        ("Types d'appareils (Excel)", "Liste des types d'appareils au format Excel (administrateurs).", "converter.aircrafts_export", True),
-        ("Aéroports (Excel)", "Liste des aéroports au format Excel (administrateurs).", "converter.airports_export", True)]))
+        ("PDF", "Logbook (one year or full) and Breakdown.", "hubs.pdf", False),
+        ("Reports", "Monthly flight report: choose the month, the year and the aircraft type.", "reports.index", False),
+        ("Export to the Excel logbook", "Update your Excel logbook with the flights.", "export.index", False),
+        ("Raw data (Excel)", "Raw data table in Excel format.", ("main.data_table_export", {"fmt": "xlsx"}), False),
+        ("Raw data (CSV)", "Raw data table in CSV format.", ("main.data_table_export", {"fmt": "csv"}), False),
+        ("Work data (Excel)", "Work data table in Excel format.", ("main.logbook_table_export", {"fmt": "xlsx"}), False),
+        ("Work data (CSV)", "Work data table in CSV format.", ("main.logbook_table_export", {"fmt": "csv"}), False),
+        ("Work data (backup)", "Backup of the work data (logbook.db).", "main.export_logbook_data", False),
+        ("User folder backup", "Download a copy of your user folder.", "main.export_user_data", False),
+        ("Aircraft types (Excel)", "List of aircraft types in Excel format (administrators).", "converter.aircrafts_export", True),
+        ("Airports (Excel)", "List of airports in Excel format (administrators).", "converter.airports_export", True)]))
 
 
 @hubs_bp.route("/pdf")

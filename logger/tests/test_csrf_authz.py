@@ -173,7 +173,7 @@ def test_deleted_account_data_is_archived_not_inherited(app, admin, make_user):
         archived = list((users_root() / ".deleted").glob("dave_*/secret.txt"))
         assert archived and archived[0].read_text() == "dave-private"        # conservé, pas effacé
         create_account("dave", "a brand new person passphrase 1")
-        assert not (users_root() / "dave" / "secret.txt").exists()           # le nouveau « dave » n'hérite de rien
+        assert not (users_root() / "dave" / "secret.txt").exists()           # le nouveau “dave” n'hérite de rien
 
 
 def test_orphan_folder_from_older_version_is_not_inherited(app):

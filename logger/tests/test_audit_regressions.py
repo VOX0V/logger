@@ -145,4 +145,4 @@ def test_logbook_page_survives_fewer_than_three_color_blocks(app, admin, blocks)
 def test_yaml_validation_reports_absurd_nesting_instead_of_crashing():
     from app.yamledit import validate
     deep = "database:\n  columns: " + "[" * 20000 + "]" * 20000
-    assert "imbriqué" in validate("data", deep)
+    assert "nested" in validate("data", deep)

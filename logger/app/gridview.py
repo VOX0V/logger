@@ -85,4 +85,4 @@ def grid_export(conn, table, columns, labels, fmt, filename, expressions=None):
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
-    raise ValueError("Format d'export invalide.")
+    raise ValueError("Invalid export format.")

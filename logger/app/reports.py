@@ -53,8 +53,8 @@ def text(v):
     return "" if v is None else str(v).strip()
 
 
-MOIS_LONG = {1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin", 7: "Juillet", 8: "Août",
-             9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"}
+MOIS_LONG = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June", 7: "July", 8: "August",
+             9: "September", 10: "October", 11: "November", 12: "December"}
 DAY_COLS = ["single_engine_dual_day", "single_engine_pic_day"] + ME_DAY
 NIGHT_COLS = ["single_engine_dual_night", "single_engine_pic_night"] + ME_NIGHT
 
@@ -102,14 +102,14 @@ def collect_flights(rows, type_code="", today=None):
 
 def totals(by_month, year, month):
     """Cumulative totals: since the start of the year, and to date (since the first flight)."""
-    ytd, to_date = ({"block": 0.0, "lndg": 0, "vols": 0} for _ in range(2))
+    ytd, to_date = ({"block": 0.0, "lndg": 0, "flights": 0} for _ in range(2))
     for (a, m), vols in by_month.items():
         if (a, m) > (year, month):
             continue
         for acc in ([ytd, to_date] if a == year else [to_date]):
             acc["block"] += sum(v["block"] for v in vols)
             acc["lndg"] += sum(v["lndg"] for v in vols)
-            acc["vols"] += len(vols)
+            acc["flights"] += len(vols)
     return ytd, to_date
 
 
@@ -141,11 +141,11 @@ def build_monthly_pdf(year, month, type_label, vols, ytd, to_date, profile):
     def total_row(label, block, lndg, count):
         return [Paragraph("", S_C)] * 3 + [Paragraph(label, ps("t" + label, True, alignment=TA_RIGHT)),
                                           Paragraph(fmt_block(block), S_RB), Paragraph(str(lndg), S_CB),
-                                          Paragraph("", S_C), Paragraph(f"{count} vol(s)", S_LB), Paragraph("", S_C)]
+                                          Paragraph("", S_C), Paragraph(f"{count} flight(s)", S_LB), Paragraph("", S_C)]
 
     data.append(total_row("TOTAL", total_block, total_lndg, len(vols)))
-    data.append(total_row(f"Total {year}", ytd["block"], ytd["lndg"], ytd["vols"]))
-    data.append(total_row("Total to date", to_date["block"], to_date["lndg"], to_date["vols"]))
+    data.append(total_row(f"Total {year}", ytd["block"], ytd["lndg"], ytd["flights"]))
+    data.append(total_row("Total to date", to_date["block"], to_date["lndg"], to_date["flights"]))
     style = [("BACKGROUND", (0, 0), (-1, 0), GREY_BG), ("LINEBELOW", (0, 0), (-1, 0), 1.2, BLACK),
              ("LINEABOVE", (0, -3), (-1, -3), 1.2, BLACK), ("INNERGRID", (0, 0), (-1, -1), 0.3, GREY_LT),
              ("BOX", (0, 0), (-1, -1), 0.5, GREY), ("TOPPADDING", (0, 0), (-1, -1), 2),
@@ -206,14 +206,14 @@ def index():
 def pdf():
     year, month = _int_arg("year"), _int_arg("month")
     if not year or month not in MOIS_LONG:
-        flash("Choisis un mois et une année.")
+        flash("Choose a month and a year.")
         return redirect(url_for("reports.index"))
     raw_type = request.args.get("type", "all").strip()
     type_code = "" if raw_type.lower() == "all" else raw_type.upper()
     by_month = collect_flights(_load_rows(), type_code)
     vols = by_month.get((year, month))
     if not vols:
-        flash(f"Aucun vol en {MOIS_LONG[month]} {year} pour {type_code or 'tous les types'}.")
+        flash(f"No flights in {MOIS_LONG[month]} {year} for {type_code or 'all types'}.")
         return redirect(url_for("reports.index", year=year, month=month, type=raw_type or "all"))
     ytd, to_date = totals(by_month, year, month)
     out = build_monthly_pdf(year, month, type_code or "ALL TYPES", vols, ytd, to_date, _profile())

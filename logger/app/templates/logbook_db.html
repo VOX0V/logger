@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Données converties</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Actualiser reconstruit les données converties à partir des données brutes et efface les modifications faites à la main ici. Continuer ?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Actualiser</button></form></div></div>
+<div class="page-head"><h2>Work data</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Refresh rebuilds the work data from the raw data and erases the changes made by hand here. Continue?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Refresh</button></form></div></div>
 <div class="card grid-card"><div id="grid"></div></div>
 <link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
@@ -18,9 +18,9 @@ new Tabulator("#grid", {
   ajaxRequestFunc: remoteRequest,
   pagination: true, paginationMode: "remote", paginationSize: 200, paginationSizeSelector: [50,200,500,1000],
   sortMode: "remote", filterMode: "remote",
-  layout: "fitDataFill", height: "70vh", placeholder: "Aucune donnée. Clique sur Actualiser.",
+  layout: "fitDataFill", height: "70vh", placeholder: "No data. Click Refresh.",
   columns: view.map((c,i) => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align,
-    frozen: c.frozen, headerFilter: "input", headerFilterPlaceholder: "filtrer…",
+    frozen: c.frozen, headerFilter: "input", headerFilterPlaceholder: "filter…",
     sorter: (c.data_type === "integer" || c.data_type === "decimal") ? "number" : "string",
     editor: "input",
     formatter: (c.column === "month" || c.column === "day") ? (cell => { const v = cell.getValue(); return (v === null || v === undefined || v === "") ? "" : String(v).padStart(2, "0"); }) : undefined,
@@ -28,7 +28,7 @@ new Tabulator("#grid", {
       const body = new URLSearchParams({row_id: cell.getRow().getData().id, column: c.column, value: cell.getValue() ?? ""});
       fetch("{{url_for('main.edit_logbook_cell')}}", {method: "POST", headers:{"X-CSRFToken":document.querySelector('meta[name=csrf-token]').content}, body}).then(r => {
         if (!r.ok) return r.text().then(t => { throw new Error(t); });
-      }).catch(err => { alert("Modification refusée : " + (err.message || "échec de l'enregistrement")); cell.restoreOldValue(); });
+      }).catch(err => { alert("Change rejected: " + (err.message || "save failed")); cell.restoreOldValue(); });
     }}))
 });
 </script>

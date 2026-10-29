@@ -1,18 +1,18 @@
 title: Logbook
 rows_per_page: 30
 row_height_u: 22
-# Unité u : 1 u = 0,01 po (Letter paysage 11 x 8,5 po = 1100 x 850 u). Largeurs des colonnes = champ « width » de chaque colonne (en u), identiques sur la page web et le PDF.
-# row_height_u : épaisseur de TOUTES les lignes (web et PDF) ; 37 lignes x 22 u = 814 u sur le PDF.
+# Unit u: 1 u = 0.01 in (Letter landscape 11 x 8.5 in = 1100 x 850 u). Column widths = “width” field of each column (in u), identical on the web page and the PDF.
+# row_height_u: thickness of ALL rows (web and PDF); 37 rows x 22 u = 814 u on the PDF.
 pdf:
   page_width_u: 1100
   page_height_u: 850
-  offset_top_u: 0         # décalage du tableau depuis le haut (0 : l'imprimante gère les marges)
-  blank_first_page: true  # page 1 vierge pour que les pages 2 et 3 se retrouvent face à face
-  # Gouttières (PDF seulement, pour percer les pages) : chaque feuille doit totaliser page_width_u.
-  # feuille gauche = colonnes A à N + gutter_left_u ; feuille droite = gutter_right_u + colonnes O à AF.
+  offset_top_u: 0         # offset of the table from the top (0: the printer handles the margins)
+  blank_first_page: true  # blank page 1 so that pages 2 and 3 face each other
+  # Gutters (PDF only, for punching the pages): each sheet must total page_width_u.
+  # left sheet = columns A to N + gutter_left_u; right sheet = gutter_right_u + columns O to AF.
   gutter_left_u: 29
   gutter_right_u: 38
-# Sur la page web : pas de gouttières, seulement les deux colonnes « spacer » (width en u) entre les tableaux gauche et droit.
+# On the web page: no gutters, only the two “spacer” columns (width in u) between the left and right tables.
 styles:
   font_family: Arial
   font_size: 10

@@ -89,7 +89,7 @@ def make_user(app, admin):
 
 
 def error_text(response):
-    found = re.search(r"<p>(Identifiants[^<]*)</p>", response.get_data(as_text=True))
+    found = re.search(r"<p>(Invalid credentials[^<]*)</p>", response.get_data(as_text=True))
     return found.group(1) if found else None
 
 
@@ -122,3 +122,12 @@ class CsrfClient(FlaskClient):
             headers.setdefault("Referer", REFERER["Referer"])
             kwargs["headers"] = headers
         return super().open(*args, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def _restore_profile_rules():
+    """Tests may replace the conversion rules of a profile (see use_rules in test_app.py): restore them afterwards."""
+    from app.converter import engine
+    original = engine.profile_rules
+    yield
+    engine.profile_rules = original

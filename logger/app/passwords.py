@@ -1,6 +1,6 @@
 """Politique de mots de passe et hachage.
 
-- Hachage : Argon2id avec paramètres explicites (profil RFC 9106 « mémoire réduite »).
+- Hachage : Argon2id avec paramètres explicites (profil RFC 9106 “mémoire réduite”).
 - Les anciens hachages Werkzeug (pbkdf2/scrypt) restent vérifiables ; ils sont remplacés par un
   hachage Argon2id après la première connexion réussie (voir accounts.verify_password).
 - Aucune règle de composition arbitraire : longueur minimale, phrases de passe et collage autorisés.
@@ -38,20 +38,20 @@ def policy_errors(password, username=None):
     """Liste des raisons pour lesquelles le mot de passe est refusé (vide = accepté)."""
     errors = []
     if not isinstance(password, str) or password == "":
-        return ["Mot de passe obligatoire."]
+        return ["Password required."]
     if len(password) < MIN_LENGTH:
-        errors.append(f"Le mot de passe doit contenir au moins {MIN_LENGTH} caractères (une phrase de passe convient très bien).")
+        errors.append(f"The password must contain at least {MIN_LENGTH} characters (a passphrase works very well).")
     if len(password) > MAX_LENGTH:
-        errors.append(f"Le mot de passe ne doit pas dépasser {MAX_LENGTH} caractères.")
+        errors.append(f"The password must not exceed {MAX_LENGTH} characters.")
     if errors:
         return errors
     flat = _alnum(password)
     if len(set(password)) < 6:
-        errors.append("Ce mot de passe est trop répétitif.")
+        errors.append("This password is too repetitive.")
     if flat in _COMMON or any(flat.startswith(p) and len(flat) <= len(p) + 8 for p in _WEAK_PREFIXES):
-        errors.append("Ce mot de passe est trop courant ou prévisible.")
+        errors.append("This password is too common or predictable.")
     if username and len(username) >= 3 and _alnum(username) and _alnum(username) in flat:
-        errors.append("Le mot de passe ne doit pas contenir le nom d'utilisateur.")
+        errors.append("The password must not contain the username.")
     return errors
 
 
