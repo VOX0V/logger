@@ -302,7 +302,8 @@ def test_admin_settings_and_reference_pages(client, app):
     for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
     r = client.post('/converter/aircrafts/new', data={'code': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
-    assert 'ZZ99' in r.get_data(as_text=True)          # la page liste désormais des TYPES d'appareils (code en majuscules)
+    rows = client.get('/converter/aircrafts/rows').get_json()['data']
+    assert any(row['code'] == 'ZZ99' for row in rows)          # the grid loads the aircraft TYPES from /rows (code in capitals)
 
 
 def test_new_account_gets_default_rules_selected(client, app):
@@ -777,7 +778,8 @@ def test_converted_data_splits_date_and_is_editable(client, app):
     # une colonne ordinaire s'édite aussi, et la page l'annonce (éditeur + avertissement avant Actualiser)
     assert client.post('/logbook/cell', data={'row_id': rid, 'column': 'registration', 'value': 'C-ZZZ'}).status_code == 204
     page = client.get('/logbook-db').get_data(as_text=True)
-    assert 'editor: "input"' in page and 'data-confirm=' in page and 'erases the changes' in page   # confirmation via data-confirm (static/app.js), plus de confirm() inline : CSP
+    assert 'initGrid(' in page and 'data-confirm=' in page and 'erases the changes' in page
+    assert 'editor: "input"' in client.get('/static/grid.js').get_data(as_text=True)      # the cell editor now lives in the shared grid script   # confirmation via data-confirm (static/app.js), plus de confirm() inline : CSP
 
 
 def test_yaml_editor_lists_files_and_rejects_unknown_ones(client, app):

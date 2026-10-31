@@ -63,7 +63,7 @@ def test_templates_have_csrf_everywhere():
         text = path.read_text()
         for m in re.finditer(r'<form\b[^>]*\bmethod=["\']?post["\']?[^>]*>(.{0,80})', text, re.I | re.S):
             assert "csrf_token" in m.group(1), f"{path.name} : formulaire POST sans jeton CSRF"
-    assert text and "X-CSRFToken" in (TEMPLATES / "logbook.html").read_text() and "X-CSRFToken" in (TEMPLATES / "logbook_db.html").read_text()
+    assert text and "X-CSRFToken" in (TEMPLATES / "logbook.html").read_text() and "X-CSRFToken" in (TEMPLATES.parent / "static" / "grid.js").read_text()
 
 
 # ------------------------- autorisations -------------------------
