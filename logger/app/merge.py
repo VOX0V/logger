@@ -165,7 +165,7 @@ def plan_merge(existing, incoming, cols, ctx):
             pool = [e for e in by_date.get(d, []) if e["id"] not in used]
             match = find_match(rec, pool, ctx)
         else:      # no date: only an identical row counts as the same flight
-            filled = [c for c in cols if not blank(rec.get(c))]
+            filled = [c for c in cols if c != "employer" and not blank(rec.get(c))]      # the employer never decides whether two rows are the same flight
             match = next((e for e in undated if e["id"] not in used and filled
                           and all(not blank(e.get(c)) and same_value(c, e.get(c), rec.get(c), ctx) for c in filled)), None)
         if match is None:
@@ -178,7 +178,7 @@ def plan_merge(existing, incoming, cols, ctx):
             new, old = rec.get(c), match.get(c)
             if blank(new):
                 continue
-            if blank(old):
+            if blank(old) or (c == "employer" and old == "undefined"):      # "undefined" is a placeholder: a real employer replaces it
                 changes[c] = new
                 stats["filled"][c] += 1
             elif not same_value(c, old, new, ctx):

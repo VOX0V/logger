@@ -41,3 +41,4 @@ rules:
 - {id: ifr_block_time, name: IFR = block time (TC rounding), group: Instruments, transform: tc_round, inputs: {time: block_time}, outputs: {target: ifr}, params: {rounding: tc}}
 - {id: daynight_multi_copi, name: Multi-engine copilot day/night, group: Day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
 - {id: daynight_xc_pic, name: Cross-country PIC day/night, group: Day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
+- {id: employer, name: Employer, group: Other, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

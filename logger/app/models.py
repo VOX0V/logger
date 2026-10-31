@@ -17,6 +17,27 @@ def sync_user_columns(conn, config): sync_columns(conn, "users", config["databas
 def sync_logbook_columns(conn, config, username=None): sync_columns(conn, "logbook", load_logbook_db_config(username)["database"]["columns"])
 
 
+EMPLOYER = "employer"
+
+
+def ensure_employer_columns(username=None):
+    """Raw data and work data both have an 'employer' column; accounts created before it existed receive it here."""
+    from .config import save_config, save_logbook_db_config
+    config = load_config(username)
+    cols = config["database"]["columns"]
+    if EMPLOYER not in {c["column"] for c in cols}:
+        cols.append({"column": EMPLOYER, "display_name": "employer", "group": "employer", "data_type": "text",
+                     "position": len([c for c in cols if c.get("group") != "system"]) + 1, "nullable": True,
+                     "visible": True, "editable": True, "import_rules": [EMPLOYER]})
+        save_config(config, username)
+    logbook_config = load_logbook_db_config(username)
+    logbook_cols = logbook_config["database"]["columns"]
+    if EMPLOYER not in {c["column"] for c in logbook_cols}:
+        logbook_cols.append({"column": EMPLOYER, "display_name": "employer", "group": "employer", "data_type": "text",
+                             "position": len(logbook_cols) + 1, "nullable": True, "visible": True, "editable": True})
+        save_logbook_db_config(logbook_config, username)
+
+
 def drop_unused_columns(conn, config):
     configured = {c["column"] for c in config["database"]["columns"]}
     existing = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
@@ -82,6 +103,7 @@ def init_user_db(username):
     from .converter.catalog import ensure_user_selection  # lazy: avoids a circular import
     user_root(username)  # ensures the folder exists
     ensure_configs(username)
+    ensure_employer_columns(username)
     ensure_user_selection(username)
     config = load_config(username)
     conn = connect(username)

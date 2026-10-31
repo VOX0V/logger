@@ -3,6 +3,7 @@
 A profile only maps the headers of an airline file to database columns. Values are imported
 untouched (the raw database holds raw data). A profile replaces the default import rules."""
 import re
+from collections import Counter
 from pathlib import Path
 
 import yaml
@@ -82,3 +83,34 @@ def ensure_profile_columns(config, profile):
     if added:
         save_config(config)
     return added
+
+
+def detect_profile(filename, file_bytes):
+    """Import profile whose headers best match the column headers of a file: {id, name}, or None when no profile
+    clearly matches. A header found in several profiles weighs less than one that belongs to a single profile."""
+    from .importer import _read_table, normalize
+    profiles = []
+    for item in list_profiles():
+        try:
+            profile = load_profile(item["id"])
+        except FileImportError:
+            continue
+        profiles.append((profile, {normalize(c["header"]) for c in profile["columns"]} - {""}))
+    if not profiles:
+        return None
+    shared = Counter(h for _profile, headers in profiles for h in headers)
+    file_headers, scored = {}, []
+    for profile, headers in profiles:
+        sheet = profile.get("sheet")
+        if sheet not in file_headers:
+            try:
+                file_headers[sheet] = {normalize(v) for v in _read_table(filename, file_bytes, sheet)[0]}
+            except Exception:
+                file_headers[sheet] = set()
+        total = sum(1 / shared[h] for h in headers)
+        hit = sum(1 / shared[h] for h in headers if h in file_headers[sheet])
+        scored.append((hit / total if total else 0, profile))
+    scored.sort(key=lambda s: s[0], reverse=True)
+    if scored[0][0] < 0.5 or (len(scored) > 1 and scored[0][0] - scored[1][0] < 0.1):
+        return None
+    return {"id": scored[0][1]["id"], "name": scored[0][1]["name"]}

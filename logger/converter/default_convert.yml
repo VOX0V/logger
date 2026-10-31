@@ -36,3 +36,4 @@ rules:
 - {id: landings_night, name: Landings night, group: Landings, transform: copy, inputs: {source: landings_night}, outputs: {target: landings_night}}
 - {id: instruction_day, name: Instruction day, group: Instruction, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}}
 - {id: instruction_night, name: Instruction night, group: Instruction, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}}
+- {id: employer, name: Employer, group: Other, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

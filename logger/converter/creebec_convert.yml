@@ -18,3 +18,4 @@ rules:
 - {id: cc_pic, name: Cross-country PIC day/night (pic_time, sun at arrival), group: Time, transform: day_night, inputs: {time: pic_time, utc_ms: arr_time, airport: arrival, date: date, start: dep_time}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {rounding: tc}}
 - {id: landings_day, name: Landings day, group: Landings, transform: copy, inputs: {source: ldg_day}, outputs: {target: landings_day}}
 - {id: landings_night, name: Landings night, group: Landings, transform: copy, inputs: {source: ldg_night}, outputs: {target: landings_night}}
+- {id: employer, name: Employer, group: Other, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

@@ -1,14 +1,14 @@
-"""The "Convertisseur" tab: rule catalog (admins edit, everyone ticks their own
+"""The "Converter" tab: rule catalog (admins edit, everyone ticks their own
 rules), converter settings, and the shared airport / aircraft reference data."""
 from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
 
-from ..auth import login_required, admin_required, fresh_login_required
+from ..auth import login_required, admin_required, fresh_login_required, clear_confirmed
 from ..seclog import log_event
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
                        list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
     CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, export_aircraft_types_xlsx, export_airports_xlsx,
-    import_airports, import_aircraft_types)
+    import_airports, import_aircraft_types, clear_airports, clear_aircraft_types)
 from ..importer import FileImportError
 from . import catalog
 from .transforms import TRANSFORMS
@@ -177,7 +177,7 @@ def airport_form(airport_id=None):
 @admin_required
 def airport_delete(airport_id):
     delete_airport(airport_id)
-    log_event("data_destroy", target=f"aeroport:{airport_id}")
+    log_event("data_destroy", target=f"airport:{airport_id}")
     flash("Airport deleted.")
     return redirect(url_for("converter.airports"))
 
@@ -214,7 +214,7 @@ def aircraft_form(aircraft_id=None):
 @admin_required
 def aircraft_delete(aircraft_id):
     delete_aircraft_type(aircraft_id)
-    log_event("data_destroy", target=f"avion:{aircraft_id}")
+    log_event("data_destroy", target=f"aircraft:{aircraft_id}")
     flash("Type deleted.")
     return redirect(url_for("converter.aircrafts"))
 
@@ -233,7 +233,7 @@ def aircrafts_export():
 @admin_required
 def airports_export():
     return Response(export_airports_xlsx(), mimetype=XLSX,
-                    headers={"Content-Disposition": 'attachment; filename="aeroports.xlsx"'})
+                    headers={"Content-Disposition": 'attachment; filename="airports.xlsx"'})
 
 
 def _do_import(importer, back):
@@ -246,7 +246,29 @@ def _do_import(importer, back):
             flash(f"Import complete: {added} added, {updated} updated, {skipped} ignored.")
         except FileImportError as exc:
             flash(str(exc))
-    return redirect(url_for(back))
+    return redirect(url_for("hubs.data") if request.form.get("back") == "hub" else url_for(back))
+
+
+@converter_bp.route("/airports/clear", methods=["POST"])
+@admin_required
+@fresh_login_required
+def airports_clear():
+    if not clear_confirmed():
+        flash("Nothing was deleted: type CLEAR to confirm.")
+    else:
+        clear_airports(); log_event("data_destroy", target="airports:all-rows"); flash("All airports were deleted.")
+    return redirect(url_for("hubs.data"))
+
+
+@converter_bp.route("/aircrafts/clear", methods=["POST"])
+@admin_required
+@fresh_login_required
+def aircrafts_clear():
+    if not clear_confirmed():
+        flash("Nothing was deleted: type CLEAR to confirm.")
+    else:
+        clear_aircraft_types(); log_event("data_destroy", target="aircrafts:all-rows"); flash("All aircraft types were deleted.")
+    return redirect(url_for("hubs.data"))
 
 
 @converter_bp.route("/airports/import", methods=["POST"])

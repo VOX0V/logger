@@ -2,17 +2,17 @@ import re
 import io
 import zipfile
 from datetime import datetime
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for, send_file
-from .auth import login_required, fresh_login_required
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for, send_file
+from .auth import login_required, fresh_login_required, clear_confirmed
 from .importer import importable_rows
-from .import_profiles import list_profiles, load_profile, ensure_profile_columns
+from .import_profiles import list_profiles, load_profile, ensure_profile_columns, detect_profile
 from .merge import read_logbook_workbook
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username, backup_sqlite, db_path as user_db_path
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       load_logbook_layout, save_logbook_layout,
                       logbook_columns, technical_name, load_data_view, load_logbook_view)
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
-from .models import import_rows, drop_unused_columns
+from .models import import_rows, drop_unused_columns, ensure_employer_columns
 from .gridview import grid_data, grid_export
 from .logbook_pdf import build_logbook_pdf
 from .errors import safe_message
@@ -22,6 +22,10 @@ from . import cssafe
 main_bp = Blueprint("main", __name__)
 
 def _columns(config): return configurable_columns(config)
+
+def _back(default):
+    """Redirect to the Data page when the form comes from there (back=hub), otherwise to the page's own default."""
+    return redirect(url_for("hubs.data") if request.form.get("back")=="hub" else url_for(default))
 
 def _reposition(items):
     for i,c in enumerate(items,1): c["position"] = i
@@ -117,12 +121,35 @@ def data_rows():
     try: return grid_data(conn,"users",columns)
     finally: conn.close()
 
+@main_bp.route("/import/detect",methods=["POST"])
+@login_required
+def detect_import_profile():
+    file=request.files.get("file")
+    if not file or not file.filename: return jsonify(profile=None,name=None)
+    try: found=detect_profile(file.filename,file.read())
+    except Exception: found=None
+    return jsonify(profile=found["id"] if found else None,name=found["name"] if found else None)
+
+@main_bp.route("/data/cell",methods=["POST"])
+@login_required
+def edit_data_cell():
+    try:
+        row_id=int(request.form.get("row_id","0")); column=safe_identifier(request.form.get("column","")); value=request.form.get("value","")
+        if column not in {c["column"] for c in configurable_columns(load_config())}: raise ValueError("Invalid column.")
+        conn=connect()
+        try:
+            conn.execute(f'UPDATE users SET "{column}"=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',(value if value!="" else None,row_id)); conn.commit()
+        finally: conn.close()
+        return ("",204)
+    except Exception as exc:
+        return (safe_message(exc),400)
+
 @main_bp.route("/data/table-export.<fmt>")
 @login_required
 def data_table_export(fmt):
     view=load_data_view(load_config())
     conn=connect()
-    try: return grid_export(conn,"users",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_brutes")
+    try: return grid_export(conn,"users",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_raw_data")
     except ValueError as exc: flash(str(exc)); return redirect(url_for("main.index"))
     finally: conn.close()
 
@@ -160,7 +187,7 @@ def logbook_db_rows():
 def logbook_table_export(fmt):
     view=load_logbook_view()
     conn=logbook_connect()
-    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_donnees_converties",expressions=DATE_EXPR)
+    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_work_data",expressions=DATE_EXPR)
     except ValueError as exc: flash(str(exc)); return redirect(url_for("main.logbook_db_page"))
     finally: conn.close()
 
@@ -240,10 +267,17 @@ def logbook_pdf():
 @login_required
 def refresh_logbook_data():
     try:
-        result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
-        for warning in result["warnings"]: flash(f"Attention — {warning}")
+        ensure_employer_columns(); result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
+        for warning in result["warnings"]: flash(f"Warning — {warning}")
     except Exception as exc: flash(f"Logbook refresh impossible — {safe_message(exc)}")
-    return redirect(url_for("main.logbook_db_page"))
+    return _back("main.logbook_db_page")
+
+@main_bp.route("/logbook-db/clear",methods=["POST"])
+@login_required
+@fresh_login_required
+def clear_logbook_data():
+    if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
+    conn=logbook_connect(); conn.execute("DELETE FROM logbook"); conn.commit(); conn.close(); log_event("data_destroy", target="work-data:all-rows"); flash("The work data was deleted. The YAML files are kept."); return redirect(url_for("hubs.data"))
 
 @main_bp.route("/logbook/cell",methods=["POST"])
 @login_required
@@ -340,20 +374,21 @@ def delete_category(position):
 @login_required
 @fresh_login_required
 def clear_data():
-    conn=connect(); conn.execute("DELETE FROM users"); conn.commit(); conn.close(); log_event("data_destroy", target="donnees-brutes:toutes-les-lignes"); flash("The user.db data was deleted. The YAML files are kept."); return redirect(url_for("main.index"))
+    if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
+    conn=connect(); conn.execute("DELETE FROM users"); conn.commit(); conn.close(); log_event("data_destroy", target="raw-data:all-rows"); flash("The raw data was deleted. The YAML files are kept."); return redirect(url_for("hubs.data"))
 
 @main_bp.route("/import",methods=["GET","POST"])
 @login_required
 def import_files():
-    config=load_config(); categories=_columns(config)
+    ensure_employer_columns(); config=load_config(); categories=_columns(config)
     if request.method=="POST":
-        files=[f for f in request.files.getlist("files") if f and f.filename]
-        if not files: flash("Select at least one Excel file."); return redirect(url_for("main.import_files"))
+        files=[f for f in request.files.getlist("files")+request.files.getlist("file") if f and f.filename]
+        if not files: flash("Select a file to import."); return _back("main.import_files")
         profile=None; profile_id=request.form.get("profile","").strip()
         if profile_id:
             try:
                 profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
-            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return redirect(url_for("main.import_files"))
+            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
             if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
         total=0
         for file in files:
@@ -361,10 +396,13 @@ def import_files():
                 data=file.read(); rows=None if profile else read_logbook_workbook(file.filename,data)
                 if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
                 else: rows,matched=importable_rows(file.filename,data,categories,profile=profile)
+                employer=profile["name"] if profile else "undefined"        # an empty employer gets the profile name
+                for r in rows:
+                    if not r.get("employer"): r["employer"]=employer
                 stats=import_rows(file.filename,rows,config,profile=profile["id"] if profile else None); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
                 if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
                 for d,c,old,new in stats["samples"][:3]: flash(f"Disagreement (database value kept) — {d}, {c} : base “{old} ”, file “ {new}”.")
             except Exception as exc: flash(f"{file.filename}: import impossible — {safe_message(exc)}")
-        log_event("data_import", target=f"{len(files)} file(s), {total} row(s) read"); flash(f"Import complete: {total} row(s) read."); return redirect(url_for("main.index"))
+        log_event("data_import", target=f"{len(files)} file(s), {total} row(s) read"); flash(f"Import complete: {total} row(s) read."); return _back("main.index")
     return render_template("import.html",categories=categories,profiles=list_profiles())

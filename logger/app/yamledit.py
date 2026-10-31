@@ -7,13 +7,15 @@ import os
 import shutil
 
 import yaml
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, g, render_template, request, redirect, url_for, flash, abort
 
 from . import config as C
 from .auth import login_required
 from .db import current_username
 from .seclog import log_event
 from . import cssafe
+from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
+from .converter.transforms import FUNCTIONS
 from .models import init_user_db
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
@@ -140,10 +142,49 @@ FILES = {
 }
 
 
+def check_convert(data):
+    rules = data.get("rules")
+    if not isinstance(rules, list) or not all(isinstance(r, dict) and r.get("id") and r.get("transform") for r in rules):
+        raise Problem("“rules” must be a list of blocks that each have at least “id” and “transform”.")
+    for r in rules:
+        if r["transform"] not in FUNCTIONS:
+            raise Problem(f"{r['id']} : unknown transform “{r['transform']}”.")
+
+
+def converter_files():
+    """Conversion profiles (<id>_convert.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    ids = set()
+    for folder in (BUNDLED_DIR, edited_dir()):
+        if folder is not None and folder.is_dir():
+            ids |= {p.name[:-len("_convert.yml")] for p in folder.glob("*_convert.yml")}
+    out = {}
+    for pid in sorted(i for i in ids if PROFILE_ID.fullmatch(i)):
+        edited = edited_dir() / f"{pid}_convert.yml"
+        out[f"convert_{pid}"] = (f"Converter — {pid}", lambda _u, e=edited, b=BUNDLED_DIR / f"{pid}_convert.yml": e if e.is_file() else b, check_convert)
+    return out
+
+
+def _registry():
+    """Files the current account may edit: its own YAML files, plus the converter profiles for administrators."""
+    files = dict(FILES)
+    if g.get("role") == "admin":
+        files.update(converter_files())
+    return files
+
+
+def _write_target(key, path):
+    """Where a save goes: converter profiles are saved to a writable copy in appdata (the shipped file stays untouched)."""
+    if key.startswith("convert_"):
+        folder = edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
+    return path
+
+
 def validate(key, text):
     """Retourne None si le contenu est valable, sinon le message d'erreur."""
     try:
-        FILES[key][2](parse(text))
+        (FILES.get(key) or converter_files()[key])[2](parse(text))
     except Problem as exc:
         return str(exc)
     return None
@@ -164,12 +205,14 @@ def _backup_path(path):
 def editor():
     username = current_username()
     key = request.values.get("file", "data")
-    if key not in FILES:
+    files = _registry()
+    if key not in files:
         abort(404)
     _ensure_files(username)
-    label, path_of, _check = FILES[key]
+    label, path_of, _check = files[key]
     path = path_of(username)
-    backup = _backup_path(path)
+    target = _write_target(key, path)
+    backup = _backup_path(target)
     content = path.read_text(encoding="utf-8")
     error = None
     if request.method == "POST":
@@ -187,14 +230,14 @@ def editor():
             if error is None and action == "validate":
                 flash("Valid file.")
             elif error is None and action == "save":
-                shutil.copyfile(path, backup)                      # l'ancienne version est gardée
-                tmp = path.with_name(path.name + ".tmp")
+                shutil.copyfile(path, backup)                      # the previous version is kept
+                tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(posted, encoding="utf-8")
-                os.replace(tmp, path)
+                os.replace(tmp, target)
                 if key in ("data", "logbook"):
                     init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
                 log_event("config_change", target=f"yaml:{key}")
                 flash("File saved. The previous version is kept (“Restore” button).")
                 return redirect(url_for("yamledit.editor", file=key))
-    return render_template("config_editor.html", files=FILES, key=key, label=label, content=content, error=error,
+    return render_template("config_editor.html", files=files, key=key, label=label, content=content, error=error,
                            has_backup=backup.exists(), filename=path.name)

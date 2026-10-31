@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.15 — Employer column, profile detection, Jazz conversion
+
+- New **employer** column in the raw data and the work data (added to existing accounts at login). On import an empty employer is filled with the name of the import profile (Air Canada, Air Creebec, Jazz Aviation) or `undefined` when no profile is used; it can be edited afterwards. Every conversion profile copies it to the work data, so it can be used to filter flights later. Rows already imported keep an empty employer (re-import them to fill it).
+- Importing from the Data page takes **one file at a time**, and the **import profile is suggested as soon as the file is chosen**, from its column headers (pre-selected, still changeable; "Profile not recognized." when nothing matches). New route `POST /import/detect`.
+- **Jazz Aviation** profiles are no longer placeholders: the conversion is rebuilt from the rules that used to be the default conversion (UTC milliseconds, day/night split with ephem, crew list, ICAO codes) and the import profile lists the standard Jazz headers. The Default profile is still a plain copy; Air Canada and Air Creebec are unchanged apart from the employer copy.
+- No new test.
+
+## 0.3.14 — One Data page
+
+- `/hub/data` now does everything in place: **Raw data**, **Work data**, **Airports** and **Aircraft** are labels followed by their own buttons (Import data / Edit data / Export data / Clear data; Work data has *Actualise data* instead of Import). The separate Import button is gone; importing is done with a panel on the Data page and the result comes back to it.
+- *Edit data* opens the Tabulator view; the Raw data grid is now editable cell by cell (new route `POST /data/cell`, same as the Work data grid). *Export data* gives an Excel file.
+- *Clear data* needs the word `CLEAR` typed (asked in the browser and checked again by the server). New routes: `/logbook-db/clear`, `/converter/airports/clear`, `/converter/aircrafts/clear`.
+- **Converter** is a label with a *Settings* button (administrators): the conversion files (`<profile>_convert.yml`) are edited in the YAML editor. Saves go to `appdata/converter/` (writable, survives upgrades) and win over the file shipped with the app.
+- English in the touched code: audit targets (`raw-data:all-rows`, ...), export file names (`<user>_raw_data`, `<user>_work_data`, `airports.xlsx`), messages.
+- Existing tests adapted (Data page labels, typed confirmation); no new test.
+
 ## 0.3.13 — English interface
 
 - All user-visible texts are now in English: pages, buttons, messages, errors, audit labels, converter rule labels and groups, dates in words (June 5, 2013), month names of the monthly report, default YAML comments. Code comments, documents and start-up (operator) messages are not translated yet.

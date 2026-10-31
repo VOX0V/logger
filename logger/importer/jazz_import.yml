@@ -1,14 +1,61 @@
-# Import profile: Jazz (jazz_import.yml; converted by converter/jazz_convert.yml).
-# PLACEHOLDER: only the basic columns, with the app's own standard headers. To be defined with a Jazz sample file.
-name: Jazz
+# Import profile: Jazz Aviation (jazz_import.yml; converted by converter/jazz_convert.yml).
+# Headers of the Jazz files (the app's standard import headers) -> raw database columns. Values are imported untouched.
+name: Jazz Aviation
 columns:
 - {header: year, column: year}
 - {header: month, column: month}
 - {header: day, column: day}
 - {header: type, column: type}
+- {header: fcv_aircraft_type, column: type}
 - {header: reg, column: registration}
+- {header: fcv_tail_number, column: registration}
 - {header: pic, column: pilot_in_command}
 - {header: copi, column: copilot}
 - {header: dep, column: departure}
+- {header: dep_airport, column: departure}
 - {header: arr, column: arrival}
+- {header: arr_airport, column: arrival}
 - {header: remarks, column: remarks}
+- {header: se dual day, column: single_engine_dual_day}
+- {header: se pic day, column: single_engine_pic_day}
+- {header: se dual night, column: single_engine_dual_night}
+- {header: se pic night, column: single_engine_pic_night}
+- {header: me dual day, column: multi_engine_dual_day}
+- {header: me pic day, column: multi_engine_pic_day}
+- {header: me copi day, column: multi_engine_copi_day}
+- {header: me dual night, column: multi_engine_dual_night}
+- {header: me pic night, column: multi_engine_pic_night}
+- {header: me copi night, column: multi_engine_copi_night}
+- {header: ifr, column: ifr}
+- {header: hood, column: hood}
+- {header: ftd, column: ftd}
+- {header: appr, column: ifr_approach}
+- {header: cc dual day, column: cross_country_dual_day}
+- {header: cc pic day, column: cross_country_pic_day}
+- {header: cc dual night, column: cross_country_dual_night}
+- {header: cc pic night, column: cross_country_pic_night}
+- {header: ldg day, column: landings_day}
+- {header: ldg night, column: landings_night}
+- {header: instruction day, column: instruction_day}
+- {header: instruction night, column: instruction_night}
+- {header: flight_number, column: flight_number}
+- {header: deadhead, column: deadhead}
+- {header: airplane_change, column: airplane_change}
+- {header: fcv_skd_dep_datetime_local, column: scheduled_departure_local}
+- {header: fcv_skd_arr_datetime_local, column: scheduled_arrival_local}
+- {header: dep_datetime_local, column: departure_local}
+- {header: fcv_off_datetime_local, column: off_block_local}
+- {header: fcv_on_datetime_local, column: on_block_local}
+- {header: arr_datetime_local, column: arrival_local}
+- {header: dep_datetime_utc, column: departure_utc}
+- {header: fcv_off_datetime_utc, column: off_block_utc}
+- {header: fcv_on_datetime_utc, column: on_block_utc}
+- {header: arr_datetime_utc, column: arrival_utc}
+- {header: dep_millis_utc, column: departure_millis_utc}
+- {header: fcv_off_millis_utc, column: off_block_millis_utc}
+- {header: fcv_on_millis_utc, column: on_block_millis_utc}
+- {header: arr_millis_utc, column: arrival_millis_utc}
+- {header: block, column: block_time}
+- {header: nautical_miles, column: nautical_miles}
+- {header: tail_number, column: tail_number}
+- {header: crew_list, column: crew_list}

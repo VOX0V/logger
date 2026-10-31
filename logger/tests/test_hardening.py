@@ -107,7 +107,7 @@ def test_sensitive_actions_are_audited(app, admin):
         yid = get_account_by_username("yan")["id"]
     admin.post(f"/accounts/{yid}/edit", {"role": "admin", "active": "1", "password": "reset by admin passphrase 8"})
     admin.post(f"/accounts/{yid}/delete")
-    admin.post("/data/clear")
+    admin.post("/data/clear", {"confirm": "CLEAR"})
     seen = {e["event"] for e in events(app)}
     assert {"account_create", "account_role_change", "password_reset_by_admin", "account_delete", "data_destroy"} <= seen
 

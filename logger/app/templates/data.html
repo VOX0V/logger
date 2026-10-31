@@ -1,9 +1,19 @@
 {% extends "base.html" %}
+{% macro clear_form(action, what, tok) %}<form class="inline" method="post" action="{{action}}" data-type-clear="Delete all {{what}}? The YAML files are kept."><input type="hidden" name="csrf_token" value="{{ tok }}"><input type="hidden" name="confirm" value=""><button class="btn danger">Clear data</button></form>{% endmacro %}
+{% macro import_panel(id, action, tok, profiles=None, detect_url=None, accept=".xlsx,.xlsm,.csv") %}<div class="card" id="{{id}}" hidden><form method="post" action="{{action}}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ tok }}"><input type="hidden" name="back" value="hub"><div class="field"><label>File (Excel or CSV)</label><input type="file" name="file" accept="{{accept}}"{% if profiles is not none %} data-detect-profile="{{id}}-profile" data-detect-url="{{detect_url}}"{% endif %} required></div>{% if profiles is not none %}<div class="field"><label>Import profile</label><select name="profile" id="{{id}}-profile"><option value="">Default (current rules)</option>{% for p in profiles %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><small id="{{id}}-profile-note"></small></div>{% endif %}<button class="btn">Import</button></form></div>{% endmacro %}
 {% block content %}
+{% set tok = csrf_token() %}
+<style>[hidden]{display:none!important}.drow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.dlabel{min-width:110px;font-weight:600;font-size:16px}.drow form.inline{display:inline;margin:0}</style>
 <div class="page-head"><h2>User data</h2></div>
-<div style="display:grid;grid-template-columns:minmax(200px,260px);gap:8px;margin-bottom:28px">{% for l in user_links %}<a class="btn secondary" href="{{l.url}}">{{l.label}}</a>{% endfor %}</div>
-{% if app_links %}
-<div class="page-head"><h2>App data</h2></div>
-<div style="display:grid;grid-template-columns:minmax(200px,260px);gap:8px">{% for l in app_links %}<a class="btn secondary" href="{{l.url}}">{{l.label}}</a>{% endfor %}</div>
+<div class="drow"><span class="dlabel">Raw data</span><button type="button" class="btn secondary" data-toggle="imp-raw">Import data</button><a class="btn secondary" href="{{url_for('main.index')}}">Edit data</a><a class="btn secondary" href="{{url_for('main.data_table_export', fmt='xlsx')}}">Export data</a>{{ clear_form(url_for('main.clear_data'), 'raw data', tok) }}</div>
+{{ import_panel('imp-raw', url_for('main.import_files'), tok, profiles=profiles, detect_url=url_for('main.detect_import_profile')) }}
+<div class="drow"><span class="dlabel">Converter</span>{% if is_admin %}<a class="btn secondary" href="{{url_for('yamledit.editor', file='convert_default')}}">Settings</a>{% endif %}</div>
+<div class="drow"><span class="dlabel">Work data</span><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Refresh rebuilds the work data from the raw data and erases the changes made by hand in it. Continue?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="hub"><button class="btn secondary">Actualise data</button></form><a class="btn secondary" href="{{url_for('main.logbook_db_page')}}">Edit data</a><a class="btn secondary" href="{{url_for('main.logbook_table_export', fmt='xlsx')}}">Export data</a>{{ clear_form(url_for('main.clear_logbook_data'), 'work data', tok) }}</div>
+{% if is_admin %}
+<div class="page-head" style="margin-top:28px"><h2>App data</h2></div>
+<div class="drow"><span class="dlabel">Airports</span><button type="button" class="btn secondary" data-toggle="imp-airports">Import data</button><a class="btn secondary" href="{{url_for('converter.airports')}}">Edit data</a><a class="btn secondary" href="{{url_for('converter.airports_export')}}">Export data</a>{{ clear_form(url_for('converter.airports_clear'), 'airports', tok) }}</div>
+{{ import_panel('imp-airports', url_for('converter.airports_import'), tok) }}
+<div class="drow"><span class="dlabel">Aircraft</span><button type="button" class="btn secondary" data-toggle="imp-aircrafts">Import data</button><a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Edit data</a><a class="btn secondary" href="{{url_for('converter.aircrafts_export')}}">Export data</a>{{ clear_form(url_for('converter.aircrafts_clear'), 'aircraft types', tok) }}</div>
+{{ import_panel('imp-aircrafts', url_for('converter.aircrafts_import'), tok) }}
 {% endif %}
 {% endblock %}

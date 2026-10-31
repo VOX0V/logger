@@ -195,3 +195,8 @@ def reauth():
             return redirect(target)
         error = "Incorrect password or too many attempts. Try again later."
     return render_template("reauth.html", error=error, next=target), (401 if error else 200)
+
+
+def clear_confirmed():
+    """True when the posted form carries the typed confirmation CLEAR (checked on the server, not only in the browser)."""
+    return request.form.get("confirm", "").strip() == "CLEAR"

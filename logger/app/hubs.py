@@ -24,15 +24,8 @@ def _items(rows):
 @hubs_bp.route("/data")
 @login_required
 def data():
-    user_links = _links([
-        ("Import", "main.import_files", False),
-        ("Raw data", "main.index", False),
-        ("Converter", "converter.index", False),
-        ("Work data", "main.logbook_db_page", False)])
-    app_links = _links([
-        ("Airports", "converter.airports", True),
-        ("Aircrafts", "converter.aircrafts", True)])
-    return render_template("data.html", user_links=user_links, app_links=app_links)
+    from .import_profiles import list_profiles
+    return render_template("data.html", profiles=list_profiles(), is_admin=g.role == "admin")
 
 
 @hubs_bp.route("/export")

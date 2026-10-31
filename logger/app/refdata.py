@@ -157,6 +157,12 @@ def save_airport(airport_id, form):
         conn.close()
 
 
+def clear_airports():
+    conn = airport_connect()
+    conn.execute("DELETE FROM airports")
+    conn.commit(); conn.close()
+
+
 def delete_airport(airport_id):
     conn = airport_connect()
     conn.execute("DELETE FROM airports WHERE id=?", (airport_id,))
@@ -292,6 +298,12 @@ def save_aircraft_type(type_id, form):
         raise
     finally:
         conn.close()
+
+
+def clear_aircraft_types():
+    conn = aircrafts_connect()
+    conn.execute("DELETE FROM aircraft_types")
+    conn.commit(); conn.close()
 
 
 def delete_aircraft_type(type_id):
