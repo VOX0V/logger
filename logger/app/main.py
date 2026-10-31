@@ -111,7 +111,8 @@ def home():
 @login_required
 def index():
     config=load_config()
-    return render_template("index.html",view=load_data_view(config))
+    view=load_data_view(config)
+    return render_template("index.html",view=view,add_fields=[{"name":v["column"],"label":v["label"]} for v in view])
 
 @main_bp.route("/data/rows")
 @login_required
@@ -144,6 +145,41 @@ def edit_data_cell():
     except Exception as exc:
         return (safe_message(exc),400)
 
+def _row_ids():
+    try: ids=[int(x) for x in request.form.get("ids","").split(",") if x.strip()]
+    except ValueError: ids=[]
+    return ids[:5000]
+
+def _add_row(connection,table,allowed,form):
+    values={k:v.strip() for k,v in form.items() if k in allowed and v.strip()!=""}
+    if not values: raise ValueError("Fill at least one field.")
+    names=",".join(f'"{safe_identifier(k)}"' for k in values)
+    conn=connection()
+    try: conn.execute(f"INSERT INTO {table} ({names}) VALUES ({','.join('?'*len(values))})",list(values.values())); conn.commit()
+    finally: conn.close()
+
+def _delete_rows(connection,table,ids):
+    conn=connection()
+    try:
+        for start in range(0,len(ids),500):
+            chunk=ids[start:start+500]; conn.execute(f"DELETE FROM {table} WHERE id IN ({','.join('?'*len(chunk))})",chunk)
+        conn.commit()
+    finally: conn.close()
+
+@main_bp.route("/data/add",methods=["POST"])
+@login_required
+def add_data_row():
+    try:
+        _add_row(connect,"users",{c["column"] for c in configurable_columns(load_config())},request.form); return ("",204)
+    except Exception as exc: return (safe_message(exc),400)
+
+@main_bp.route("/data/delete",methods=["POST"])
+@login_required
+def delete_data_rows():
+    ids=_row_ids()
+    if not ids: return ("No row selected.",400)
+    _delete_rows(connect,"users",ids); log_event("data_destroy",target=f"raw-data:{len(ids)}-rows"); return ("",204)
+
 @main_bp.route("/data/table-export.<fmt>")
 @login_required
 def data_table_export(fmt):
@@ -172,7 +208,9 @@ DATE_EXPR={"year":'substr("date",1,4)',"month":'substr("date",6,2)',"day":'subst
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
-    return render_template("logbook_db.html",view=load_logbook_view())
+    view=load_logbook_view()
+    fields=[{"name":"date","label":"date","kind":"date"}]+[{"name":v["column"],"label":v["label"]} for v in view if v["column"] not in DATE_EXPR]
+    return render_template("logbook_db.html",view=view,add_fields=fields)
 
 @main_bp.route("/logbook-db/rows")
 @login_required
@@ -181,6 +219,20 @@ def logbook_db_rows():
     conn=logbook_connect()
     try: return grid_data(conn,"logbook",columns,expressions=DATE_EXPR)
     finally: conn.close()
+
+@main_bp.route("/logbook-db/add",methods=["POST"])
+@login_required
+def add_logbook_row():
+    try:
+        _add_row(logbook_connect,"logbook",{c["column"] for c in logbook_columns(load_config())}|{"date"},request.form); return ("",204)
+    except Exception as exc: return (safe_message(exc),400)
+
+@main_bp.route("/logbook-db/delete",methods=["POST"])
+@login_required
+def delete_logbook_rows():
+    ids=_row_ids()
+    if not ids: return ("No row selected.",400)
+    _delete_rows(logbook_connect,"logbook",ids); log_event("data_destroy",target=f"work-data:{len(ids)}-rows"); return ("",204)
 
 @main_bp.route("/logbook-db/table-export.<fmt>")
 @login_required
@@ -335,7 +387,7 @@ def delete_layout_column(key):
 @main_bp.route("/settings")
 @login_required
 def settings():
-    config=load_config(); categories=_columns(config); return render_template("settings.html",categories=categories,groups=sorted({c.get("group") for c in categories if c.get("group")}))
+    config=load_config(); categories=_columns(config); return render_template("settings.html",categories=categories)
 
 @main_bp.route("/settings/category/new",methods=["GET","POST"])
 @login_required
@@ -343,11 +395,11 @@ def new_category():
     config=load_config(); categories=_columns(config)
     if request.method=="POST":
         try:
-            display=request.form.get("display_name",request.form.get("affichage","")).strip(); group=request.form.get("group","").strip(); new_group=request.form.get("new_group","").strip(); group=new_group if group=="__new__" else group; rules=[x.strip() for x in request.form.get("import_rules",request.form.get("import","")).splitlines() if x.strip()]
-            if not display or not group or not rules: raise ValueError("Display name, group and import rules are required.")
-            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1","import_rules":rules}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Column added to userdb.yml."); return redirect(url_for("main.settings"))
+            display=request.form.get("display_name",request.form.get("affichage","")).strip(); rules=[x.strip() for x in request.form.get("import_rules",request.form.get("import","")).splitlines() if x.strip()]
+            if not display or not rules: raise ValueError("Display name and import rules are required.")
+            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1","import_rules":rules}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Column added to userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
-    return render_template("category_form.html",category=None,groups=sorted({c.get("group") for c in categories}),positions=[len(categories)+1],action=url_for("main.new_category"))
+    return render_template("category_form.html",category=None,positions=[len(categories)+1],action=url_for("main.new_category"))
 
 @main_bp.route("/settings/category/<int:position>/edit",methods=["GET","POST"])
 @login_required
@@ -356,11 +408,11 @@ def edit_category(position):
     if not category: flash("Column not found."); return redirect(url_for("main.settings"))
     if request.method=="POST":
         try:
-            display=request.form.get("display_name","").strip(); group=request.form.get("group","").strip(); group=request.form.get("new_group","").strip() if group=="__new__" else group; rules=[x.strip() for x in request.form.get("import_rules","").splitlines() if x.strip()]
-            if not display or not group or not rules: raise ValueError("Display name, group and import rules are required.")
-            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"group":group,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Column updated in userdb.yml."); return redirect(url_for("main.settings"))
+            display=request.form.get("display_name","").strip(); rules=[x.strip() for x in request.form.get("import_rules","").splitlines() if x.strip()]
+            if not display or not rules: raise ValueError("Display name and import rules are required.")
+            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Column updated in userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
-    return render_template("category_form.html",category=category,groups=sorted({c.get("group") for c in categories}),positions=list(range(1,len(categories)+1)),action=url_for("main.edit_category",position=position))
+    return render_template("category_form.html",category=category,positions=list(range(1,len(categories)+1)),action=url_for("main.edit_category",position=position))
 
 @main_bp.route("/settings/category/<int:position>/delete",methods=["POST"])
 @login_required

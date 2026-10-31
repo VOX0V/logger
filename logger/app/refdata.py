@@ -10,9 +10,9 @@ from .db import airport_connect, aircrafts_connect
 from .importer import _read_table, FileImportError
 
 ENGINES = ("single", "multi")
-ENGINE_LABELS = {"single": "Monomoteur", "multi": "Multimoteur"}
-CATEGORIES = (("airplane", "Avion"), ("helicopter", "Helicopter"), ("simulator", "Simulateur"))
-ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turbopropulseur"), ("turbine", "Turbine (helicopter)"),
+ENGINE_LABELS = {"single": "Single-engine", "multi": "Multi-engine"}
+CATEGORIES = (("airplane", "Airplane"), ("helicopter", "Helicopter"), ("simulator", "Simulator"))
+ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turboprop"), ("turbine", "Turbine (helicopter)"),
                 ("turbofan", "Turbofan"))
 
 # Starting list of aircraft types (inserted once, when the table is created). To be checked by the user.
@@ -33,7 +33,7 @@ SEED_TYPES = [
     ("PA30", "Piper", "PA-30 Twin Comanche", "airplane", "multi", "piston"),
     ("PA31", "Piper", "PA-31 Navajo", "airplane", "multi", "piston"),
     ("CRJ", "Bombardier", "CRJ", "airplane", "multi", "turbofan"),
-    ("SIM", None, "Simulateur", "simulator", None, None),
+    ("SIM", None, "Simulator", "simulator", None, None),
 ]
 
 

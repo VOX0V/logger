@@ -3,7 +3,7 @@ database:
   - column: id
     display_name: ID
     position: 0
-    group: system
+    system: true
     data_type: integer
     nullable: false
     visible: false
@@ -12,7 +12,7 @@ database:
   - column: created_at
     display_name: Created at
     position: 0
-    group: system
+    system: true
     data_type: datetime
     nullable: false
     visible: false
@@ -20,7 +20,7 @@ database:
   - column: updated_at
     display_name: Updated at
     position: 0
-    group: system
+    system: true
     data_type: datetime
     nullable: false
     visible: false
@@ -28,7 +28,7 @@ database:
   - column: import_source
     display_name: Import source
     position: 0
-    group: system
+    system: true
     data_type: text
     nullable: true
     visible: false
@@ -36,7 +36,6 @@ database:
   - column: year
     display_name: year
     position: 1
-    group: date
     data_type: integer
     nullable: true
     visible: true
@@ -46,7 +45,6 @@ database:
   - column: month
     display_name: month
     position: 2
-    group: date
     data_type: integer
     nullable: true
     visible: true
@@ -56,7 +54,6 @@ database:
   - column: day
     display_name: day
     position: 3
-    group: date
     data_type: integer
     nullable: true
     visible: true
@@ -66,7 +63,6 @@ database:
   - column: type
     display_name: type
     position: 4
-    group: aircraft
     data_type: text
     nullable: true
     visible: true
@@ -77,7 +73,6 @@ database:
   - column: registration
     display_name: registration
     position: 5
-    group: aircraft
     data_type: text
     nullable: true
     visible: true
@@ -88,7 +83,6 @@ database:
   - column: pilot_in_command
     display_name: pilot in command
     position: 6
-    group: crew
     data_type: text
     nullable: true
     visible: true
@@ -98,7 +92,6 @@ database:
   - column: copilot
     display_name: copilot
     position: 7
-    group: crew
     data_type: text
     nullable: true
     visible: true
@@ -108,7 +101,6 @@ database:
   - column: departure
     display_name: departure
     position: 8
-    group: airports
     data_type: text
     nullable: true
     visible: true
@@ -119,7 +111,6 @@ database:
   - column: arrival
     display_name: arrival
     position: 9
-    group: airports
     data_type: text
     nullable: true
     visible: true
@@ -130,7 +121,6 @@ database:
   - column: remarks
     display_name: remarks
     position: 10
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -140,7 +130,6 @@ database:
   - column: single_engine_dual_day
     display_name: single engine dual day
     position: 11
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -150,7 +139,6 @@ database:
   - column: single_engine_pic_day
     display_name: single engine pic day
     position: 12
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -160,7 +148,6 @@ database:
   - column: single_engine_dual_night
     display_name: single engine dual night
     position: 13
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -170,7 +157,6 @@ database:
   - column: single_engine_pic_night
     display_name: single engine pic night
     position: 14
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -180,7 +166,6 @@ database:
   - column: multi_engine_dual_day
     display_name: multi engine dual day
     position: 15
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -190,7 +175,6 @@ database:
   - column: multi_engine_pic_day
     display_name: multi engine pic day
     position: 16
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -200,7 +184,6 @@ database:
   - column: multi_engine_copi_day
     display_name: multi engine copi day
     position: 17
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -210,7 +193,6 @@ database:
   - column: multi_engine_dual_night
     display_name: multi engine dual night
     position: 18
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -220,7 +202,6 @@ database:
   - column: multi_engine_pic_night
     display_name: multi engine pic night
     position: 19
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -230,7 +211,6 @@ database:
   - column: multi_engine_copi_night
     display_name: multi engine copi night
     position: 20
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -240,7 +220,6 @@ database:
   - column: ifr
     display_name: ifr
     position: 21
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -250,7 +229,6 @@ database:
   - column: hood
     display_name: hood
     position: 22
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -260,7 +238,6 @@ database:
   - column: ftd
     display_name: ftd
     position: 23
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -270,7 +247,6 @@ database:
   - column: ifr_approach
     display_name: ifr approach
     position: 24
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -280,7 +256,6 @@ database:
   - column: cross_country_dual_day
     display_name: cross country dual day
     position: 25
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -290,7 +265,6 @@ database:
   - column: cross_country_pic_day
     display_name: cross country pic day
     position: 26
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -300,7 +274,6 @@ database:
   - column: cross_country_dual_night
     display_name: cross country dual night
     position: 27
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -310,7 +283,6 @@ database:
   - column: cross_country_pic_night
     display_name: cross country pic night
     position: 28
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -320,7 +292,6 @@ database:
   - column: landings_day
     display_name: landings day
     position: 29
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -330,7 +301,6 @@ database:
   - column: landings_night
     display_name: landings night
     position: 30
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -340,7 +310,6 @@ database:
   - column: instruction_day
     display_name: instruction day
     position: 31
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -350,7 +319,6 @@ database:
   - column: instruction_night
     display_name: instruction night
     position: 32
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -360,7 +328,6 @@ database:
   - column: flight_number
     display_name: flight number
     position: 33
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -370,7 +337,6 @@ database:
   - column: deadhead
     display_name: deadhead
     position: 34
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -380,7 +346,6 @@ database:
   - column: airplane_change
     display_name: airplane change
     position: 35
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -390,7 +355,6 @@ database:
   - column: scheduled_departure_local
     display_name: scheduled departure local
     position: 36
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -400,7 +364,6 @@ database:
   - column: scheduled_arrival_local
     display_name: scheduled arrival local
     position: 37
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -410,7 +373,6 @@ database:
   - column: departure_local
     display_name: departure local
     position: 38
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -420,7 +382,6 @@ database:
   - column: off_block_local
     display_name: off block local
     position: 39
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -430,7 +391,6 @@ database:
   - column: on_block_local
     display_name: on block local
     position: 40
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -440,7 +400,6 @@ database:
   - column: arrival_local
     display_name: arrival local
     position: 41
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -450,7 +409,6 @@ database:
   - column: departure_utc
     display_name: departure utc
     position: 42
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -460,7 +418,6 @@ database:
   - column: off_block_utc
     display_name: off block utc
     position: 43
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -470,7 +427,6 @@ database:
   - column: on_block_utc
     display_name: on block utc
     position: 44
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -480,7 +436,6 @@ database:
   - column: arrival_utc
     display_name: arrival utc
     position: 45
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -490,7 +445,6 @@ database:
   - column: departure_millis_utc
     display_name: departure millis utc
     position: 46
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -500,7 +454,6 @@ database:
   - column: off_block_millis_utc
     display_name: off block millis utc
     position: 47
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -510,7 +463,6 @@ database:
   - column: on_block_millis_utc
     display_name: on block millis utc
     position: 48
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -520,7 +472,6 @@ database:
   - column: arrival_millis_utc
     display_name: arrival millis utc
     position: 49
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -530,7 +481,6 @@ database:
   - column: block_time
     display_name: block time
     position: 50
-    group: time
     data_type: text
     nullable: true
     visible: true
@@ -540,7 +490,6 @@ database:
   - column: nautical_miles
     display_name: nautical miles
     position: 51
-    group: misc
     data_type: text
     nullable: true
     visible: true
@@ -550,7 +499,6 @@ database:
   - column: tail_number
     display_name: tail number
     position: 52
-    group: aircraft
     data_type: text
     nullable: true
     visible: true
@@ -560,7 +508,6 @@ database:
   - column: crew_list
     display_name: crew list
     position: 53
-    group: crew
     data_type: text
     nullable: true
     visible: true

@@ -26,14 +26,14 @@ def ensure_employer_columns(username=None):
     config = load_config(username)
     cols = config["database"]["columns"]
     if EMPLOYER not in {c["column"] for c in cols}:
-        cols.append({"column": EMPLOYER, "display_name": "employer", "group": "employer", "data_type": "text",
-                     "position": len([c for c in cols if c.get("group") != "system"]) + 1, "nullable": True,
+        cols.append({"column": EMPLOYER, "display_name": "employer", "data_type": "text",
+                     "position": len([c for c in cols if not c.get("system")]) + 1, "nullable": True,
                      "visible": True, "editable": True, "import_rules": [EMPLOYER]})
         save_config(config, username)
     logbook_config = load_logbook_db_config(username)
     logbook_cols = logbook_config["database"]["columns"]
     if EMPLOYER not in {c["column"] for c in logbook_cols}:
-        logbook_cols.append({"column": EMPLOYER, "display_name": "employer", "group": "employer", "data_type": "text",
+        logbook_cols.append({"column": EMPLOYER, "display_name": "employer", "data_type": "text",
                              "position": len(logbook_cols) + 1, "nullable": True, "visible": True, "editable": True})
         save_logbook_db_config(logbook_config, username)
 

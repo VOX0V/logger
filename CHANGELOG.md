@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.16 — Editable tables, audit on the global tables, no more groups
+
+- **Audit**: the aircraft types are checked against the global **Aircraft** table (the hard-coded list is gone), like the airports were already checked against the **Airports** table.
+- **Raw data, Work data, Airports and Aircraft** are all the same kind of Tabulator page: edit a cell, **Add row** (small form), tick rows then **Delete selected**. Shared script `static/grid.js`; new routes `/data/add`, `/data/delete`, `/logbook-db/add`, `/logbook-db/delete`, and `/converter/{airports,aircrafts}/{rows,cell,add,delete}`.
+- The **group** of the columns (raw and work databases) and of the converter rules is removed: nothing used it. Only the technical columns keep a flag (`system: true`; files that still say `group: system` keep working). Other `group` keys in existing YAML files are ignored.
+- The buttons of the Data page have the same size and are aligned in columns.
+- English labels for the aircraft categories, engines and engine types.
+- One existing test adapted (a column no longer has a group); no new test.
+
 ## 0.3.15 — Employer column, profile detection, Jazz conversion
 
 - New **employer** column in the raw data and the work data (added to existing accounts at login). On import an empty employer is filled with the name of the import profile (Air Canada, Air Creebec, Jazz Aviation) or `undefined` when no profile is used; it can be edited afterwards. Every conversion profile copies it to the work data, so it can be used to filter flights later. Rows already imported keep an empty employer (re-import them to fill it).

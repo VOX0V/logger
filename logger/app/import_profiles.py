@@ -74,9 +74,9 @@ def ensure_profile_columns(config, profile):
         data_type = str(item.get("data_type") or "text")
         if data_type not in DATA_TYPES:
             raise FileImportError(f"Import profile '{profile['id']}': invalid data_type '{data_type}' for '{item['column']}'.")
-        position = len([c for c in columns if c.get("group") != "system"]) + 1
+        position = len([c for c in columns if not c.get("system")]) + 1
         columns.append({"column": item["column"], "display_name": str(item.get("display_name") or item["header"]),
-                        "position": position, "group": str(item.get("group") or "profile"), "data_type": data_type,
+                        "position": position, "data_type": data_type,
                         "nullable": True, "visible": True, "editable": True, "import_rules": []})
         known.add(item["column"])
         added.append(item["column"])

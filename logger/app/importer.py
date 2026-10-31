@@ -88,7 +88,7 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=N
             rule_map.setdefault(normalize(item["header"]), item["column"])
     else:
         for category in categories:
-            if category.get("group", category.get("groupe")) == "system":
+            if category.get("system"):
                 continue
             destination = category.get("column", category.get("colonne_technique"))
             for rule in category.get("import_rules", category.get("import", [])) or []:

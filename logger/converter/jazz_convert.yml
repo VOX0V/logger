@@ -3,42 +3,42 @@
 # day/night split from the sun (ephem) at the arrival airport, crew list, ICAO codes, flight number in the remarks.
 name: Jazz Aviation
 rules:
-- {id: skip_zero_block, name: 'Skip flights with 0:00 block time (not operated)', group: Filters, transform: zero_block, inputs: {time: block_time}}
-- {id: skip_not_flying, name: 'Skip flights where I am not at the controls (deadhead, training…)', group: Filters, transform: not_flying, inputs: {crew: crew_list, deadhead: deadhead}}
-- {id: date_from_parts, name: Date from year / month / day, group: Date, transform: date_parts, inputs: {year: year, month: month, day: day}, outputs: {target: date}}
-- {id: date_from_departure, name: Date from local departure (if year/month/day are empty), group: Date, transform: datetime_date, inputs: {source: departure_local}, outputs: {target: date}}
-- {id: aircraft_type_normalize, name: Normalized aircraft type (CRJ9 → CRJ…) → aircraft_type, group: Aircraft, transform: aircraft_type, inputs: {source: type}, outputs: {target: aircraft_type}}
-- {id: registration_format, name: Formatted registration (C-FABC) → registration, group: Aircraft, transform: registration, inputs: {source: registration}, outputs: {target: registration}}
-- {id: copy_pilot_in_command, name: Copy pilot_in_command → pilot_in_command, group: Crew, transform: copy, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
-- {id: copy_copilot, name: Copy copilot → copilot, group: Crew, transform: copy, inputs: {source: copilot}, outputs: {target: copilot}}
-- {id: crew_from_list, name: 'Crew from crew_list → pilot_in_command, copilot', group: Crew, transform: crew, inputs: {crew: crew_list}, outputs: {captain: pilot_in_command, copilot: copilot}}
-- {id: departure_icao, name: Departure as ICAO → departure, group: Route, transform: icao_code, inputs: {source: departure}, outputs: {target: departure}}
-- {id: arrival_icao, name: Arrival as ICAO → arrival, group: Route, transform: icao_code, inputs: {source: arrival}, outputs: {target: arrival}}
-- {id: copy_remarks, name: Copy remarks → remarks, group: Remarks, transform: copy, inputs: {source: remarks}, outputs: {target: remarks}}
-- {id: remarks_flight_number, name: 'Remarks: prefix + flight_number → remarks', group: Remarks, transform: flight_remarks, inputs: {source: flight_number}, outputs: {target: remarks}}
-- {id: copy_single_engine_dual_day, name: Copy single_engine_dual_day → single_engine_dual_day, group: Single engine, transform: copy, inputs: {source: single_engine_dual_day}, outputs: {target: single_engine_dual_day}}
-- {id: copy_single_engine_pic_day, name: Copy single_engine_pic_day → single_engine_pic_day, group: Single engine, transform: copy, inputs: {source: single_engine_pic_day}, outputs: {target: single_engine_pic_day}}
-- {id: copy_single_engine_dual_night, name: Copy single_engine_dual_night → single_engine_dual_night, group: Single engine, transform: copy, inputs: {source: single_engine_dual_night}, outputs: {target: single_engine_dual_night}}
-- {id: copy_single_engine_pic_night, name: Copy single_engine_pic_night → single_engine_pic_night, group: Single engine, transform: copy, inputs: {source: single_engine_pic_night}, outputs: {target: single_engine_pic_night}}
-- {id: copy_multi_engine_dual_day, name: Copy multi_engine_dual_day → multi_engine_dual_day, group: Multi-engine, transform: copy, inputs: {source: multi_engine_dual_day}, outputs: {target: multi_engine_dual_day}}
-- {id: copy_multi_engine_pic_day, name: Copy multi_engine_pic_day → multi_engine_pic_day, group: Multi-engine, transform: copy, inputs: {source: multi_engine_pic_day}, outputs: {target: multi_engine_pic_day}}
-- {id: copy_multi_engine_copi_day, name: Copy multi_engine_copi_day → multi_engine_copi_day, group: Multi-engine, transform: copy, inputs: {source: multi_engine_copi_day}, outputs: {target: multi_engine_copi_day}}
-- {id: copy_multi_engine_dual_night, name: Copy multi_engine_dual_night → multi_engine_dual_night, group: Multi-engine, transform: copy, inputs: {source: multi_engine_dual_night}, outputs: {target: multi_engine_dual_night}}
-- {id: copy_multi_engine_pic_night, name: Copy multi_engine_pic_night → multi_engine_pic_night, group: Multi-engine, transform: copy, inputs: {source: multi_engine_pic_night}, outputs: {target: multi_engine_pic_night}}
-- {id: copy_multi_engine_copi_night, name: Copy multi_engine_copi_night → multi_engine_copi_night, group: Multi-engine, transform: copy, inputs: {source: multi_engine_copi_night}, outputs: {target: multi_engine_copi_night}}
-- {id: copy_ifr, name: Copy ifr → ifr, group: Instruments, transform: copy, inputs: {source: ifr}, outputs: {target: ifr}}
-- {id: copy_hood, name: Copy hood → hood, group: Instruments, transform: copy, inputs: {source: hood}, outputs: {target: hood}}
-- {id: copy_ftd, name: Copy ftd → ftd, group: Instruments, transform: copy, inputs: {source: ftd}, outputs: {target: ftd}}
-- {id: copy_ifr_approach, name: Copy ifr_approach → ifr_approach, group: Instruments, transform: copy, inputs: {source: ifr_approach}, outputs: {target: ifr_approach}}
-- {id: copy_cross_country_dual_day, name: Copy cross_country_dual_day → cross_country_dual_day, group: Cross-country, transform: copy, inputs: {source: cross_country_dual_day}, outputs: {target: cross_country_dual_day}}
-- {id: copy_cross_country_pic_day, name: Copy cross_country_pic_day → cross_country_pic_day, group: Cross-country, transform: copy, inputs: {source: cross_country_pic_day}, outputs: {target: cross_country_pic_day}}
-- {id: copy_cross_country_dual_night, name: Copy cross_country_dual_night → cross_country_dual_night, group: Cross-country, transform: copy, inputs: {source: cross_country_dual_night}, outputs: {target: cross_country_dual_night}}
-- {id: copy_cross_country_pic_night, name: Copy cross_country_pic_night → cross_country_pic_night, group: Cross-country, transform: copy, inputs: {source: cross_country_pic_night}, outputs: {target: cross_country_pic_night}}
-- {id: copy_landings_day, name: Copy landings_day → landings_day, group: Landings, transform: copy, inputs: {source: landings_day}, outputs: {target: landings_day}}
-- {id: copy_landings_night, name: Copy landings_night → landings_night, group: Landings, transform: copy, inputs: {source: landings_night}, outputs: {target: landings_night}}
-- {id: copy_instruction_day, name: Copy instruction_day → instruction_day, group: Instruction, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}}
-- {id: copy_instruction_night, name: Copy instruction_night → instruction_night, group: Instruction, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}}
-- {id: ifr_block_time, name: Block time → ifr, group: Instruments, transform: tc_round, inputs: {time: block_time}, outputs: {target: ifr}, params: {rounding: tc}}
-- {id: daynight_multi_copi, name: Block time day/night — multi-engine copilot, group: Day / night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
-- {id: daynight_xc_pic, name: Block time day/night — cross-country PIC, group: Day / night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
-- {id: employer, name: Employer, group: Other, transform: copy, inputs: {source: employer}, outputs: {target: employer}}
+- {id: skip_zero_block, name: 'Skip flights with 0:00 block time (not operated)', transform: zero_block, inputs: {time: block_time}}
+- {id: skip_not_flying, name: 'Skip flights where I am not at the controls (deadhead, training…)', transform: not_flying, inputs: {crew: crew_list, deadhead: deadhead}}
+- {id: date_from_parts, name: Date from year / month / day, transform: date_parts, inputs: {year: year, month: month, day: day}, outputs: {target: date}}
+- {id: date_from_departure, name: Date from local departure (if year/month/day are empty), transform: datetime_date, inputs: {source: departure_local}, outputs: {target: date}}
+- {id: aircraft_type_normalize, name: Normalized aircraft type (CRJ9 → CRJ…) → aircraft_type, transform: aircraft_type, inputs: {source: type}, outputs: {target: aircraft_type}}
+- {id: registration_format, name: Formatted registration (C-FABC) → registration, transform: registration, inputs: {source: registration}, outputs: {target: registration}}
+- {id: copy_pilot_in_command, name: Copy pilot_in_command → pilot_in_command, transform: copy, inputs: {source: pilot_in_command}, outputs: {target: pilot_in_command}}
+- {id: copy_copilot, name: Copy copilot → copilot, transform: copy, inputs: {source: copilot}, outputs: {target: copilot}}
+- {id: crew_from_list, name: 'Crew from crew_list → pilot_in_command, copilot', transform: crew, inputs: {crew: crew_list}, outputs: {captain: pilot_in_command, copilot: copilot}}
+- {id: departure_icao, name: Departure as ICAO → departure, transform: icao_code, inputs: {source: departure}, outputs: {target: departure}}
+- {id: arrival_icao, name: Arrival as ICAO → arrival, transform: icao_code, inputs: {source: arrival}, outputs: {target: arrival}}
+- {id: copy_remarks, name: Copy remarks → remarks, transform: copy, inputs: {source: remarks}, outputs: {target: remarks}}
+- {id: remarks_flight_number, name: 'Remarks: prefix + flight_number → remarks', transform: flight_remarks, inputs: {source: flight_number}, outputs: {target: remarks}}
+- {id: copy_single_engine_dual_day, name: Copy single_engine_dual_day → single_engine_dual_day, transform: copy, inputs: {source: single_engine_dual_day}, outputs: {target: single_engine_dual_day}}
+- {id: copy_single_engine_pic_day, name: Copy single_engine_pic_day → single_engine_pic_day, transform: copy, inputs: {source: single_engine_pic_day}, outputs: {target: single_engine_pic_day}}
+- {id: copy_single_engine_dual_night, name: Copy single_engine_dual_night → single_engine_dual_night, transform: copy, inputs: {source: single_engine_dual_night}, outputs: {target: single_engine_dual_night}}
+- {id: copy_single_engine_pic_night, name: Copy single_engine_pic_night → single_engine_pic_night, transform: copy, inputs: {source: single_engine_pic_night}, outputs: {target: single_engine_pic_night}}
+- {id: copy_multi_engine_dual_day, name: Copy multi_engine_dual_day → multi_engine_dual_day, transform: copy, inputs: {source: multi_engine_dual_day}, outputs: {target: multi_engine_dual_day}}
+- {id: copy_multi_engine_pic_day, name: Copy multi_engine_pic_day → multi_engine_pic_day, transform: copy, inputs: {source: multi_engine_pic_day}, outputs: {target: multi_engine_pic_day}}
+- {id: copy_multi_engine_copi_day, name: Copy multi_engine_copi_day → multi_engine_copi_day, transform: copy, inputs: {source: multi_engine_copi_day}, outputs: {target: multi_engine_copi_day}}
+- {id: copy_multi_engine_dual_night, name: Copy multi_engine_dual_night → multi_engine_dual_night, transform: copy, inputs: {source: multi_engine_dual_night}, outputs: {target: multi_engine_dual_night}}
+- {id: copy_multi_engine_pic_night, name: Copy multi_engine_pic_night → multi_engine_pic_night, transform: copy, inputs: {source: multi_engine_pic_night}, outputs: {target: multi_engine_pic_night}}
+- {id: copy_multi_engine_copi_night, name: Copy multi_engine_copi_night → multi_engine_copi_night, transform: copy, inputs: {source: multi_engine_copi_night}, outputs: {target: multi_engine_copi_night}}
+- {id: copy_ifr, name: Copy ifr → ifr, transform: copy, inputs: {source: ifr}, outputs: {target: ifr}}
+- {id: copy_hood, name: Copy hood → hood, transform: copy, inputs: {source: hood}, outputs: {target: hood}}
+- {id: copy_ftd, name: Copy ftd → ftd, transform: copy, inputs: {source: ftd}, outputs: {target: ftd}}
+- {id: copy_ifr_approach, name: Copy ifr_approach → ifr_approach, transform: copy, inputs: {source: ifr_approach}, outputs: {target: ifr_approach}}
+- {id: copy_cross_country_dual_day, name: Copy cross_country_dual_day → cross_country_dual_day, transform: copy, inputs: {source: cross_country_dual_day}, outputs: {target: cross_country_dual_day}}
+- {id: copy_cross_country_pic_day, name: Copy cross_country_pic_day → cross_country_pic_day, transform: copy, inputs: {source: cross_country_pic_day}, outputs: {target: cross_country_pic_day}}
+- {id: copy_cross_country_dual_night, name: Copy cross_country_dual_night → cross_country_dual_night, transform: copy, inputs: {source: cross_country_dual_night}, outputs: {target: cross_country_dual_night}}
+- {id: copy_cross_country_pic_night, name: Copy cross_country_pic_night → cross_country_pic_night, transform: copy, inputs: {source: cross_country_pic_night}, outputs: {target: cross_country_pic_night}}
+- {id: copy_landings_day, name: Copy landings_day → landings_day, transform: copy, inputs: {source: landings_day}, outputs: {target: landings_day}}
+- {id: copy_landings_night, name: Copy landings_night → landings_night, transform: copy, inputs: {source: landings_night}, outputs: {target: landings_night}}
+- {id: copy_instruction_day, name: Copy instruction_day → instruction_day, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}}
+- {id: copy_instruction_night, name: Copy instruction_night → instruction_night, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}}
+- {id: ifr_block_time, name: Block time → ifr, transform: tc_round, inputs: {time: block_time}, outputs: {target: ifr}, params: {rounding: tc}}
+- {id: daynight_multi_copi, name: Block time day/night — multi-engine copilot, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
+- {id: daynight_xc_pic, name: Block time day/night — cross-country PIC, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
+- {id: employer, name: Employer, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

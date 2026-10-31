@@ -4,7 +4,6 @@
 <div class="grid">
 <div class="field"><label>Transform type</label>{% if rule %}<input value="{{spec.label}}" disabled>{% else %}<select name="transform" data-nav-select="{{url_for('converter.rule_new')}}?transform=">{% for key, t in transforms.items() %}<option value="{{key}}" {% if key==transform %}selected{% endif %}>{{t.label}}</option>{% endfor %}</select>{% endif %}</div>
 <div class="field"><label>Rule name</label><input name="name" value="{{values.get('name','')}}" required></div>
-<div class="field"><label>Group (for display)</label><input name="group" list="rule-groups" value="{{values.get('group','')}}"></div>
 </div>
 <h3>Columns read (database A)</h3><div class="grid">
 {% for slot, label, required in spec.inputs %}<div class="field"><label>{{label}}</label><input name="in_{{slot}}" list="a-cols" value="{{values.get('in_'+slot,'')}}" {% if required %}required{% endif %}></div>{% endfor %}
@@ -18,5 +17,4 @@
 <div><label><input type="checkbox" name="default" value="1" {% if values.get('default')=='1' %}checked{% endif %}> Ticked by default for new accounts</label></div>
 <datalist id="a-cols">{% for c in a_columns %}<option value="{{c}}"></option>{% endfor %}</datalist>
 <datalist id="b-cols">{% for c in b_columns %}<option value="{{c}}"></option>{% endfor %}</datalist>
-<datalist id="rule-groups">{% for gname in groups %}<option value="{{gname}}"></option>{% endfor %}</datalist>
 <p><button class="btn">Save</button> <a class="btn secondary" href="{{url_for('converter.index')}}">Cancel</a></p></form>{% endblock %}

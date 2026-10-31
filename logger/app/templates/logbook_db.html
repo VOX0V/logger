@@ -1,35 +1,16 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Work data</h2><div><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Refresh rebuilds the work data from the raw data and erases the changes made by hand here. Continue?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Refresh</button></form></div></div>
+<div class="page-head"><h2>Work data</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Refresh rebuilds the work data from the raw data and erases the changes made by hand here. Continue?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Refresh</button></form><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+{% include "_grid_add.html" %}
 <div class="card grid-card"><div id="grid"></div></div>
 <link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='grid.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 const view = {{view|tojson}};
-function remoteRequest(url, config, params){
-  const qs = new URLSearchParams();
-  qs.set('page', params.page || 1);
-  qs.set('size', params.size || 200);
-  (params.sorters||[]).forEach((s,i)=>{qs.set(`sort[${i}][field]`,s.field); qs.set(`sort[${i}][dir]`,s.dir);});
-  (params.filters||[]).forEach((f,i)=>{qs.set(`filter[${i}][field]`,f.field); qs.set(`filter[${i}][type]`,f.type); qs.set(`filter[${i}][value]`,f.value);});
-  return fetch(url+'?'+qs.toString()).then(r=>r.json());
-}
-new Tabulator("#grid", {
-  ajaxURL: "{{url_for('main.logbook_db_rows')}}",
-  ajaxRequestFunc: remoteRequest,
-  pagination: true, paginationMode: "remote", paginationSize: 200, paginationSizeSelector: [50,200,500,1000],
-  sortMode: "remote", filterMode: "remote",
-  layout: "fitDataFill", height: "70vh", placeholder: "No data. Click Refresh.",
-  columns: view.map((c,i) => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align,
-    frozen: c.frozen, headerFilter: "input", headerFilterPlaceholder: "filter…",
+initGrid({rowsUrl: "{{url_for('main.logbook_db_rows')}}", cellUrl: "{{url_for('main.edit_logbook_cell')}}", addUrl: "{{url_for('main.add_logbook_row')}}", deleteUrl: "{{url_for('main.delete_logbook_rows')}}",
+  placeholder: "No data. Click Refresh.",
+  columns: view.map(c => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align, frozen: c.frozen,
     sorter: (c.data_type === "integer" || c.data_type === "decimal") ? "number" : "string",
-    editor: "input",
-    formatter: (c.column === "month" || c.column === "day") ? (cell => { const v = cell.getValue(); return (v === null || v === undefined || v === "") ? "" : String(v).padStart(2, "0"); }) : undefined,
-    cellEdited: function(cell){
-      const body = new URLSearchParams({row_id: cell.getRow().getData().id, column: c.column, value: cell.getValue() ?? ""});
-      fetch("{{url_for('main.edit_logbook_cell')}}", {method: "POST", headers:{"X-CSRFToken":document.querySelector('meta[name=csrf-token]').content}, body}).then(r => {
-        if (!r.ok) return r.text().then(t => { throw new Error(t); });
-      }).catch(err => { alert("Change rejected: " + (err.message || "save failed")); cell.restoreOldValue(); });
-    }}))
-});
+    formatter: (c.column === "month" || c.column === "day") ? (cell => { const v = cell.getValue(); return (v === null || v === undefined || v === "") ? "" : String(v).padStart(2, "0"); }) : undefined}))});
 </script>
 {% endblock %}

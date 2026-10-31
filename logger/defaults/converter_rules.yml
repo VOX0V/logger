@@ -1,7 +1,6 @@
 rules:
 - id: skip_zero_block
   name: Skip flights with 0:00 block time (not operated)
-  group: Filters
   transform: zero_block
   inputs:
     time: block_time
@@ -10,7 +9,6 @@ rules:
   default: true
 - id: skip_not_flying
   name: Skip flights where I am not at the controls (deadhead, training…)
-  group: Filters
   transform: not_flying
   inputs:
     crew: crew_list
@@ -20,7 +18,6 @@ rules:
   default: true
 - id: date_from_parts
   name: Date from year / month / day
-  group: Date
   transform: date_parts
   inputs:
     year: year
@@ -32,7 +29,6 @@ rules:
   default: true
 - id: date_from_departure
   name: Date from local departure (if year/month/day are empty)
-  group: Date
   transform: datetime_date
   inputs:
     source: departure_local
@@ -42,7 +38,6 @@ rules:
   default: true
 - id: aircraft_type_normalize
   name: Normalized aircraft type (CRJ9 → CRJ…) → aircraft_type
-  group: Aircraft
   transform: aircraft_type
   inputs:
     source: type
@@ -52,7 +47,6 @@ rules:
   default: true
 - id: registration_format
   name: Formatted registration (C-FABC) → registration
-  group: Aircraft
   transform: registration
   inputs:
     source: registration
@@ -62,7 +56,6 @@ rules:
   default: true
 - id: copy_pilot_in_command
   name: Copy pilot_in_command → pilot_in_command
-  group: Crew
   transform: copy
   inputs:
     source: pilot_in_command
@@ -72,7 +65,6 @@ rules:
   default: true
 - id: copy_copilot
   name: Copy copilot → copilot
-  group: Crew
   transform: copy
   inputs:
     source: copilot
@@ -82,7 +74,6 @@ rules:
   default: true
 - id: crew_from_list
   name: Crew from crew_list → pilot_in_command, copilot
-  group: Crew
   transform: crew
   inputs:
     crew: crew_list
@@ -93,7 +84,6 @@ rules:
   default: true
 - id: departure_icao
   name: Departure as ICAO → departure
-  group: Route
   transform: icao_code
   inputs:
     source: departure
@@ -103,7 +93,6 @@ rules:
   default: true
 - id: arrival_icao
   name: Arrival as ICAO → arrival
-  group: Route
   transform: icao_code
   inputs:
     source: arrival
@@ -113,7 +102,6 @@ rules:
   default: true
 - id: copy_remarks
   name: Copy remarks → remarks
-  group: Remarks
   transform: copy
   inputs:
     source: remarks
@@ -123,7 +111,6 @@ rules:
   default: true
 - id: remarks_flight_number
   name: 'Remarks: prefix + flight_number → remarks'
-  group: Remarks
   transform: flight_remarks
   inputs:
     source: flight_number
@@ -133,7 +120,6 @@ rules:
   default: true
 - id: copy_single_engine_dual_day
   name: Copy single_engine_dual_day → single_engine_dual_day
-  group: Single engine
   transform: copy
   inputs:
     source: single_engine_dual_day
@@ -143,7 +129,6 @@ rules:
   default: true
 - id: copy_single_engine_pic_day
   name: Copy single_engine_pic_day → single_engine_pic_day
-  group: Single engine
   transform: copy
   inputs:
     source: single_engine_pic_day
@@ -153,7 +138,6 @@ rules:
   default: true
 - id: copy_single_engine_dual_night
   name: Copy single_engine_dual_night → single_engine_dual_night
-  group: Single engine
   transform: copy
   inputs:
     source: single_engine_dual_night
@@ -163,7 +147,6 @@ rules:
   default: true
 - id: copy_single_engine_pic_night
   name: Copy single_engine_pic_night → single_engine_pic_night
-  group: Single engine
   transform: copy
   inputs:
     source: single_engine_pic_night
@@ -173,7 +156,6 @@ rules:
   default: true
 - id: copy_multi_engine_dual_day
   name: Copy multi_engine_dual_day → multi_engine_dual_day
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_dual_day
@@ -183,7 +165,6 @@ rules:
   default: true
 - id: copy_multi_engine_pic_day
   name: Copy multi_engine_pic_day → multi_engine_pic_day
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_pic_day
@@ -193,7 +174,6 @@ rules:
   default: true
 - id: copy_multi_engine_copi_day
   name: Copy multi_engine_copi_day → multi_engine_copi_day
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_copi_day
@@ -203,7 +183,6 @@ rules:
   default: true
 - id: copy_multi_engine_dual_night
   name: Copy multi_engine_dual_night → multi_engine_dual_night
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_dual_night
@@ -213,7 +192,6 @@ rules:
   default: true
 - id: copy_multi_engine_pic_night
   name: Copy multi_engine_pic_night → multi_engine_pic_night
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_pic_night
@@ -223,7 +201,6 @@ rules:
   default: true
 - id: copy_multi_engine_copi_night
   name: Copy multi_engine_copi_night → multi_engine_copi_night
-  group: Multi-engine
   transform: copy
   inputs:
     source: multi_engine_copi_night
@@ -233,7 +210,6 @@ rules:
   default: true
 - id: copy_ifr
   name: Copy ifr → ifr
-  group: Instruments
   transform: copy
   inputs:
     source: ifr
@@ -243,7 +219,6 @@ rules:
   default: true
 - id: copy_hood
   name: Copy hood → hood
-  group: Instruments
   transform: copy
   inputs:
     source: hood
@@ -253,7 +228,6 @@ rules:
   default: true
 - id: copy_ftd
   name: Copy ftd → ftd
-  group: Instruments
   transform: copy
   inputs:
     source: ftd
@@ -263,7 +237,6 @@ rules:
   default: true
 - id: copy_ifr_approach
   name: Copy ifr_approach → ifr_approach
-  group: Instruments
   transform: copy
   inputs:
     source: ifr_approach
@@ -273,7 +246,6 @@ rules:
   default: true
 - id: copy_cross_country_dual_day
   name: Copy cross_country_dual_day → cross_country_dual_day
-  group: Cross-country
   transform: copy
   inputs:
     source: cross_country_dual_day
@@ -283,7 +255,6 @@ rules:
   default: true
 - id: copy_cross_country_pic_day
   name: Copy cross_country_pic_day → cross_country_pic_day
-  group: Cross-country
   transform: copy
   inputs:
     source: cross_country_pic_day
@@ -293,7 +264,6 @@ rules:
   default: true
 - id: copy_cross_country_dual_night
   name: Copy cross_country_dual_night → cross_country_dual_night
-  group: Cross-country
   transform: copy
   inputs:
     source: cross_country_dual_night
@@ -303,7 +273,6 @@ rules:
   default: true
 - id: copy_cross_country_pic_night
   name: Copy cross_country_pic_night → cross_country_pic_night
-  group: Cross-country
   transform: copy
   inputs:
     source: cross_country_pic_night
@@ -313,7 +282,6 @@ rules:
   default: true
 - id: copy_landings_day
   name: Copy landings_day → landings_day
-  group: Landings
   transform: copy
   inputs:
     source: landings_day
@@ -323,7 +291,6 @@ rules:
   default: true
 - id: copy_landings_night
   name: Copy landings_night → landings_night
-  group: Landings
   transform: copy
   inputs:
     source: landings_night
@@ -333,7 +300,6 @@ rules:
   default: true
 - id: copy_instruction_day
   name: Copy instruction_day → instruction_day
-  group: Instruction
   transform: copy
   inputs:
     source: instruction_day
@@ -343,7 +309,6 @@ rules:
   default: true
 - id: copy_instruction_night
   name: Copy instruction_night → instruction_night
-  group: Instruction
   transform: copy
   inputs:
     source: instruction_night
@@ -353,7 +318,6 @@ rules:
   default: true
 - id: daynight_single_pic
   name: Block time day/night — single-engine PIC
-  group: Day / night
   transform: day_night
   inputs:
     time: block_time
@@ -369,7 +333,6 @@ rules:
   default: false
 - id: daynight_multi_pic
   name: Block time day/night — multi-engine PIC
-  group: Day / night
   transform: day_night
   inputs:
     time: block_time
@@ -385,7 +348,6 @@ rules:
   default: false
 - id: ifr_block_time
   name: Block time → ifr
-  group: Instruments
   transform: tc_round
   inputs:
     time: block_time
@@ -396,7 +358,6 @@ rules:
   default: true
 - id: daynight_multi_copi
   name: Block time day/night — multi-engine copilot
-  group: Day / night
   transform: day_night
   inputs: &id001
     time: block_time
@@ -411,7 +372,6 @@ rules:
   default: true
 - id: daynight_xc_pic
   name: Block time day/night — cross-country PIC
-  group: Day / night
   transform: day_night
   inputs: *id001
   outputs:

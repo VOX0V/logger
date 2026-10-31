@@ -65,7 +65,7 @@ def _columns_of(data):
 
 def check_structure(data, normalize):
     seen = set()
-    for i, raw in enumerate([c for c in _columns_of(data) if c.get("group") != "system"], 1):
+    for i, raw in enumerate([c for c in _columns_of(data) if not (c.get("system") or c.get("group") == "system")], 1):
         try:
             col = normalize(raw, i)["column"]
         except (ValueError, KeyError, TypeError) as exc:

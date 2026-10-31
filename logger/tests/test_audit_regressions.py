@@ -44,7 +44,7 @@ def test_renaming_display_name_keeps_column_and_data(app, admin):
     _import(admin, _csv(app, FIRST))
     cop = _columns(app)["copilot"]
     r = admin.post(f"/settings/category/{cop['position']}/edit",
-                   {"display_name": "co pilot", "group": cop["group"], "data_type": "text", "nullable": "1",
+                   {"display_name": "co pilot", "data_type": "text", "nullable": "1",
                     "visible": "1", "editable": "1", "import_rules": "\n".join(cop["import_rules"])})
     assert r.status_code == 302
     _import(admin, _csv(app, SECOND))

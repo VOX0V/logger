@@ -2,14 +2,14 @@
 <div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">New rule</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Airports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Types d'appareils</a>{% endif %}</div></div>
 <p class="muted">Rules that turn user.db into logbook.db. Tick the ones you want to apply, then click Refresh in logbook.db. For a given logbook.db column, the first ticked rule that gives a value wins.</p>
 <form method="post" action="{{url_for('converter.select')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-{% for group, items in groups.items() %}
-<div class="card"><h3>{{group}}</h3><table class="data"><thead><tr><th></th><th>Rule</th><th>Type</th><th>Columns</th>{% if g.role=='admin' %}<th>Actions</th>{% endif %}</tr></thead><tbody>
-{% for it in items %}<tr><td><input type="checkbox" name="enabled" value="{{it.rule.id}}" {% if it.checked %}checked{% endif %}></td><td>{{it.rule.name}}{% if it.missing %}<br><span class="muted">Missing column: {{it.missing|join(', ')}}</span>{% endif %}</td><td>{{it.label}}</td><td>{{it.summary}}</td>{% if g.role=='admin' %}<td><a class="btn secondary" href="{{url_for('converter.rule_edit',rule_id=it.rule.id)}}">Edit</a> <button class="btn danger" type="submit" form="delete-rule-{{it.rule.id}}" data-confirm="Delete this rule from the catalog?">Delete</button></td>{% endif %}</tr>{% endfor %}
+{% if rules %}
+<div class="card"><table class="data"><thead><tr><th></th><th>Rule</th><th>Type</th><th>Columns</th>{% if g.role=='admin' %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+{% for it in rules %}<tr><td><input type="checkbox" name="enabled" value="{{it.rule.id}}" {% if it.checked %}checked{% endif %}></td><td>{{it.rule.name}}{% if it.missing %}<br><span class="muted">Missing column: {{it.missing|join(', ')}}</span>{% endif %}</td><td>{{it.label}}</td><td>{{it.summary}}</td>{% if g.role=='admin' %}<td><a class="btn secondary" href="{{url_for('converter.rule_edit',rule_id=it.rule.id)}}">Edit</a> <button class="btn danger" type="submit" form="delete-rule-{{it.rule.id}}" data-confirm="Delete this rule from the catalog?">Delete</button></td>{% endif %}</tr>{% endfor %}
 </tbody></table></div>
-{% else %}<div class="card"><p class="muted">No rules in the catalog.</p></div>{% endfor %}
+{% else %}<div class="card"><p class="muted">No rules in the catalog.</p></div>{% endif %}
 <p><button class="btn">Save selection</button></p>
 </form>
 {% if g.role=='admin' %}
-{% for group, items in groups.items() %}{% for it in items %}<form id="delete-rule-{{it.rule.id}}" method="post" action="{{url_for('converter.rule_delete',rule_id=it.rule.id)}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>{% endfor %}{% endfor %}
+{% for it in rules %}<form id="delete-rule-{{it.rule.id}}" method="post" action="{{url_for('converter.rule_delete',rule_id=it.rule.id)}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>{% endfor %}
 {% endif %}
 {% endblock %}

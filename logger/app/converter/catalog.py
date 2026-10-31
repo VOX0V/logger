@@ -73,7 +73,7 @@ def _migrate_shared():
             for r in rules:
                 was, now = legacy.get(r.get("id")), bundled.get(r.get("id"))
                 if was and now:
-                    for key in ("name", "group"):
+                    for key in ("name",):
                         if r.get(key) == was[key]:
                             r[key] = now[key]
     save_rules(rules)
@@ -102,7 +102,6 @@ def normalize_rule(raw):
     return {
         "id": str(rule.get("id", "")).strip(),
         "name": str(rule.get("name", "")).strip(),
-        "group": str(rule.get("group", "") or "Autres").strip(),
         "transform": str(rule.get("transform", "")).strip(),
         "inputs": {str(k): str(v).strip() for k, v in (rule.get("inputs") or {}).items() if str(v or "").strip()},
         "outputs": {str(k): str(v).strip() for k, v in (rule.get("outputs") or {}).items() if str(v or "").strip()},
@@ -163,7 +162,7 @@ def build_rule(form, transform, rule_id):
         if not value:
             raise ValueError(f"“{label} ” is required.")
         outputs[slot] = safe_identifier(value)
-    return {"id": rule_id, "name": name, "group": form.get("group", "").strip() or "Autres", "transform": transform,
+    return {"id": rule_id, "name": name, "transform": transform,
             "inputs": inputs, "outputs": outputs, "params": params, "default": form.get("default") == "1"}
 
 

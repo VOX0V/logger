@@ -4,6 +4,8 @@ from flask import Blueprint, Response, flash, g, redirect, render_template, requ
 
 from ..auth import login_required, admin_required, fresh_login_required, clear_confirmed
 from ..seclog import log_event
+from ..gridview import grid_data
+from ..db import airport_connect, aircrafts_connect
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
                        list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
@@ -18,7 +20,7 @@ converter_bp = Blueprint("converter", __name__, url_prefix="/converter")
 
 def _user_columns():
     a = [c["column"] for c in configurable_columns(load_config())]
-    b = [c["column"] for c in load_logbook_db_config()["database"]["columns"] if c.get("group") != "system"]
+    b = [c["column"] for c in load_logbook_db_config()["database"]["columns"] if not c.get("system")]
     return a, b
 
 
@@ -34,14 +36,14 @@ def _summary(rule):
 def index():
     a, b = _user_columns()
     selected = set(catalog.load_selection())
-    groups = {}
+    rules = []
     for rule in catalog.load_rules():
-        groups.setdefault(rule["group"], []).append({
+        rules.append({
             "rule": rule, "checked": rule["id"] in selected,
             "missing": catalog.rule_missing_columns(rule, a, b), "summary": _summary(rule),
             "label": TRANSFORMS.get(rule["transform"], {}).get("label", rule["transform"])})
     settings = catalog.load_settings()
-    return render_template("converter.html", groups=groups, settings=settings,
+    return render_template("converter.html", rules=rules, settings=settings,
                            rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
 
 
@@ -83,7 +85,7 @@ def save_settings_route():
 # ---------------- rules (admin) ----------------
 
 def _rule_values(rule):
-    values = {"name": rule["name"], "group": rule["group"], "default": "1" if rule["default"] else ""}
+    values = {"name": rule["name"], "default": "1" if rule["default"] else ""}
     values.update({f"in_{k}": v for k, v in rule["inputs"].items()})
     values.update({f"out_{k}": v for k, v in rule["outputs"].items()})
     values.update({f"param_{k}": v for k, v in rule["params"].items()})
@@ -94,7 +96,7 @@ def _render_rule_form(rule, transform, values, action):
     a, b = _user_columns()
     return render_template("rule_form.html", rule=rule, transform=transform, spec=TRANSFORMS[transform],
                            transforms=TRANSFORMS, values=values, a_columns=a, b_columns=b,
-                           groups=sorted({r["group"] for r in catalog.load_rules()}), action=action)
+                           action=action)
 
 
 @converter_bp.route("/rule/new", methods=["GET", "POST"])
@@ -150,10 +152,122 @@ def rule_delete(rule_id):
 
 # ---------------- airports (admin) ----------------
 
+AIRPORT_FIELDS = ("icao_code", "iata_code", "full_name", "country", "latitude", "longitude", "elevation", "timezone", "notes")
+AIRPORT_COLUMNS = [
+    {"field": "icao_code", "title": "ICAO", "width": 90}, {"field": "iata_code", "title": "IATA", "width": 80},
+    {"field": "full_name", "title": "Name", "width": 260}, {"field": "country", "title": "Country", "width": 110},
+    {"field": "latitude", "title": "Latitude", "width": 110, "sorter": "number"},
+    {"field": "longitude", "title": "Longitude", "width": 110, "sorter": "number"},
+    {"field": "elevation", "title": "Elevation", "width": 100, "sorter": "number"},
+    {"field": "timezone", "title": "Time zone", "width": 160}, {"field": "notes", "title": "Notes", "width": 220}]
+AIRCRAFT_FIELDS = ("code", "make", "model", "category", "engines", "engine_type", "notes")
+
+
+def _lookup(field, title, labels, width):
+    return {"field": field, "title": title, "width": width, "editor": "list",
+            "editorParams": {"values": dict(labels), "clearable": True}, "formatter": "lookup", "formatterParams": dict(labels)}
+
+
+AIRCRAFT_COLUMNS = [
+    {"field": "code", "title": "Code", "width": 90}, {"field": "make", "title": "Make", "width": 170},
+    {"field": "model", "title": "Model", "width": 170}, _lookup("category", "Category", CATEGORIES, 130),
+    _lookup("engines", "Engines", ENGINE_LABELS, 140), _lookup("engine_type", "Engine type", ENGINE_TYPES, 150),
+    {"field": "notes", "title": "Notes", "width": 220}]
+
+
+def _ids():
+    try:
+        ids = [int(x) for x in request.form.get("ids", "").split(",") if x.strip()]
+    except ValueError:
+        ids = []
+    return ids[:5000]
+
+
+def _cell_update(get, save, fields):
+    """Edit one cell: the whole row goes through the same validation as the old form."""
+    try:
+        row_id, column = int(request.form.get("row_id", "0")), request.form.get("column", "")
+        if column not in fields:
+            raise ValueError("Invalid column.")
+        row = get(row_id)
+        if not row:
+            raise ValueError("Row not found.")
+        values = dict(row)
+        values[column] = request.form.get("value", "")
+        save(row_id, values)
+        return ("", 204)
+    except ValueError as exc:
+        return (str(exc), 400)
+    except Exception:
+        return ("The change could not be saved.", 400)
+
+
+def _add_update(save):
+    try:
+        save(None, request.form)
+        return ("", 204)
+    except ValueError as exc:
+        return (str(exc), 400)
+    except Exception:
+        return ("The row could not be added.", 400)
+
+
+def _delete(delete, target):
+    ids = _ids()
+    if not ids:
+        return ("No row selected.", 400)
+    for row_id in ids:
+        delete(row_id)
+    log_event("data_destroy", target=f"{target}:{len(ids)}-rows")
+    return ("", 204)
+
+
+def _fields(columns):
+    out = []
+    for c in columns:
+        item = {"name": c["field"], "label": c["title"]}
+        if c.get("editor") == "list":
+            item["options"] = list(c["editorParams"]["values"].items())
+        out.append(item)
+    return out
+
+
 @converter_bp.route("/airports")
 @admin_required
 def airports():
-    return render_template("airports.html", airports=list_airports())
+    return render_template("refdata_grid.html", title="Airports", columns=AIRPORT_COLUMNS, add_fields=_fields(AIRPORT_COLUMNS),
+                           note="The arrival code of flights is looked up in IATA first, then in ICAO.",
+                           rows_url=url_for("converter.airports_rows"), cell_url=url_for("converter.airports_cell"),
+                           add_url=url_for("converter.airports_add"), delete_url=url_for("converter.airports_delete"),
+                           export_url=url_for("converter.airports_export"))
+
+
+@converter_bp.route("/airports/rows")
+@admin_required
+def airports_rows():
+    conn = airport_connect()
+    try:
+        return grid_data(conn, "airports", list(AIRPORT_FIELDS))
+    finally:
+        conn.close()
+
+
+@converter_bp.route("/airports/cell", methods=["POST"])
+@admin_required
+def airports_cell():
+    return _cell_update(get_airport, save_airport, AIRPORT_FIELDS)
+
+
+@converter_bp.route("/airports/add", methods=["POST"])
+@admin_required
+def airports_add():
+    return _add_update(save_airport)
+
+
+@converter_bp.route("/airports/delete", methods=["POST"])
+@admin_required
+def airports_delete():
+    return _delete(delete_airport, "airports")
 
 
 @converter_bp.route("/airports/new", methods=["GET", "POST"])
@@ -187,8 +301,40 @@ def airport_delete(airport_id):
 @converter_bp.route("/aircrafts")
 @admin_required
 def aircrafts():
-    return render_template("aircrafts.html", aircrafts=list_aircraft_types(), category_labels=dict(CATEGORIES),
-                           engine_labels=ENGINE_LABELS, engine_type_labels=dict(ENGINE_TYPES))
+    return render_template("refdata_grid.html", title="Aircraft", columns=AIRCRAFT_COLUMNS, add_fields=_fields(AIRCRAFT_COLUMNS),
+                           note="The flight is linked to its type by the “type” column (CRJ9, CRJ7 and CRJ2 are reduced to CRJ). "
+                                "The number of engines is used by the day/night rules, and the audit checks the types against this table.",
+                           rows_url=url_for("converter.aircrafts_rows"), cell_url=url_for("converter.aircrafts_cell"),
+                           add_url=url_for("converter.aircrafts_add"), delete_url=url_for("converter.aircrafts_delete"),
+                           export_url=url_for("converter.aircrafts_export"))
+
+
+@converter_bp.route("/aircrafts/rows")
+@admin_required
+def aircrafts_rows():
+    conn = aircrafts_connect()
+    try:
+        return grid_data(conn, "aircraft_types", list(AIRCRAFT_FIELDS))
+    finally:
+        conn.close()
+
+
+@converter_bp.route("/aircrafts/cell", methods=["POST"])
+@admin_required
+def aircrafts_cell():
+    return _cell_update(get_aircraft_type, save_aircraft_type, AIRCRAFT_FIELDS)
+
+
+@converter_bp.route("/aircrafts/add", methods=["POST"])
+@admin_required
+def aircrafts_add():
+    return _add_update(save_aircraft_type)
+
+
+@converter_bp.route("/aircrafts/delete", methods=["POST"])
+@admin_required
+def aircrafts_delete():
+    return _delete(delete_aircraft_type, "aircraft-types")
 
 
 @converter_bp.route("/aircrafts/new", methods=["GET", "POST"])

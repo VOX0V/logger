@@ -16,8 +16,6 @@ audit_bp = Blueprint("audit", __name__, url_prefix="/audit")
 SEVERITY_ORDER = {"ERROR": 0, "ANOMALY": 1, "INFO": 2}
 MAX_SHOWN = 200
 
-KNOWN_TYPES = {"RH22", "RH44", "RH66", "AS350", "EC120", "B505", "BH06", "C150", "C152", "A152",
-               "C172", "TB10", "PA28", "PA30", "PA31", "CRJ", "SIM"}
 COMPATIBLE_TYPES = [{"A152", "C152"}]
 TYPOS = [(r"\bINTRUCTEUR\b", "INSTRUCTEUR"), (r"\bRefrest\b", "Refresh"), (r"\bCKS3\b", "CSK3")]
 MAX_DURATION = 8.0          # hours on one line
@@ -65,7 +63,7 @@ def is_empty_line(r):
 
 
 def airport_codes():
-    """Codes OACI de la table Aéroports (base commune) ; None si la table n'est pas disponible."""
+    """ICAO codes of the Airports table (global database); None when the table is not available."""
     try:
         from .refdata import list_airports
         return {text(a["icao_code"]).strip().upper() for a in list_airports() if a["icao_code"]}
@@ -73,7 +71,16 @@ def airport_codes():
         return None
 
 
-def check_row(r, today, icao=None):
+def aircraft_codes():
+    """Type codes of the Aircrafts table (global database); None when the table is not available."""
+    try:
+        from .refdata import list_aircraft_types
+        return {text(t["code"]).strip().upper() for t in list_aircraft_types() if t["code"]}
+    except Exception:
+        return None
+
+
+def check_row(r, today, icao=None, types=None):
     out = []
 
     def add(sev, cat, msg):
@@ -118,7 +125,7 @@ def check_row(r, today, icao=None):
 
     if not typ:
         add("ANOMALY", "Unknown aircraft type", "empty type")
-    elif typ not in KNOWN_TYPES:
+    elif types is not None and typ.upper() not in types:
         add("ANOMALY", "Unknown aircraft type", f"“{typ}”")
 
     if reg:
@@ -212,11 +219,11 @@ def check_global(rows):
 def run_checks(rows, today=None):
     today = today or date.today()
     findings = []
-    icao = airport_codes()
+    icao, types = airport_codes(), aircraft_codes()
     for r in rows:
         route = f"{text(r.get('departure'))}→{text(r.get('arrival'))}" if r.get("departure") or r.get("arrival") else ""
         label = " ".join(x for x in (text(r.get("registration")).strip(), route, text(r.get("remarks")).strip()[:40]) if x)
-        for sev, cat, msg in check_row(r, today, icao):
+        for sev, cat, msg in check_row(r, today, icao, types):
             findings.append({"sev": sev, "cat": cat, "date": text(r.get("date"))[:10], "label": label, "msg": msg})
     for sev, cat, msg in check_global(rows):
         findings.append({"sev": sev, "cat": cat, "date": "", "label": "several rows", "msg": msg})

@@ -15,7 +15,7 @@ from .transforms import FUNCTIONS, Skip, SkipRow, Problem, blank
 def refresh_logbook(config, username=None):
     """Rebuild the logbook table. Returns {"rows": int, "warnings": [str]}."""
     lcfg = load_logbook_db_config(username)
-    b_columns = [c["column"] for c in lcfg["database"]["columns"] if c.get("group") != "system"]
+    b_columns = [c["column"] for c in lcfg["database"]["columns"] if not c.get("system")]
     a_columns = [c["column"] for c in configurable_columns(config)]
     settings = load_settings()
     settings["pilot_name"] = pilot_name(username)
