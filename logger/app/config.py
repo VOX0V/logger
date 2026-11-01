@@ -161,7 +161,12 @@ def ensure_configs(username=None):
             data = {"database": {"columns": DEFAULT_COLUMNS}}
         _atomic_write(config_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     if not logbook_db_config_path(username).exists():
-        _atomic_write(logbook_db_config_path(username), yaml.safe_dump({"database": {"columns": DEFAULT_LOGBOOK_DB_COLUMNS}}, allow_unicode=True, sort_keys=False))
+        try:
+            from .workdb import config_columns           # the work data columns come from work_db.yml
+            work_columns = config_columns()
+        except Exception:
+            work_columns = DEFAULT_LOGBOOK_DB_COLUMNS
+        _atomic_write(logbook_db_config_path(username), yaml.safe_dump({"database": {"columns": work_columns}}, allow_unicode=True, sort_keys=False))
     if not logbook_layout_path(username).exists():
         try:
             from flask import current_app

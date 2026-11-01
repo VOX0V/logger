@@ -31,6 +31,9 @@ def _reposition(items):
     for i,c in enumerate(items,1): c["position"] = i
 
 def _read_logbook_value(row, col):
+    part = col.get("date_part")
+    if part in {"year","month","day"} and "date" not in row.keys():      # work data with its own year / month / day columns
+        return row[part] if part in row.keys() and row[part] is not None else ""
     if col.get("db_column") == "date":
         value = row["date"] if "date" in row.keys() else None
         if not value: return ""
@@ -204,12 +207,16 @@ def export_user_data():
 
 # année / mois / jour extraits de la date ISO (AAAA-MM-JJ) : colonnes calculées de la grille Données converties
 DATE_EXPR={"year":'substr("date",1,4)',"month":'substr("date",6,2)',"day":'substr("date",9,2)'}
+def _date_expr():
+    """The year / month / day expressions only apply when the work data still has a single 'date' column."""
+    return DATE_EXPR if any(c["column"]=="date" for c in logbook_columns(load_config())) else {}
 
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
     view=load_logbook_view()
-    fields=[{"name":"date","label":"date","kind":"date"}]+[{"name":v["column"],"label":v["label"]} for v in view if v["column"] not in DATE_EXPR]
+    dx=_date_expr()
+    fields=([{"name":"date","label":"date","kind":"date"}] if dx else [])+[{"name":v["column"],"label":v["label"]} for v in view if v["column"] not in dx]
     return render_template("logbook_db.html",view=view,add_fields=fields)
 
 @main_bp.route("/logbook-db/rows")
@@ -217,7 +224,7 @@ def logbook_db_page():
 def logbook_db_rows():
     columns=[v["column"] for v in load_logbook_view()]
     conn=logbook_connect()
-    try: return grid_data(conn,"logbook",columns,expressions=DATE_EXPR)
+    try: return grid_data(conn,"logbook",columns,expressions=_date_expr())
     finally: conn.close()
 
 @main_bp.route("/logbook-db/add",methods=["POST"])
@@ -239,7 +246,7 @@ def delete_logbook_rows():
 def logbook_table_export(fmt):
     view=load_logbook_view()
     conn=logbook_connect()
-    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_work_data",expressions=DATE_EXPR)
+    try: return grid_export(conn,"logbook",[v["column"] for v in view],[v["label"] for v in view],fmt,f"{current_username()}_work_data",expressions=_date_expr())
     except ValueError as exc: flash(str(exc)); return redirect(url_for("main.logbook_db_page"))
     finally: conn.close()
 
@@ -336,7 +343,7 @@ def clear_logbook_data():
 def edit_logbook_cell():
     try:
         row_id=int(request.form.get("row_id","0")); column=safe_identifier(request.form.get("column","")); value=request.form.get("value","")
-        if column in DATE_EXPR:
+        if column in _date_expr():
             update_logbook_date_part(row_id,column,value); return ("",204)
         allowed={c["column"] for c in logbook_columns(load_config())}
         if column not in allowed: raise ValueError("Invalid logbook column.")

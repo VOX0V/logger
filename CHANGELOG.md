@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.18 — Work data defined by a YAML file
+
+- New file **`logger/defaults/work_db.yml`**: the work data table is now created from it. Each key `<position>_<name>` (`1_year`, `2_month`, `3_day`) is a column, with its `type` and a list of `rules`; for each row the first rule whose `when` is true (no `when` = always) and whose `value` is not empty gives the value. This version starts again from three columns: **year**, **month**, **day** (copied from the raw `year` / `month` / `day`, else extracted from `departure_local`). The other columns will be added one at a time.
+- **Expressions** in `when` / `value` are read by a small whitelisted interpreter (no `eval`): raw column names, `pilot_name`, numbers, text, `and` / `or` / `not`, `== != < <= > >=`, `+ - * /` and the functions `is_blank`, `year_of`, `month_of`, `day_of`, `is_zero_time`, `has_word`. Example: `arrival != departure and leg_time > 0.5`.
+- **`skip_rows`** (same file): rows to leave out of the work data. The two former hard-coded behaviours (0:00 block time; deadhead or not in the crew list) are now two rules of the file.
+- The work data columns are no longer written in the code: the account configuration (`<user>_logbook.yml`) is regenerated from `work_db.yml` at login and at each *Actualise data*; columns that are not in the file are removed from the work data table.
+- **Data page**: new administrator button **YML WORK DB** (Work data row, temporary name) opens the web YAML editor on this file (check without saving, save, backup and *Restore*). The edited copy is kept in `appdata/workdb/work_db.yml` and wins over the file shipped with the app.
+- The work data grid, its export and the logbook page work with real `year` / `month` / `day` columns when the table has no `date` column any more.
+- The conversion profiles (`converter/*_convert.yml`) and the converter rule catalog are no longer used by *Actualise data*; they stay in place until each column has been moved to `work_db.yml`. The `employer` column is no longer added to the work data (still in the raw data).
+- Pages that read other work data columns (breakdown, reports, audit, PDF export, the rest of the logbook layout) show empty values for the columns that do not exist yet. Existing tests about the former conversion are not adapted; no new test.
+
 ## 0.3.17 — New Aircraft and Airports tables
 
 - **Aircraft** table: `display` (name shown in the logbook), `designator` (unique key found in the raw data), `maker`, `model`, `category`, `engines`, `engine type`, `crew`, `MTOW (lb)` and `MTOW (kg)`. Several designators can share one display name (DH1 and DH3 give DHC8, CR2 and CR9 give CRJ, BCS1 and BCS3 give A220) while keeping their own rows. The conversion writes the display name in the logbook; breakdown, reports and the manual entry list the display names. The `type` column is gone.

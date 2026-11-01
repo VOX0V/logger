@@ -1,0 +1,37 @@
+# Work data definition (work_db.yml): the work data table is created from this file.
+#
+# Every key "<position>_<name>" is one column of the work data (the number gives the order).
+# For each column, "rules" are tried in order: the first rule whose "when" is true (a rule without
+# "when" always applies) and whose "value" is not empty gives the value of the column.
+#
+# Expressions ("when" and "value") can use:
+#   - the columns of the raw data by name (year, month, day, departure_local, crew_list, ...) and pilot_name
+#   - numbers, "text", true / false, and / or / not, = comparisons (==, !=, <, <=, >, >=), + - * /
+#   - functions: is_blank(x), year_of(x), month_of(x), day_of(x) (x = a date or a datetime YYYY-MM-DD...),
+#     is_zero_time(x) (a block time filled but equal to 0:00), has_word(text, word)
+# "type" is one of: integer, decimal, boolean, date, datetime, text (default: text).
+
+# Raw rows matching one of these rules are left out of the work data.
+skip_rows:
+  - name: Flights with a 0:00 block time (not operated)
+    when: is_zero_time(block_time)
+  - name: Deadhead, or flights where I am not in the crew list
+    when: not is_blank(deadhead) or (not is_blank(crew_list) and not has_word(crew_list, pilot_name))
+
+1_year:
+  type: integer
+  rules:
+    - value: year
+    - value: year_of(departure_local)
+
+2_month:
+  type: integer
+  rules:
+    - value: month
+    - value: month_of(departure_local)
+
+3_day:
+  type: integer
+  rules:
+    - value: day
+    - value: day_of(departure_local)

@@ -17,6 +17,7 @@ from . import cssafe
 from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
 from .converter.transforms import FUNCTIONS
 from .models import init_user_db
+from . import workdb
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
 
@@ -151,6 +152,19 @@ def check_convert(data):
             raise Problem(f"{r['id']} : unknown transform “{r['transform']}”.")
 
 
+def check_workdb(data):
+    try:
+        workdb.parse_spec(data)
+    except workdb.SpecError as exc:
+        raise Problem(str(exc))
+
+
+# Files shared by all accounts, editable by administrators only.
+ADMIN_FILES = {
+    "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
+}
+
+
 def converter_files():
     """Conversion profiles (<id>_convert.yml), shared by all accounts: the list comes from the folders, never from the request."""
     ids = set()
@@ -168,12 +182,17 @@ def _registry():
     """Files the current account may edit: its own YAML files, plus the converter profiles for administrators."""
     files = dict(FILES)
     if g.get("role") == "admin":
+        files.update(ADMIN_FILES)
         files.update(converter_files())
     return files
 
 
 def _write_target(key, path):
     """Where a save goes: converter profiles are saved to a writable copy in appdata (the shipped file stays untouched)."""
+    if key == "workdb":
+        folder = workdb.edited_path().parent
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / "work_db.yml"
     if key.startswith("convert_"):
         folder = edited_dir()
         folder.mkdir(parents=True, exist_ok=True)
@@ -184,7 +203,7 @@ def _write_target(key, path):
 def validate(key, text):
     """Retourne None si le contenu est valable, sinon le message d'erreur."""
     try:
-        (FILES.get(key) or converter_files()[key])[2](parse(text))
+        (FILES.get(key) or ADMIN_FILES.get(key) or converter_files()[key])[2](parse(text))
     except Problem as exc:
         return str(exc)
     return None
@@ -234,7 +253,7 @@ def editor():
                 tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(posted, encoding="utf-8")
                 os.replace(tmp, target)
-                if key in ("data", "logbook"):
+                if key in ("data", "logbook", "workdb"):
                     init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
                 log_event("config_change", target=f"yaml:{key}")
                 flash("File saved. The previous version is kept (“Restore” button).")

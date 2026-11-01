@@ -1,51 +1,30 @@
-"""Conversion of database A (users table) into database B (logbook table)
-by applying the rules the user has ticked, in catalog order.
+"""Conversion of database A (users table) into database B (logbook table).
 
-For each B column the first rule that produces a non-empty value wins."""
+Since 0.3.18 the columns of B and the way each value is obtained are defined by one YAML file,
+work_db.yml (see app/workdb.py): nothing about the columns is written in the code any more."""
 from collections import Counter
 
 from ..db import connect, logbook_connect, safe_identifier
 from ..config import load_logbook_db_config, configurable_columns
 from ..models import sync_logbook_columns, drop_unused_logbook_columns, ensure_profile_column
-from .profiles import profile_rules
-from .catalog import load_settings, pilot_name, rule_missing_columns
-from .transforms import FUNCTIONS, Skip, SkipRow, Problem, blank
+from .. import workdb
+from .catalog import pilot_name
 
 
 def refresh_logbook(config, username=None):
-    """Rebuild the logbook table. Returns {"rows": int, "warnings": [str]}."""
-    lcfg = load_logbook_db_config(username)
-    b_columns = [c["column"] for c in lcfg["database"]["columns"] if not c.get("system")]
+    """Rebuild the logbook table from work_db.yml. Returns {"rows": int, "warnings": [str]}."""
+    spec = workdb.load_spec()                      # an invalid file raises here: nothing is touched
+    workdb.apply_to_user(username)                 # the configured columns follow the file
+    b_columns = [c["column"] for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
     a_columns = [c["column"] for c in configurable_columns(config)]
-    settings = load_settings()
-    settings["pilot_name"] = pilot_name(username)
+    pilot = pilot_name(username)
     warnings = Counter()
+
+    def warn(message):
+        warnings[message] += 1
 
     conn = logbook_connect(username)
     uc = connect(username)
-    rule_sets = {}
-
-    def checked(rules, profile_id):
-        keep = []
-        for rule in rules:
-            missing = rule_missing_columns(rule, a_columns, b_columns)
-            if missing:
-                warnings[f"Rule '{rule['name']}' ({profile_id}) skipped: missing column(s) ({', '.join(missing)})"] += 0
-            else:
-                keep.append(rule)
-        return keep
-
-    def rules_for(profile_id):
-        """Conversion profile converter/<id>_convert.yml of the row's import profile; the 'default'
-        profile (plain copy) when that profile has no conversion file."""
-        if profile_id not in rule_sets:
-            found = profile_rules(profile_id)
-            if found is None and profile_id != "default":
-                warnings[f"No conversion profile for import profile '{profile_id}': default profile used"] += 0
-                found = profile_rules("default")
-            rule_sets[profile_id] = checked(found or [], profile_id)
-        return rule_sets[profile_id]
-
     try:
         ensure_profile_column(uc)
         uc.commit()
@@ -60,29 +39,14 @@ def refresh_logbook(config, username=None):
         built = []
         for row in rows:
             source = dict(row)
-            out = {}
-            skipped = False
-            for rule in rules_for(source.get("import_profile") or "default"):
-                try:
-                    result = FUNCTIONS[rule["transform"]](source, rule, settings)
-                except SkipRow:
-                    skipped = True
-                    break
-                except Skip:
-                    continue
-                except Problem as exc:
-                    warnings[str(exc)] += 1
-                    continue
-                for column, value in result.items():
-                    if not blank(value) and blank(out.get(column)):
-                        out[column] = value
-            if skipped:
+            out = workdb.convert_row(spec, source, pilot, warn)
+            if out is None:
                 ignored += 1
                 continue
             built.append((source, out))
         # chronological order whatever the import order (rows without a date last)
-        built.sort(key=lambda t: (not t[1].get("date"), str(t[1].get("date") or ""),
-                                  str(t[0].get("departure_local") or ""), t[0]["id"]))
+        built.sort(key=lambda t: (t[1].get("year") is None, t[1].get("year") or 0, t[1].get("month") or 0,
+                                  t[1].get("day") or 0, t[0]["id"]))
         if names:
             for source, out in built:
                 conn.execute(
@@ -93,8 +57,8 @@ def refresh_logbook(config, username=None):
         uc.close(); conn.close()
 
     if ignored:
-        warnings["Rows skipped (not at the controls)"] += ignored
-    messages = [msg if count == 0 else f"{msg} — {count} row(s)" for msg, count in sorted(warnings.items())]
+        warnings["Rows skipped (skip_rows in work_db.yml)"] += ignored
+    messages = [f"{msg} — {count} row(s)" for msg, count in sorted(warnings.items())]
     return {"rows": len(rows) - ignored, "warnings": messages}
 
 
