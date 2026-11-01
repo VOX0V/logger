@@ -9,6 +9,7 @@
 - **Data page**: new administrator button **YML WORK DB** (Work data row, temporary name) opens the web YAML editor on this file (check without saving, save, backup and *Restore*). The edited copy is kept in `appdata/workdb/work_db.yml` and wins over the file shipped with the app.
 - The work data grid, its export and the logbook page work with real `year` / `month` / `day` columns when the table has no `date` column any more.
 - The conversion profiles (`converter/*_convert.yml`) and the converter rule catalog are no longer used by *Actualise data*; they stay in place until each column has been moved to `work_db.yml`. The `employer` column is no longer added to the work data (still in the raw data).
+- `engine.profile_rules` is kept as an unused import because the test fixtures save and restore it.
 - Pages that read other work data columns (breakdown, reports, audit, PDF export, the rest of the logbook layout) show empty values for the columns that do not exist yet. Existing tests about the former conversion are not adapted; no new test.
 
 ## 0.3.17 — New Aircraft and Airports tables

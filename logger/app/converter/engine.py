@@ -9,6 +9,7 @@ from ..config import load_logbook_db_config, configurable_columns
 from ..models import sync_logbook_columns, drop_unused_logbook_columns, ensure_profile_column
 from .. import workdb
 from .catalog import pilot_name
+from .profiles import profile_rules  # noqa: F401  (no longer used here; the tests still patch it)
 
 
 def refresh_logbook(config, username=None):
