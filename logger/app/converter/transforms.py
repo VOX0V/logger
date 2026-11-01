@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import ephem
 
-from ..refdata import find_airport, find_aircraft_type
+from ..refdata import find_airport, find_aircraft_type, airport_display
 
 ENGINE_CHOICES = [("any", "All aircraft"), ("single", "Single-engine only"), ("multi", "Multi-engine only")]
 ROUNDING_CHOICES = [("tc", "Transport Canada rounding"), ("none", "No rounding (hours + minutes/60)")]
@@ -293,6 +293,9 @@ def format_registration(row, rule, settings):
 
 def normalize_type(row, rule, settings):
     raw = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
+    found = find_aircraft_type(raw)                   # a designator (DH1) is shown under its display name (DHC8)
+    if found is not None:
+        return {rule["outputs"]["target"]: found["display"] or found["designator"]}
     mapping = {str(k).strip().upper(): str(v).strip() for k, v in (settings.get("aircraft_types") or {}).items()}
     return {rule["outputs"]["target"]: mapping.get(raw, raw) or None}
 
@@ -302,8 +305,8 @@ def to_icao(row, rule, settings):
     if not code:
         return {rule["outputs"]["target"]: None}
     airport = find_airport(code)
-    icao = airport["icao_code"] if airport is not None and airport["icao_code"] else code
-    return {rule["outputs"]["target"]: icao}
+    shown = airport_display(airport) if airport is not None else code
+    return {rule["outputs"]["target"]: shown or code}
 
 
 CREW_PATTERN = re.compile(r"(CA|FO|CP|SO)\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+),\s*([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+)")

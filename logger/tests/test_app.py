@@ -144,7 +144,7 @@ def _aircraft_type(app, code, engines):
     """Crée un type d'appareil de test. Le filtre moteur des règles jour/nuit lit le type (colonne “type”), plus l'immatriculation."""
     with app.app_context():
         from app.refdata import save_aircraft_type
-        save_aircraft_type(None, {"code": code, "category": "airplane", "engines": engines})
+        save_aircraft_type(None, {"designator": code, "category": "airplane", "engines": engines})
 
 
 def _import_flight(client, **cols):
@@ -301,9 +301,9 @@ def test_admin_settings_and_reference_pages(client, app):
     assert 'not saved' in r.get_data(as_text=True)
     for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
-    r = client.post('/converter/aircrafts/new', data={'code': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
+    r = client.post('/converter/aircrafts/new', data={'designator': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
     rows = client.get('/converter/aircrafts/rows').get_json()['data']
-    assert any(row['code'] == 'ZZ99' for row in rows)          # the grid loads the aircraft TYPES from /rows (code in capitals)
+    assert any(row['designator'] == 'ZZ99' for row in rows)    # the grid loads the aircraft TYPES from /rows (designator in capitals)
 
 
 def test_new_account_gets_default_rules_selected(client, app):

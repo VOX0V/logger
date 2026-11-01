@@ -2,11 +2,14 @@
 {% set v = form if form else aircraft %}
 <h2>{{'Edit' if aircraft else 'New'}} aircraft type</h2>
 <form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
-<div class="field"><label>Type code (as in the logbook, e.g. RH44)</label><input name="code" value="{{v.code if v and v.code is not none else ''}}" required></div>
-<div class="field"><label>Marque</label><input name="make" value="{{v.make if v and v.make is not none else ''}}"></div>
+<div class="field"><label>Display (name shown in the logbook, e.g. DHC8)</label><input name="display" value="{{v.display if v and v.display is not none else ''}}"></div>
+<div class="field"><label>Designator (e.g. DH1)</label><input name="designator" value="{{v.designator if v and v.designator is not none else ''}}" required></div>
+<div class="field"><label>Maker</label><input name="maker" value="{{v.maker if v and v.maker is not none else ''}}"></div>
 <div class="field"><label>Model</label><input name="model" value="{{v.model if v and v.model is not none else ''}}"></div>
 <div class="field"><label>Category</label><select name="category"><option value="">-- not set --</option>{% for c, l in categories %}<option value="{{c}}" {% if v and v.category==c %}selected{% endif %}>{{l}}</option>{% endfor %}</select></div>
 <div class="field"><label>Engines</label><select name="engines"><option value="">-- not set --</option>{% for e in engines %}<option value="{{e}}" {% if v and v.engines==e %}selected{% endif %}>{{engine_labels[e]}}</option>{% endfor %}</select></div>
 <div class="field"><label>Engine type</label><select name="engine_type"><option value="">-- not set --</option>{% for c, l in engine_types %}<option value="{{c}}" {% if v and v.engine_type==c %}selected{% endif %}>{{l}}</option>{% endfor %}</select></div>
-<div class="field"><label>Notes</label><input name="notes" value="{{v.notes if v and v.notes is not none else ''}}"></div>
+<div class="field"><label>Crew</label><select name="crew"><option value="">-- not set --</option>{% for c, l in crews %}<option value="{{c}}" {% if v and v.crew==c %}selected{% endif %}>{{l}}</option>{% endfor %}</select></div>
+<div class="field"><label>MTOW (lb)</label><input name="mtow_lb" value="{{v.mtow_lb if v and v.mtow_lb is not none else ''}}"></div>
+<div class="field"><label>MTOW (kg)</label><input name="mtow_kg" value="{{v.mtow_kg if v and v.mtow_kg is not none else ''}}"></div>
 </div><p><button class="btn">Save</button> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Cancel</a></p></form>{% endblock %}

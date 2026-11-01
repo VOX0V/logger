@@ -189,10 +189,10 @@ def _int_arg(name, default=None):
 @reports_bp.route("/")
 @login_required
 def index():
-    from .refdata import list_aircraft_types
+    from .refdata import list_logbook_types
     rows = _load_rows()
     by_month = collect_flights(rows)
-    types = {text(t["code"]).upper(): text(t["code"]) for t in list_aircraft_types()}
+    types = {text(t["code"]).upper(): text(t["code"]) for t in list_logbook_types()}
     types.update({text(r.get("aircraft_type")).upper(): text(r.get("aircraft_type")).upper() for r in rows if text(r.get("aircraft_type"))})
     latest = max(by_month) if by_month else (date.today().year, date.today().month)
     return render_template("reports.html", years=sorted({a for a, _ in by_month}, reverse=True),

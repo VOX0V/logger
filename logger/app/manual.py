@@ -78,7 +78,7 @@ def _insert(row, config):
 @manual_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_flight():
-    from .refdata import list_aircraft_types
+    from .refdata import list_logbook_types
     config = load_config()
     present = {c["column"] for c in models.configurable_columns(config)}
     groups = [(title, [(c, label) for c, label in fields if c in present]) for title, fields in GROUPS]
@@ -95,4 +95,4 @@ def new_flight():
             flash("Flight added to the raw data (source “Manual entry”). Click Refresh in Work data to show it in the Logbook.")
             return redirect(url_for("main.index"))
     return render_template("flight_form.html", groups=[g for g in groups if g[1]], values=values,
-                           types=[t["code"] for t in list_aircraft_types()], today=date.today().isoformat())
+                           types=[t["code"] for t in list_logbook_types()], today=date.today().isoformat())

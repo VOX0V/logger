@@ -12,29 +12,9 @@ from .importer import _read_table, FileImportError
 ENGINES = ("single", "multi")
 ENGINE_LABELS = {"single": "Single-engine", "multi": "Multi-engine"}
 CATEGORIES = (("airplane", "Airplane"), ("helicopter", "Helicopter"), ("simulator", "Simulator"))
-ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turboprop"), ("turbine", "Turbine (helicopter)"),
-                ("turbofan", "Turbofan"))
-
-# Starting list of aircraft types (inserted once, when the table is created). To be checked by the user.
-SEED_TYPES = [
-    ("RH22", "Robinson", "R22", "helicopter", "single", "piston"),
-    ("RH44", "Robinson", "R44", "helicopter", "single", "piston"),
-    ("RH66", "Robinson", "R66", "helicopter", "single", "turbine"),
-    ("AS350", "Airbus Helicopters", "AS350 Écureuil", "helicopter", "single", "turbine"),
-    ("EC120", "Airbus Helicopters", "EC120 Colibri", "helicopter", "single", "turbine"),
-    ("B505", "Bell", "505 Jet Ranger X", "helicopter", "single", "turbine"),
-    ("BH06", "Bell", "206 JetRanger", "helicopter", "single", "turbine"),
-    ("C150", "Cessna", "150", "airplane", "single", "piston"),
-    ("C152", "Cessna", "152", "airplane", "single", "piston"),
-    ("A152", "Cessna", "A152 Aerobat", "airplane", "single", "piston"),
-    ("C172", "Cessna", "172", "airplane", "single", "piston"),
-    ("TB10", "Socata", "TB 10 Tobago", "airplane", "single", "piston"),
-    ("PA28", "Piper", "PA-28", "airplane", "single", "piston"),
-    ("PA30", "Piper", "PA-30 Twin Comanche", "airplane", "multi", "piston"),
-    ("PA31", "Piper", "PA-31 Navajo", "airplane", "multi", "piston"),
-    ("CRJ", "Bombardier", "CRJ", "airplane", "multi", "turbofan"),
-    ("SIM", None, "Simulator", "simulator", None, None),
-]
+ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turboprop"), ("turbofan", "Turbofan"), ("turboshaft", "Turboshaft"))
+CREWS = (("single", "Single-pilot"), ("multi", "Multi-crew"))
+LB_PER_KG = 2.20462262
 
 
 def _clean(value):
@@ -58,70 +38,62 @@ def _float(value, label, lo, hi, required=True):
 
 # ---------------- airports ----------------
 
+def _drop_if_old(conn, table, new_column):
+    """Reference tables with the previous layout are rebuilt (their content comes back from the default files)."""
+    columns = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if columns and new_column not in columns:
+        conn.execute(f"DROP TABLE {table}")
+
+
+def _load_default(name, importer):
+    source = Path(current_app.root_path).parent / "defaults" / name
+    if source.exists():
+        importer(name, source.read_bytes())
+
+
 def init_airport_db():
     conn = airport_connect()
+    _drop_if_old(conn, "airports", "company_code")
     conn.execute("""CREATE TABLE IF NOT EXISTS airports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        display TEXT,
         icao_code TEXT UNIQUE,
         iata_code TEXT UNIQUE,
+        company_code TEXT UNIQUE,
         full_name TEXT,
         country TEXT,
         latitude REAL NOT NULL,
-        longitude REAL NOT NULL,
-        elevation REAL,
-        timezone TEXT,
-        notes TEXT
+        longitude REAL NOT NULL
     )""")
     empty = conn.execute("SELECT COUNT(*) FROM airports").fetchone()[0] == 0
     conn.commit(); conn.close()
     if empty:
-        _import_default_airports()
+        _load_default("airports.xlsx", import_airports)
 
 
-def _import_default_airports():
-    source = Path(current_app.root_path).parent / "defaults" / "airports.xlsx"
-    if not source.exists():
-        return
-    wb = load_workbook(source, read_only=True, data_only=True)
-    ws = wb["airports"] if "airports" in wb.sheetnames else wb.active
-    rows = list(ws.iter_rows(values_only=True))
-    wb.close()
-    if not rows:
-        return
-    header = [str(h or "").strip() for h in rows[0]]
-    conn = airport_connect()
-    for row in rows[1:]:
-        d = dict(zip(header, row))
-        try:
-            lat = _float(d.get("latitude"), "Latitude", -90, 90)
-            lon = _float(d.get("longitude"), "Longitude", -180, 180)
-        except ValueError:
-            continue
-        icao, iata = _clean(d.get("icao_code")), _clean(d.get("iata_code"))
-        if not (icao or iata):
-            continue
-        conn.execute(
-            "INSERT OR IGNORE INTO airports (icao_code, iata_code, full_name, country, latitude, longitude, elevation, timezone, notes) VALUES (?,?,?,?,?,?,?,?,?)",
-            (icao.upper() if icao else None, iata.upper() if iata else None, _clean(d.get("full_name")), _clean(d.get("country")),
-             lat, lon, _float(d.get("elevation"), "Altitude", -1000, 20000, required=False), _clean(d.get("timezone")), _clean(d.get("notes"))))
-    conn.commit(); conn.close()
+def airport_display(airport):
+    """Name shown in the logbook: the display column, else the ICAO, IATA or company code."""
+    return (airport["display"] or airport["icao_code"] or airport["iata_code"] or airport["company_code"] or "").strip()
 
 
 def find_airport(code):
-    """Look an airport up by IATA code first, then ICAO. Returns a Row or None."""
+    """Look an airport up by IATA code first, then ICAO, then company code. Returns a Row or None."""
     code = (code or "").strip().upper()
     if not code:
         return None
     conn = airport_connect()
-    row = conn.execute("SELECT * FROM airports WHERE iata_code=?", (code,)).fetchone() \
-        or conn.execute("SELECT * FROM airports WHERE icao_code=?", (code,)).fetchone()
+    row = None
+    for column in ("iata_code", "icao_code", "company_code"):
+        row = conn.execute(f"SELECT * FROM airports WHERE {column}=?", (code,)).fetchone()
+        if row:
+            break
     conn.close()
     return row
 
 
 def list_airports():
     conn = airport_connect()
-    rows = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code)").fetchall()
+    rows = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, company_code)").fetchall()
     conn.close(); return rows
 
 
@@ -134,24 +106,23 @@ def get_airport(airport_id):
 def save_airport(airport_id, form):
     icao = (_clean(form.get("icao_code")) or "").upper() or None
     iata = (_clean(form.get("iata_code")) or "").upper() or None
-    if not (icao or iata):
-        raise ValueError("An ICAO or IATA code is required.")
+    company = (_clean(form.get("company_code")) or "").upper() or None
+    if not (icao or iata or company):
+        raise ValueError("An ICAO, IATA or company code is required.")
     lat = _float(form.get("latitude"), "Latitude", -90, 90)
     lon = _float(form.get("longitude"), "Longitude", -180, 180)
-    elev = _float(form.get("elevation"), "Altitude", -1000, 20000, required=False)
-    values = (icao, iata, _clean(form.get("full_name")), _clean(form.get("country")), lat, lon, elev,
-              _clean(form.get("timezone")), _clean(form.get("notes")))
+    values = (_clean(form.get("display")), icao, iata, company, _clean(form.get("full_name")), _clean(form.get("country")), lat, lon)
     conn = airport_connect()
     try:
         if airport_id:
-            conn.execute("UPDATE airports SET icao_code=?, iata_code=?, full_name=?, country=?, latitude=?, longitude=?, elevation=?, timezone=?, notes=? WHERE id=?", values + (airport_id,))
+            conn.execute("UPDATE airports SET display=?, icao_code=?, iata_code=?, company_code=?, full_name=?, country=?, latitude=?, longitude=? WHERE id=?", values + (airport_id,))
         else:
-            conn.execute("INSERT INTO airports (icao_code, iata_code, full_name, country, latitude, longitude, elevation, timezone, notes) VALUES (?,?,?,?,?,?,?,?,?)", values)
+            conn.execute("INSERT INTO airports (display, icao_code, iata_code, company_code, full_name, country, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", values)
         conn.commit()
     except Exception as exc:
         conn.rollback()
         if "UNIQUE" in str(exc):
-            raise ValueError("This ICAO or IATA code already exists.")
+            raise ValueError("This ICAO, IATA or company code already exists.")
         raise
     finally:
         conn.close()
@@ -180,21 +151,24 @@ def init_aircrafts_db():
         engine TEXT CHECK (engine IN ('single','multi')),
         notes TEXT
     )""")   # legacy table by registration: kept as is, no longer used
+    _drop_if_old(conn, "aircraft_types", "designator")
     existed = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='aircraft_types'").fetchone()
     conn.execute("""CREATE TABLE IF NOT EXISTS aircraft_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT NOT NULL UNIQUE,
-        make TEXT,
+        display TEXT,
+        designator TEXT NOT NULL UNIQUE,
+        maker TEXT,
         model TEXT,
         category TEXT CHECK (category IN ('airplane','helicopter','simulator')),
         engines TEXT CHECK (engines IN ('single','multi')),
         engine_type TEXT,
-        notes TEXT
+        crew TEXT CHECK (crew IN ('single','multi')),
+        mtow_lb REAL,
+        mtow_kg REAL
     )""")
-    if not existed:
-        conn.executemany("INSERT INTO aircraft_types (code, make, model, category, engines, engine_type) VALUES (?,?,?,?,?,?)",
-                         SEED_TYPES)
     conn.commit(); conn.close()
+    if not existed:
+        _load_default("aircrafts.xlsx", import_aircraft_types)
 
 
 def find_aircraft(registration):
@@ -251,18 +225,32 @@ def delete_aircraft(aircraft_id):
 # ---------------- aircraft types (global: one row per type, never per registration) ----------------
 
 def find_aircraft_type(code):
+    """Aircraft type by designator (DH1, CR9, C172...), else by display name (DHC8, CRJ: the first row that has it)."""
     code = (code or "").strip().upper()
     if not code:
         return None
     conn = aircrafts_connect()
-    row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(code)=?", (code,)).fetchone()
+    row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(designator)=?", (code,)).fetchone() \
+        or conn.execute("SELECT * FROM aircraft_types WHERE UPPER(display)=? ORDER BY id LIMIT 1", (code,)).fetchone()
     conn.close(); return row
 
 
 def list_aircraft_types():
     conn = aircrafts_connect()
-    rows = conn.execute("SELECT * FROM aircraft_types ORDER BY category, code").fetchall()
+    rows = conn.execute("SELECT * FROM aircraft_types ORDER BY category, designator").fetchall()
     conn.close(); return rows
+
+
+def list_logbook_types():
+    """One entry per logbook name (display); its 'code' is that name. DH1 and DH3 both give DHC8, CR2 and CR9 give CRJ."""
+    seen = {}
+    for row in list_aircraft_types():
+        name = (row["display"] or row["designator"]).strip()
+        if name.upper() not in seen:
+            entry = dict(row)
+            entry["code"] = name
+            seen[name.upper()] = entry
+    return list(seen.values())
 
 
 def get_aircraft_type(type_id):
@@ -271,30 +259,61 @@ def get_aircraft_type(type_id):
     conn.close(); return row
 
 
+def _choice(value, pairs, label):
+    text = _clean(value)
+    if text is None:
+        return None
+    key = _code_for(text, pairs)
+    if key is None:
+        raise ValueError(f"Invalid {label}.")
+    return key
+
+
+def _weight(value, label):
+    text = _clean(value)
+    if text is None:
+        return None
+    try:
+        number = float(text.replace(",", "."))
+    except ValueError:
+        raise ValueError(f"{label} invalid.")
+    if number <= 0:
+        raise ValueError(f"{label} must be positive.")
+    return number
+
+
+def _fill_mtow(lb, kg):
+    """Both weights are entered by hand; only an empty one is calculated from the other."""
+    if lb is None and kg is not None:
+        lb = float(round(kg * LB_PER_KG))
+    if kg is None and lb is not None:
+        kg = float(round(lb / LB_PER_KG))
+    return lb, kg
+
+
 def save_aircraft_type(type_id, form):
-    code = (_clean(form.get("code")) or "").upper()
-    if not code:
-        raise ValueError("Type code required.")
-    category, engines, engine_type = _clean(form.get("category")), _clean(form.get("engines")), _clean(form.get("engine_type"))
-    if category not in (None,) + tuple(c for c, _ in CATEGORIES):
-        raise ValueError("Invalid category.")
-    if engines not in (None,) + ENGINES:
-        raise ValueError("Invalid number of engines.")
-    if engine_type not in (None,) + tuple(c for c, _ in ENGINE_TYPES):
-        raise ValueError("Invalid engine type.")
-    values = (code, _clean(form.get("make")), _clean(form.get("model")), category, engines, engine_type, _clean(form.get("notes")))
+    designator = (_clean(form.get("designator")) or "").upper()
+    if not designator:
+        raise ValueError("Designator required.")
+    category = _choice(form.get("category"), CATEGORIES, "category")
+    engines = _choice(form.get("engines"), tuple(ENGINE_LABELS.items()), "number of engines")
+    engine_type = _choice(form.get("engine_type"), ENGINE_TYPES, "engine type")
+    crew = _choice(form.get("crew"), CREWS, "crew")
+    lb, kg = _fill_mtow(_weight(form.get("mtow_lb"), "MTOW (lb)"), _weight(form.get("mtow_kg"), "MTOW (kg)"))
+    values = (_clean(form.get("display")) or designator, designator, _clean(form.get("maker")), _clean(form.get("model")),
+              category, engines, engine_type, crew, lb, kg)
     conn = aircrafts_connect()
     try:
         if type_id:
-            conn.execute("UPDATE aircraft_types SET code=?, make=?, model=?, category=?, engines=?, engine_type=?, notes=? WHERE id=?",
+            conn.execute("UPDATE aircraft_types SET display=?, designator=?, maker=?, model=?, category=?, engines=?, engine_type=?, crew=?, mtow_lb=?, mtow_kg=? WHERE id=?",
                          values + (type_id,))
         else:
-            conn.execute("INSERT INTO aircraft_types (code, make, model, category, engines, engine_type, notes) VALUES (?,?,?,?,?,?,?)", values)
+            conn.execute("INSERT INTO aircraft_types (display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg) VALUES (?,?,?,?,?,?,?,?,?,?)", values)
         conn.commit()
     except Exception as exc:
         conn.rollback()
         if "UNIQUE" in str(exc):
-            raise ValueError("This type already exists.")
+            raise ValueError("This designator already exists.")
         raise
     finally:
         conn.close()
@@ -333,35 +352,30 @@ def _xlsx(sheet, headers, rows):
 
 
 def export_aircraft_types_xlsx():
-    categories, engine_types = dict(CATEGORIES), dict(ENGINE_TYPES)
-    rows = [(t["code"], t["make"], t["model"], categories.get(t["category"], ""), ENGINE_LABELS.get(t["engines"], ""),
-             engine_types.get(t["engine_type"], ""), t["notes"]) for t in list_aircraft_types()]
-    return _xlsx("Aircraft types", ["Code", "Marque", "Model", "Category", "Engines", "Engine type", "Notes"], rows)
+    categories, engine_types, crews = dict(CATEGORIES), dict(ENGINE_TYPES), dict(CREWS)
+    rows = [(t["display"], t["designator"], t["maker"], t["model"], categories.get(t["category"], ""), ENGINE_LABELS.get(t["engines"], ""),
+             engine_types.get(t["engine_type"], ""), crews.get(t["crew"], ""), t["mtow_lb"], t["mtow_kg"]) for t in list_aircraft_types()]
+    return _xlsx("Aircraft", ["display", "designator", "maker", "model", "Category", "Engines", "Engine type", "crew", "MTOWlb", "MTOWkg"], rows)
 
 
 def export_airports_xlsx():
-    labels = {"icao_code": "ICAO", "iata_code": "IATA", "full_name": "Name", "country": "Pays",
-              "latitude": "Latitude", "longitude": "Longitude"}
     conn = airport_connect()
-    cursor = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, '')")
-    columns = [d[0] for d in cursor.description]
-    keep = [c for c in columns if c != "id"]
-    rows = [tuple(r[c] for c in keep) for r in cursor.fetchall()]
+    rows = [(r["display"], r["icao_code"], r["iata_code"], r["company_code"], r["full_name"], r["country"], r["latitude"], r["longitude"])
+            for r in conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, company_code, '')")]
     conn.close()
-    return _xlsx("Airports", [labels.get(c, c) for c in keep], rows)
+    return _xlsx("Airports", ["display", "ICAO", "IATA", "company", "name", "country", "latitude", "longitude"], rows)
 
 
 # ---------------- Excel import ----------------
 
 AIRPORT_COLUMNS = {
-    "icao_code": ("icao", "icao_code"), "iata_code": ("iata", "iata_code"),
-    "full_name": ("name", "full_name", "name"), "country": ("pays", "country"),
-    "latitude": ("latitude", "lat"), "longitude": ("longitude", "lon", "lng"),
-    "elevation": ("elevation", "altitude"), "timezone": ("timezone", "fuseau horaire"), "notes": ("notes",)}
+    "display": ("display",), "icao_code": ("icao", "icao_code"), "iata_code": ("iata", "iata_code"),
+    "company_code": ("company", "company code", "company_code"), "full_name": ("name", "full_name"),
+    "country": ("country", "pays"), "latitude": ("latitude", "lat"), "longitude": ("longitude", "lon", "lng")}
 AIRCRAFT_COLUMNS = {
-    "code": ("code", "type"), "make": ("marque", "make"), "model": ("modele", "model"),
-    "category": ("categorie", "category"), "engines": ("engines", "engines"),
-    "engine_type": ("engine type", "engine_type"), "notes": ("notes",)}
+    "display": ("display",), "designator": ("designator", "code"), "maker": ("maker", "make", "marque"),
+    "model": ("model", "modele"), "category": ("category", "categorie"), "engines": ("engines",),
+    "engine_type": ("engine type", "engine_type"), "crew": ("crew",), "mtow_lb": ("mtowlb", "mtow lb"), "mtow_kg": ("mtowkg", "mtow kg")}
 
 
 def _hdr(value):
@@ -394,27 +408,31 @@ def _code_for(value, pairs):
 
 def import_airports(filename, data):
     rows, present = _file_rows(filename, data, AIRPORT_COLUMNS)
-    if not ({"icao_code", "iata_code"} & present):
-        raise FileImportError("ICAO or IATA column not found in the file.")
+    if not ({"icao_code", "iata_code", "company_code"} & present):
+        raise FileImportError("ICAO, IATA or company column not found in the file.")
     added = updated = skipped = 0
     conn = airport_connect()
     try:
         for d in rows:
             icao = d.get("icao_code", "").upper() or None
             iata = d.get("iata_code", "").upper() or None
-            if not (icao or iata):
+            company = d.get("company_code", "").upper() or None
+            if not (icao or iata or company):
                 skipped += 1; continue
             try:
                 lat = _float(d.get("latitude"), "Latitude", -90, 90, required=False)
                 lon = _float(d.get("longitude"), "Longitude", -180, 180, required=False)
-                elev = _float(d.get("elevation"), "Altitude", -1000, 20000, required=False)
             except ValueError:
                 skipped += 1; continue
-            new = {"icao_code": icao, "iata_code": iata, "full_name": d.get("full_name"), "country": d.get("country"),
-                   "latitude": lat, "longitude": lon, "elevation": elev, "timezone": d.get("timezone"), "notes": d.get("notes")}
+            display = d.get("display")
+            if display and display.startswith("="):          # a formula that was not calculated: ignore it
+                display = None
+            new = {"display": display, "icao_code": icao, "iata_code": iata, "company_code": company,
+                   "full_name": d.get("full_name"), "country": d.get("country"), "latitude": lat, "longitude": lon}
             hits = [r for r in (
                 conn.execute("SELECT * FROM airports WHERE icao_code=?", (icao,)).fetchone() if icao else None,
-                conn.execute("SELECT * FROM airports WHERE iata_code=?", (iata,)).fetchone() if iata else None) if r]
+                conn.execute("SELECT * FROM airports WHERE iata_code=?", (iata,)).fetchone() if iata else None,
+                conn.execute("SELECT * FROM airports WHERE company_code=?", (company,)).fetchone() if company else None) if r]
             if len({r["id"] for r in hits}) > 1:
                 skipped += 1; continue
             try:
@@ -439,20 +457,25 @@ def import_airports(filename, data):
 
 def import_aircraft_types(filename, data):
     rows, present = _file_rows(filename, data, AIRCRAFT_COLUMNS)
-    if "code" not in present:
-        raise FileImportError("Column “Code” not found in the file.")
+    if "designator" not in present:
+        raise FileImportError("Column “designator” not found in the file.")
     added = updated = skipped = 0
     conn = aircrafts_connect()
     try:
         for d in rows:
-            code = d.get("code", "").upper()
+            code = d.get("designator", "").upper()
             if not code:
                 skipped += 1; continue
-            new = {"code": code, "make": d.get("make"), "model": d.get("model"),
+            try:
+                lb, kg = _fill_mtow(_weight(d.get("mtow_lb"), "MTOW (lb)"), _weight(d.get("mtow_kg"), "MTOW (kg)"))
+            except ValueError:
+                lb = kg = None
+            new = {"display": d.get("display") or code, "designator": code, "maker": d.get("maker"), "model": d.get("model"),
                    "category": _code_for(d.get("category"), CATEGORIES),
                    "engines": _code_for(d.get("engines"), tuple(ENGINE_LABELS.items())),
-                   "engine_type": _code_for(d.get("engine_type"), ENGINE_TYPES), "notes": d.get("notes")}
-            row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(code)=?", (code,)).fetchone()
+                   "engine_type": _code_for(d.get("engine_type"), ENGINE_TYPES),
+                   "crew": _code_for(d.get("crew"), CREWS), "mtow_lb": lb, "mtow_kg": kg}
+            row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(designator)=?", (code,)).fetchone()
             try:
                 if row:
                     gaps = {k: v for k, v in new.items() if v is not None and row[k] in (None, "")}

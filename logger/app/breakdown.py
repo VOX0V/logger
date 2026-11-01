@@ -38,7 +38,7 @@ COLS = (
 SECTIONS = list(dict.fromkeys(c[0] for c in COLS))
 AIRCRAFT_COLS = [c[3] for c in COLS if c[0] in ("SINGLE-ENGINE", "MULTI-ENGINE")]   # TOTAL = single + multi engine hours
 CATEGORY_ORDER = {"helicopter": 0, "airplane": 1, "simulator": 2}
-TURBINE_TYPES = {"turbine", "turbofan", "turboprop"}
+TURBINE_TYPES = {"turbine", "turbofan", "turboprop", "turboshaft"}
 
 TITLE = "FLIGHT TIME BREAKDOWN"
 RAC_TITLE = "RAC 401.08 - Personal Logs"
@@ -340,7 +340,7 @@ def _quals():
 
 def _context():
     from .converter import catalog
-    from .refdata import list_aircraft_types
+    from .refdata import list_logbook_types
     cfg = load_breakdown()
     try:
         conn = logbook_connect()
@@ -353,7 +353,7 @@ def _context():
         email = g.user["email"]
     except (KeyError, IndexError, TypeError):
         email = ""
-    types = [dict(t) for t in list_aircraft_types()]
+    types = list_logbook_types()
     rep = build_report(rows, types, catalog.load_profile(g.username), email, _quals(), cfg["rows"])
     return cfg, rep, types
 
@@ -377,9 +377,9 @@ def index():
 @breakdown_bp.route("/rows", methods=["POST"])
 @login_required
 def save_rows():
-    from .refdata import list_aircraft_types
+    from .refdata import list_logbook_types
     cfg = load_breakdown()
-    allowed = {t["code"].upper(): t["code"] for t in list_aircraft_types()}
+    allowed = {t["code"].upper(): t["code"] for t in list_logbook_types()}
     chosen = [allowed.get(request.form.get(f"row_{i}", "").strip().upper(), "") for i in range(len(cfg["rows"]))]
     dup = sorted({c for c in chosen if c and chosen.count(c) > 1})
     if dup:

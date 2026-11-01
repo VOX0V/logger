@@ -9,7 +9,7 @@ from ..db import airport_connect, aircrafts_connect
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
                        list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
-    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, export_aircraft_types_xlsx, export_airports_xlsx,
+    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, CREWS, export_aircraft_types_xlsx, export_airports_xlsx,
     import_airports, import_aircraft_types, clear_airports, clear_aircraft_types)
 from ..importer import FileImportError
 from . import catalog
@@ -152,15 +152,14 @@ def rule_delete(rule_id):
 
 # ---------------- airports (admin) ----------------
 
-AIRPORT_FIELDS = ("icao_code", "iata_code", "full_name", "country", "latitude", "longitude", "elevation", "timezone", "notes")
+AIRPORT_FIELDS = ("display", "icao_code", "iata_code", "company_code", "full_name", "country", "latitude", "longitude")
 AIRPORT_COLUMNS = [
-    {"field": "icao_code", "title": "ICAO", "width": 90}, {"field": "iata_code", "title": "IATA", "width": 80},
-    {"field": "full_name", "title": "Name", "width": 260}, {"field": "country", "title": "Country", "width": 110},
+    {"field": "display", "title": "Display", "width": 150}, {"field": "icao_code", "title": "ICAO", "width": 90},
+    {"field": "iata_code", "title": "IATA", "width": 80}, {"field": "company_code", "title": "Company code", "width": 120},
+    {"field": "full_name", "title": "Name", "width": 280}, {"field": "country", "title": "Country", "width": 120},
     {"field": "latitude", "title": "Latitude", "width": 110, "sorter": "number"},
-    {"field": "longitude", "title": "Longitude", "width": 110, "sorter": "number"},
-    {"field": "elevation", "title": "Elevation", "width": 100, "sorter": "number"},
-    {"field": "timezone", "title": "Time zone", "width": 160}, {"field": "notes", "title": "Notes", "width": 220}]
-AIRCRAFT_FIELDS = ("code", "make", "model", "category", "engines", "engine_type", "notes")
+    {"field": "longitude", "title": "Longitude", "width": 110, "sorter": "number"}]
+AIRCRAFT_FIELDS = ("display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "mtow_lb", "mtow_kg")
 
 
 def _lookup(field, title, labels, width):
@@ -169,10 +168,12 @@ def _lookup(field, title, labels, width):
 
 
 AIRCRAFT_COLUMNS = [
-    {"field": "code", "title": "Code", "width": 90}, {"field": "make", "title": "Make", "width": 170},
-    {"field": "model", "title": "Model", "width": 170}, _lookup("category", "Category", CATEGORIES, 130),
-    _lookup("engines", "Engines", ENGINE_LABELS, 140), _lookup("engine_type", "Engine type", ENGINE_TYPES, 150),
-    {"field": "notes", "title": "Notes", "width": 220}]
+    {"field": "display", "title": "Display", "width": 110}, {"field": "designator", "title": "Designator", "width": 110},
+    {"field": "maker", "title": "Maker", "width": 170}, {"field": "model", "title": "Model", "width": 170},
+    _lookup("category", "Category", CATEGORIES, 120), _lookup("engines", "Engines", ENGINE_LABELS, 130),
+    _lookup("engine_type", "Engine type", ENGINE_TYPES, 130), _lookup("crew", "Crew", CREWS, 120),
+    {"field": "mtow_lb", "title": "MTOW (lb)", "width": 110, "sorter": "number"},
+    {"field": "mtow_kg", "title": "MTOW (kg)", "width": 110, "sorter": "number"}]
 
 
 def _ids():
@@ -236,7 +237,7 @@ def _fields(columns):
 @admin_required
 def airports():
     return render_template("refdata_grid.html", title="Airports", columns=AIRPORT_COLUMNS, add_fields=_fields(AIRPORT_COLUMNS),
-                           note="The arrival code of flights is looked up in IATA first, then in ICAO.",
+                           note="A code is looked up in IATA first, then ICAO, then company code. The logbook shows the display name, or the ICAO code when it is empty.",
                            rows_url=url_for("converter.airports_rows"), cell_url=url_for("converter.airports_cell"),
                            add_url=url_for("converter.airports_add"), delete_url=url_for("converter.airports_delete"),
                            export_url=url_for("converter.airports_export"))
@@ -302,7 +303,8 @@ def airport_delete(airport_id):
 @admin_required
 def aircrafts():
     return render_template("refdata_grid.html", title="Aircraft", columns=AIRCRAFT_COLUMNS, add_fields=_fields(AIRCRAFT_COLUMNS),
-                           note="The flight is linked to its type by the “type” column (CRJ9, CRJ7 and CRJ2 are reduced to CRJ). "
+                           note="The flight is linked to its type by the designator (DH1, CR9...); the logbook shows the display name (DHC8, CRJ...), "
+                                "which several designators can share. Both MTOW values are official data, entered by hand. "
                                 "The number of engines is used by the day/night rules, and the audit checks the types against this table.",
                            rows_url=url_for("converter.aircrafts_rows"), cell_url=url_for("converter.aircrafts_cell"),
                            add_url=url_for("converter.aircrafts_add"), delete_url=url_for("converter.aircrafts_delete"),
@@ -352,7 +354,7 @@ def aircraft_form(aircraft_id=None):
         except ValueError as exc:
             flash(str(exc))
     return render_template("aircraft_form.html", aircraft=aircraft, engines=ENGINES, categories=CATEGORIES,
-                           engine_types=ENGINE_TYPES, engine_labels=ENGINE_LABELS,
+                           engine_types=ENGINE_TYPES, engine_labels=ENGINE_LABELS, crews=CREWS,
                            form=request.form if request.method == "POST" else None)
 
 

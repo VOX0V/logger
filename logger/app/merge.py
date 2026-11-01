@@ -76,6 +76,12 @@ def hours(rec):
 def merge_context():
     from .converter.catalog import load_settings
     mapping = {str(k).strip().upper(): str(v).strip().upper() for k, v in (load_settings().get("aircraft_types") or {}).items()}
+    try:
+        from .refdata import list_aircraft_types
+        for t in list_aircraft_types():
+            mapping.setdefault(t["designator"].strip().upper(), (t["display"] or t["designator"]).strip().upper())
+    except Exception:
+        pass
     return {"types": mapping, "airports": {}}
 
 
@@ -86,7 +92,7 @@ def canon_airport(v, ctx):
     if code not in ctx["airports"]:
         from .refdata import find_airport
         airport = find_airport(code)
-        ctx["airports"][code] = (airport["icao_code"] if airport is not None and airport["icao_code"] else code)
+        ctx["airports"][code] = (airport["icao_code"] or airport["company_code"] or code) if airport is not None else code
     return ctx["airports"][code]
 
 

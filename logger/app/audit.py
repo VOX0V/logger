@@ -63,21 +63,32 @@ def is_empty_line(r):
 
 
 def airport_codes():
-    """ICAO codes of the Airports table (global database); None when the table is not available."""
+    """Every code of the Airports table (ICAO, IATA, company code, display); None when the table is not available."""
     try:
         from .refdata import list_airports
-        return {text(a["icao_code"]).strip().upper() for a in list_airports() if a["icao_code"]}
+        return {text(a[c]).strip().upper() for a in list_airports() for c in ("icao_code", "iata_code", "company_code", "display") if a[c]}
     except Exception:
         return None
 
 
 def aircraft_codes():
-    """Type codes of the Aircrafts table (global database); None when the table is not available."""
+    """Designators and display names of the Aircraft table (global database); None when the table is not available."""
     try:
         from .refdata import list_aircraft_types
-        return {text(t["code"]).strip().upper() for t in list_aircraft_types() if t["code"]}
+        return {text(t[c]).strip().upper() for t in list_aircraft_types() for c in ("designator", "display") if t[c]}
     except Exception:
         return None
+
+
+def mtow_mismatches(tolerance=0.01):
+    """Aircraft whose MTOW in lb and in kg do not agree (both are entered by hand and must be official values)."""
+    try:
+        from .refdata import list_aircraft_types, LB_PER_KG
+        rows = list_aircraft_types()
+    except Exception:
+        return []
+    return [f"{t['designator']} : {t['mtow_lb']:g} lb is {t['mtow_lb'] / LB_PER_KG:.0f} kg, the table says {t['mtow_kg']:g} kg"
+            for t in rows if t["mtow_lb"] and t["mtow_kg"] and abs(t["mtow_lb"] / LB_PER_KG - t["mtow_kg"]) > tolerance * t["mtow_kg"]]
 
 
 def check_row(r, today, icao=None, types=None):
@@ -136,7 +147,7 @@ def check_row(r, today, icao=None, types=None):
         add("ANOMALY", "Empty registration", "flight with time but no registration")
 
     for field, v in (("departure", dep), ("arrival", arr)):
-        if len(v) == 3:
+        if len(v) == 3 and not (icao is not None and v.upper() in icao):
             add("ANOMALY", "Suspicious aerodrome format", f"{field} : “{v} ” (4-character ICAO code expected, e.g. KBNA)")
         elif len(v) == 4 and icao is not None and v.upper() not in icao:
             add("ANOMALY", "Unknown aerodrome", f"{field} : “{v} ” missing from the Airports table")
@@ -227,6 +238,8 @@ def run_checks(rows, today=None):
             findings.append({"sev": sev, "cat": cat, "date": text(r.get("date"))[:10], "label": label, "msg": msg})
     for sev, cat, msg in check_global(rows):
         findings.append({"sev": sev, "cat": cat, "date": "", "label": "several rows", "msg": msg})
+    for msg in mtow_mismatches():
+        findings.append({"sev": "ANOMALY", "cat": "MTOW differs between lb and kg", "date": "", "label": "Aircraft table", "msg": msg})
     return findings
 
 

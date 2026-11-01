@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.17 — New Aircraft and Airports tables
+
+- **Aircraft** table: `display` (name shown in the logbook), `designator` (unique key found in the raw data), `maker`, `model`, `category`, `engines`, `engine type`, `crew`, `MTOW (lb)` and `MTOW (kg)`. Several designators can share one display name (DH1 and DH3 give DHC8, CR2 and CR9 give CRJ, BCS1 and BCS3 give A220) while keeping their own rows. The conversion writes the display name in the logbook; breakdown, reports and the manual entry list the display names. The `type` column is gone.
+- Both MTOW values are official data entered by hand (an empty one is calculated from the other); the audit reports an aircraft whose two values differ by more than 1 %.
+- **Airports** table: `display` (shown in the logbook, the ICAO code when empty), `ICAO`, `IATA`, `company code` (identifier of a third-party company, e.g. MHS), `name`, `country`, `latitude`, `longitude`. A code is looked up by IATA, then ICAO, then company code. `timezone`, `elevation` and `notes` are gone (the day/night calculation only needs the UTC time and the position).
+- The default data come from the two Excel files supplied by the user; exports use the same headers, so an export can be imported back. A reference table that still has the previous layout is rebuilt from the default files.
+- The audit accepts any code of the Airports table (ICAO, IATA, company code, display) and any designator or display name of the Aircraft table.
+- Existing tests adapted to the new column names; no new test.
+
 ## 0.3.16 — Editable tables, audit on the global tables, no more groups
 
 - **Audit**: the aircraft types are checked against the global **Aircraft** table (the hard-coded list is gone), like the airports were already checked against the **Airports** table.
