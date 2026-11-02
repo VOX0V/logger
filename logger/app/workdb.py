@@ -160,6 +160,25 @@ def _round(v, digits):
     return None if x is None or n is None else round(x, int(n))
 
 
+# ---- flight time in decimal hours (Transport Canada table)
+def _tc_rules():
+    if ("tc",) not in _cache:
+        from .converter.catalog import load_settings
+        _cache[("tc",)] = load_settings()["tc_rounding"]["rules"]     # Table 4.1 of Transport Canada, from the converter settings
+    return _cache[("tc",)]
+
+
+def _tc_hours(v):
+    """Decimal hours: H:MM[:SS] is converted with the Transport Canada table (1:35 -> 1.6); a number is kept (1,6 -> 1.6).
+    Empty, zero or unreadable values give nothing, so that the next rule can apply."""
+    from .converter.transforms import parse_block, block_to_decimal, Problem
+    try:
+        parsed = parse_block(v)
+    except Problem:
+        return None
+    return None if parsed is None else block_to_decimal(parsed, "tc", _tc_rules())
+
+
 # ---- sun
 def _utc_datetime(year, month, day, time_utc, earlier_time):
     """2026-09-27T10:05 from year, month, day and a UTC time (HH:MM). When earlier_time is given and the time is
@@ -302,6 +321,7 @@ FUNCS = {
     "minutes": _minutes,
     "distance_nm": _distance_nm,
     "round": _round,
+    "tc_hours": _tc_hours,
     "utc_datetime": _utc_datetime,
     "sun_angle": _sun_angle,
     "is_pilot_format": _is_pilot_format,
@@ -312,7 +332,7 @@ FUNCS = {
     "airport": _airport,
 }
 _ARITY = {"is_blank": 1, "year_of": 1, "month_of": 1, "day_of": 1, "is_zero_time": 1, "has_word": 2, "time_of": 1,
-          "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "utc_datetime": 5, "sun_angle": 3, "is_pilot_format": 1,
+          "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "tc_hours": 1, "utc_datetime": 5, "sun_angle": 3, "is_pilot_format": 1,
           "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "airport": 2}
 _CMP = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
 _ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div)
