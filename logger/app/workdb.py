@@ -160,6 +160,36 @@ def _round(v, digits):
     return None if x is None or n is None else round(x, int(n))
 
 
+# ---- sun
+def _utc_datetime(year, month, day, time_utc, earlier_time):
+    """2026-09-27T10:05 from year, month, day and a UTC time (HH:MM). When earlier_time is given and the time is
+    before it, the time belongs to the next day (an arrival after midnight UTC)."""
+    y, mo, d = _to_float(year), _to_float(month), _to_float(day)
+    t = _minutes(time_utc)
+    if y is None or mo is None or d is None or t is None:
+        return None
+    try:
+        base = datetime.datetime(int(y), int(mo), int(d))
+    except ValueError:
+        return None
+    ref = _minutes(earlier_time)
+    days = 1 if ref is not None and t < ref else 0
+    return (base + datetime.timedelta(days=days, minutes=t)).strftime("%Y-%m-%dT%H:%M")
+
+
+def _sun_angle(lat, lon, when_utc):
+    """Geometric angle of the centre of the sun above the horizon, in degrees (0 = horizon, -6 = end of civil twilight)."""
+    la, lo, dt = _to_float(lat), _to_float(lon), _to_dt(when_utc)
+    if la is None or lo is None or dt is None:
+        return None
+    import ephem
+    observer = ephem.Observer()
+    observer.lat, observer.lon, observer.elevation = str(la), str(lo), 0
+    observer.pressure = 0                      # no refraction: the geometric angle
+    observer.date = dt
+    return math.degrees(ephem.Sun(observer).alt)
+
+
 # ---- people (format P.Nom)
 _LETTER_DOT = re.compile(r"[^\W\d_]\.\S")
 _CREW = re.compile(r"(CA|FO|CP|SO)\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+),\s*([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ-]+)")
@@ -272,6 +302,8 @@ FUNCS = {
     "minutes": _minutes,
     "distance_nm": _distance_nm,
     "round": _round,
+    "utc_datetime": _utc_datetime,
+    "sun_angle": _sun_angle,
     "is_pilot_format": _is_pilot_format,
     "pilot_format": _pilot_format,
     "crew_captain": _crew_captain,
@@ -280,7 +312,7 @@ FUNCS = {
     "airport": _airport,
 }
 _ARITY = {"is_blank": 1, "year_of": 1, "month_of": 1, "day_of": 1, "is_zero_time": 1, "has_word": 2, "time_of": 1,
-          "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "is_pilot_format": 1,
+          "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "utc_datetime": 5, "sun_angle": 3, "is_pilot_format": 1,
           "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "airport": 2}
 _CMP = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
 _ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div)
