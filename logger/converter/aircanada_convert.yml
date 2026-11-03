@@ -1,4 +1,4 @@
-# Conversion profile: Air Canada (aircanada_convert.yml), pairs with importer/aircanada_import.yml.
+# Conversion profile: Air Canada (aircanada_convert.yml), pairs with importer/import.yml.
 # Starting point = the converter rules that were ticked by default in the app (same order, same parameters), to be
 # reviewed in detail.
 name: Air Canada

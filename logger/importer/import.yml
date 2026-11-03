@@ -1,0 +1,91 @@
+# Import profiles (single file, shared by all accounts).
+# Maps the headers of an airline file to RAW database columns. Values are imported untouched.
+# Per column: "<profile>: <header in the file>" (a list = several accepted headers).
+# A profile only uses the columns where it has a header. "default" replaces the old import_rules.
+# Optional per column: data_type (text|integer|decimal|date|datetime|boolean), default text.
+# Optional per profile: sheet (otherwise the sheet named "raw", else the active sheet).
+# "ignored": headers present in the airline files that are deliberately not imported.
+profiles:
+  default: {name: Default}
+  creebec: {name: Air Creebec}
+  jazz: {name: Jazz Aviation}
+
+groups:
+  - group: date
+    columns:
+      - {column: year, default: year}
+      - {column: month, default: month}
+      - {column: day, default: day}
+      - {column: date, default: date, creebec: date}
+  - group: aircrafts
+    columns:
+      - {column: type, default: type, creebec: type, jazz: fcv_aircraft_type}
+      - {column: registration, default: reg, creebec: reg, jazz: fcv_tail_number}
+  - group: crew
+    columns:
+      - {column: pic_name, default: pic_name, creebec: pic}
+      - {column: copi_name, default: copi_name}
+      - {column: crew_list, jazz: crew_list}
+  - group: airports
+    columns:
+      - {column: dep_code, default: dep_code, creebec: dep, jazz: dep_airport}
+      - {column: dep_time_utc, creebec: dep_time, jazz: dep_datetime_utc}
+      - {column: arr_code, default: arr_code, creebec: arr, jazz: arr_airport}
+      - {column: arr_time_utc, creebec: arr_time, jazz: arr_datetime_utc}
+  - group: leg
+    columns:
+      - {column: flight_time, creebec: flt_time, jazz: block}
+      - {column: leg_length, jazz: nautical_miles}
+  - group: misc
+    columns:
+      - {column: remarks, default: remarks}
+      - {column: flight_number, jazz: flight_number}
+  - group: flight_time
+    columns:
+      - {column: pic_time, creebec: pic_time}
+      - {column: copi_time, creebec: copi_time}
+      - {column: se_dual_day, default: se_dual_day}
+      - {column: se_pic_day, default: se_pic_day}
+      - {column: se_dual_night, default: se_dual_night}
+      - {column: se_pic_night, default: se_pic_night}
+      - {column: me_dual_day, default: me_dual_day}
+      - {column: me_pic_day, default: me_pic_day}
+      - {column: me_copi_day, default: me_copi_day}
+      - {column: me_dual_night, default: me_dual_night}
+      - {column: me_pic_night, default: me_pic_night}
+      - {column: me_copi_night, default: me_copi_night}
+  - group: flight_details
+    columns:
+      - {column: ifr_time, default: ifr_time}
+      - {column: hood_time, default: hood_time}
+      - {column: ftd_time, default: ftd_time}
+      - {column: ifr_app, default: ifr_app}
+      - {column: cc_dual_day, default: cc_dual_day}
+      - {column: cc_pic_day, default: cc_pic_day}
+      - {column: cc_dual_night, default: cc_dual_night}
+      - {column: cc_pic_night, default: cc_pic_night}
+      - {column: takeoff_day, creebec: to_day, data_type: integer}
+      - {column: landing_day, default: ldg_day, creebec: ldg_day, data_type: integer}
+      - {column: takeoff_night, creebec: to_night, data_type: integer}
+      - {column: landing_night, default: ldg_night, creebec: ldg_night, data_type: integer}
+      - {column: instruction_day, default: instr_day}
+      - {column: instruction_night, default: instr_night}
+
+ignored:
+  creebec: [instr, sim_time, sim_type]
+  jazz:
+    - deadhead
+    - airplane_change
+    - fcv_skd_dep_datetime_local
+    - fcv_skd_arr_datetime_local
+    - dep_datetime_local
+    - fcv_off_datetime_local
+    - fcv_on_datetime_local
+    - arr_datetime_local
+    - fcv_off_datetime_utc
+    - fcv_on_datetime_utc
+    - dep_millis_utc
+    - fcv_off_millis_utc
+    - fcv_on_millis_utc
+    - arr_millis_utc
+    - tail_number

@@ -1,5 +1,5 @@
 # Conversion profile: Air Creebec (raw database A -> logbook database B).
-# Pairs with importer/creebec_import.yml (same id: creebec). Rows imported with that
+# Pairs with importer/import.yml (same id: creebec). Rows imported with that
 # profile are converted with these rules INSTEAD of the default (ticked) rules.
 # Same rule format as the converter catalog. Simulator rows and the sun-based day/night split
 # are not handled yet (a time is written only when a day or night landing is flagged).

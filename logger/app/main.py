@@ -443,7 +443,12 @@ def import_files():
     if request.method=="POST":
         files=[f for f in request.files.getlist("files")+request.files.getlist("file") if f and f.filename]
         if not files: flash("Select a file to import."); return _back("main.import_files")
-        profile=None; profile_id=request.form.get("profile","").strip()
+        profile=None; default=None; profile_id=request.form.get("profile","").strip()
+        if not profile_id:
+            try:
+                default=load_profile("default"); added=ensure_profile_columns(config,default)
+            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
+            if added: flash("Columns added to the database: "+", ".join(added)+".")
         if profile_id:
             try:
                 profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
@@ -454,7 +459,7 @@ def import_files():
             try:
                 data=file.read(); rows=None if profile else read_logbook_workbook(file.filename,data)
                 if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
-                else: rows,matched=importable_rows(file.filename,data,categories,profile=profile)
+                else: rows,matched=importable_rows(file.filename,data,categories,profile=profile or default)
                 employer=profile["name"] if profile else "undefined"        # an empty employer gets the profile name
                 for r in rows:
                     if not r.get("employer"): r["employer"]=employer

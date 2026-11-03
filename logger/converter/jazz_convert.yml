@@ -1,4 +1,4 @@
-# Conversion profile: Jazz Aviation (raw database A -> logbook database B), pairs with importer/jazz_import.yml.
+# Conversion profile: Jazz Aviation (raw database A -> logbook database B), pairs with importer/import.yml.
 # Rebuilt from the rules that used to be the software's default conversion: UTC times in milliseconds,
 # day/night split from the sun (ephem) at the arrival airport, crew list, ICAO codes, flight number in the remarks.
 name: Jazz Aviation
