@@ -76,23 +76,15 @@ def _read_table(filename, file_bytes, sheet_name=None):
     raise FileImportError("Unsupported file format: use an .xlsx, .xlsm or .csv file.")
 
 
-def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=None):
-    """With an import profile, only the profile's header mapping is used (it replaces the default rules)."""
-    if profile is not None:
-        sheet_name = sheet_name or profile.get("sheet")
+def importable_rows(filename, file_bytes, categories=None, sheet_name=None, profile=None):
+    """Rows to import, using the header mapping of an import profile (importer/import.yml)."""
+    if profile is None:
+        raise FileImportError("Select an import profile.")
+    sheet_name = sheet_name or profile.get("sheet")
     headers, rows = _read_table(filename, file_bytes, sheet_name)
-
     rule_map = {}
-    if profile is not None:
-        for item in profile["columns"]:
-            rule_map.setdefault(normalize(item["header"]), item["column"])
-    else:
-        for category in categories:
-            if category.get("system"):
-                continue
-            destination = category.get("column", category.get("colonne_technique"))
-            for rule in category.get("import_rules", category.get("import", [])) or []:
-                rule_map[normalize(rule)] = destination
+    for item in profile["columns"]:
+        rule_map.setdefault(normalize(item["header"]), item["column"])
 
     source_indexes = {}
     for idx, value in enumerate(headers):
@@ -100,10 +92,8 @@ def importable_rows(filename, file_bytes, categories, sheet_name=None, profile=N
         if key in rule_map:
             source_indexes[idx] = rule_map[key]
 
-    if not source_indexes and profile is not None:
-        raise FileImportError(f"No column of this file matches the headers of the '{profile['name']}' import profile.")
     if not source_indexes:
-        raise FileImportError("No column of this file matches an import rule configured in Settings.")
+        raise FileImportError(f"No column of this file matches the headers of the '{profile['name']}' import profile.")
 
     rows_out = []
     for values in rows:

@@ -30,7 +30,7 @@ def ensure_employer_columns(username=None):
     if EMPLOYER not in {c["column"] for c in cols}:
         cols.append({"column": EMPLOYER, "display_name": "employer", "data_type": "text",
                      "position": len([c for c in cols if not c.get("system")]) + 1, "nullable": True,
-                     "visible": True, "editable": True, "import_rules": [EMPLOYER]})
+                     "visible": True, "editable": True})
         save_config(config, username)
 
 

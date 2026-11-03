@@ -6,7 +6,6 @@ from flask import Blueprint, flash, g, jsonify, redirect, render_template, reque
 from .auth import login_required, fresh_login_required, clear_confirmed
 from .importer import importable_rows
 from .import_profiles import list_profiles, load_profile, ensure_profile_columns, detect_profile
-from .merge import read_logbook_workbook
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username, backup_sqlite, db_path as user_db_path
 from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
                       load_logbook_layout, save_logbook_layout,
@@ -402,9 +401,9 @@ def new_category():
     config=load_config(); categories=_columns(config)
     if request.method=="POST":
         try:
-            display=request.form.get("display_name",request.form.get("affichage","")).strip(); rules=[x.strip() for x in request.form.get("import_rules",request.form.get("import","")).splitlines() if x.strip()]
-            if not display or not rules: raise ValueError("Display name and import rules are required.")
-            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1","import_rules":rules}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Column added to userdb.yml."); return redirect(url_for("main.settings"))
+            display=request.form.get("display_name",request.form.get("affichage","")).strip()
+            if not display: raise ValueError("Display name is required.")
+            item={"column":technical_name(display),"display_name":display,"position":len(categories)+1,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable","1")=="1","visible":request.form.get("visible","1")=="1","editable":request.form.get("editable","1")=="1"}; categories.append(item); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-ajoutee:{item['column']}"); flash("Column added to userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("category_form.html",category=None,positions=[len(categories)+1],action=url_for("main.new_category"))
 
@@ -415,9 +414,9 @@ def edit_category(position):
     if not category: flash("Column not found."); return redirect(url_for("main.settings"))
     if request.method=="POST":
         try:
-            display=request.form.get("display_name","").strip(); rules=[x.strip() for x in request.form.get("import_rules","").splitlines() if x.strip()]
-            if not display or not rules: raise ValueError("Display name and import rules are required.")
-            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1","import_rules":rules}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Column updated in userdb.yml."); return redirect(url_for("main.settings"))
+            display=request.form.get("display_name","").strip()
+            if not display: raise ValueError("Display name is required.")
+            technical_name(display); item={"column":category["column"],"display_name":display,"position":position,"data_type":request.form.get("data_type","text"),"nullable":request.form.get("nullable")=="1","visible":request.form.get("visible")=="1","editable":request.form.get("editable")=="1"}; categories[categories.index(category)]=item; _reposition(categories); config["database"]["columns"]=config["database"]["columns"][:4]+categories; save_config(config); log_event("config_change", target=f"colonne-modifiee:{item['column']}"); flash("Column updated in userdb.yml."); return redirect(url_for("main.settings"))
         except ValueError as exc: flash(str(exc))
     return render_template("category_form.html",category=category,positions=list(range(1,len(categories)+1)),action=url_for("main.edit_category",position=position))
 
@@ -443,30 +442,23 @@ def import_files():
     if request.method=="POST":
         files=[f for f in request.files.getlist("files")+request.files.getlist("file") if f and f.filename]
         if not files: flash("Select a file to import."); return _back("main.import_files")
-        profile=None; default=None; profile_id=request.form.get("profile","").strip()
-        if not profile_id:
-            try:
-                default=load_profile("default"); added=ensure_profile_columns(config,default)
-            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
-            if added: flash("Columns added to the database: "+", ".join(added)+".")
-        if profile_id:
-            try:
-                profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
-            except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
-            if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
+        profile_id=request.form.get("profile","").strip()
+        if not profile_id: flash("Select an import profile."); return _back("main.import_files")
+        try:
+            profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
+        except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
+        if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
         total=0
         for file in files:
             try:
-                data=file.read(); rows=None if profile else read_logbook_workbook(file.filename,data)
-                if rows is not None: matched=len({k for r in rows for k,v in r.items() if v not in (None,"")})
-                else: rows,matched=importable_rows(file.filename,data,categories,profile=profile or default)
-                employer=profile["name"] if profile else "undefined"        # an empty employer gets the profile name
+                data=file.read(); rows,matched=importable_rows(file.filename,data,profile=profile)
+                employer="undefined" if profile["id"]=="default" else profile["name"]        # an empty employer gets the profile name
                 for r in rows:
                     if not r.get("employer"): r["employer"]=employer
-                stats=import_rows(file.filename,rows,config,profile=profile["id"] if profile else None); total+=len(rows)
+                stats=import_rows(file.filename,rows,config,profile=profile["id"]); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
                 if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
                 for d,c,old,new in stats["samples"][:3]: flash(f"Disagreement (database value kept) — {d}, {c} : base “{old} ”, file “ {new}”.")
             except Exception as exc: flash(f"{file.filename}: import impossible — {safe_message(exc)}")
         log_event("data_import", target=f"{len(files)} file(s), {total} row(s) read"); flash(f"Import complete: {total} row(s) read."); return _back("main.index")
-    return render_template("import.html",categories=categories,profiles=list_profiles())
+    return render_template("import.html",profiles=list_profiles(include_default=True))

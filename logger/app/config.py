@@ -16,16 +16,6 @@ SYSTEM_COLUMNS = [
 LOGBOOK_SYSTEM_COLUMNS = [dict(c) for c in SYSTEM_COLUMNS]
 
 DEFAULT_COLUMNS = [
- {"position": 1, "display_name": "year", "column": "year", "data_type": "integer", "nullable": True, "visible": True, "editable": True, "import_rules": ["year"]},
- {"position": 2, "display_name": "month", "column": "month", "data_type": "integer", "nullable": True, "visible": True, "editable": True, "import_rules": ["month"]},
- {"position": 3, "display_name": "day", "column": "day", "data_type": "integer", "nullable": True, "visible": True, "editable": True, "import_rules": ["day"]},
- {"position": 4, "display_name": "type", "column": "type", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["type"]},
- {"position": 5, "display_name": "registration", "column": "registration", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["immat", "reg", "registration"]},
- {"position": 6, "display_name": "pilot in command", "column": "pilot_in_command", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["pic"]},
- {"position": 7, "display_name": "copilot", "column": "copilot", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["copi"]},
- {"position": 8, "display_name": "departure", "column": "departure", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["dep"]},
- {"position": 9, "display_name": "arrival", "column": "arrival", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["arr"]},
- {"position": 10, "display_name": "remarks", "column": "remarks", "data_type": "text", "nullable": True, "visible": True, "editable": True, "import_rules": ["remarks"]},
 ]
 
 DEFAULT_LOGBOOK_DB_COLUMNS = [
@@ -117,12 +107,10 @@ def _norm_user(raw, index):
     display = str(item.get("display_name", item.get("affichage", "")) or "").strip()
     col = str(item.get("column", item.get("colonne_technique", "")) or "").strip() or technical_name(display)
     safe_identifier(col)
-    rules = item.get("import_rules", item.get("import", [])) or []
-    rules = list(dict.fromkeys(str(x).strip() for x in rules if str(x).strip()))
     dt = str(item.get("data_type", "text") or "text").lower()
     return {"column": col, "display_name": display, "position": index,
             "data_type": dt, "nullable": bool(item.get("nullable", True)), "visible": bool(item.get("visible", True)),
-            "editable": bool(item.get("editable", True)), "import_rules": rules}
+            "editable": bool(item.get("editable", True))}
 
 
 def _norm_system(raw, base):

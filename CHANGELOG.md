@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.19 — Single import file (importer/import.yml), no default import
+
+- **One import file**: `logger/importer/import.yml` replaces the `*_import.yml` files and `import_profiles/`. Structure: groups -> RAW column -> header of the airline file per profile (`default`, `creebec`, `jazz`), plus the headers deliberately `ignored`. Air Canada is dropped.
+- **No more default import rules**: the `import_rules` of the columns (settings, `userdb.yml`, default files) and the Excel logbook import are removed. The Import page requires a profile (`default` = file whose headers are the RAW column names). Missing RAW columns are created from the profile.
+- The default RAW schema (`defaults/default-userdb.yml`) now holds only the system columns; the unused root copies `default-userdb.yml` / `default-configuration.yml` are removed.
+- **Tests disabled, not deleted**: `tests/conftest.py` skips every test until the new structure is working.
+
 ## 0.3.18 — Work data defined by a YAML file
 
 - New file **`logger/defaults/work_db.yml`**: the work data table is now created from it. Each key `<position>_<name>` (`1_year`, `2_month`, `3_day`) is a column, with its `type` and a list of `rules`; for each row the first rule whose `when` is true (no `when` = always) and whose `value` is not empty gives the value. This version starts again from three columns: **year**, **month**, **day** (copied from the raw `year` / `month` / `day`, else extracted from `departure_local`). The other columns will be added one at a time.

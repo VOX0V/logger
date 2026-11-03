@@ -197,38 +197,3 @@ def plan_merge(existing, incoming, cols, ctx):
         else:
             stats["unchanged"] += 1
     return inserts, updates, stats
-
-
-def read_logbook_workbook(filename, data):
-    """Rows of a paginated Excel logbook (year sheets with 'GRAND TOTAL' rows), or None for any other file."""
-    if not filename.lower().endswith((".xlsx", ".xlsm")):
-        return None
-    from .export import COL_DAY, COL_MONTH, TEXT_COLUMNS, TIME_COLUMNS, flight_rows, line_is_empty
-    from .uploads import check_xlsx
-    check_xlsx(data)                 # ValueError remontée à l'appelant : archive suspecte ou illisible
-    try:
-        wb = load_workbook(io.BytesIO(data), data_only=True)
-    except Exception:
-        return None
-    sheets = [ws for ws in wb.worksheets if re.fullmatch(r"\d{4}", ws.title) and flight_rows(ws)]
-    if not sheets:
-        return None
-    rows = []
-    for ws in sheets:
-        for r in flight_rows(ws):
-            if line_is_empty(ws, r):
-                continue
-            rec = {"year": int(ws.title)}
-            for key, c in (("month", COL_MONTH), ("day", COL_DAY)):
-                try:
-                    rec[key] = int(float(str(ws.cell(r, c).value)))
-                except (TypeError, ValueError):
-                    rec[key] = None
-            for name, c in TEXT_COLUMNS.items():
-                value = ws.cell(r, c).value
-                rec["type" if name == "aircraft_type" else name] = None if blank(value) else str(value).strip()
-            for name, c in TIME_COLUMNS.items():
-                value = ws.cell(r, c).value
-                rec[name] = value if isinstance(value, (int, float)) and value != 0 else None
-            rows.append(rec)
-    return rows

@@ -1,7 +1,7 @@
 """Import profiles: a single file <app root>/importer/import.yml (groups -> RAW columns -> header per profile), shared by all accounts.
 
 A profile only maps the headers of an airline file to database columns. Values are imported
-untouched (the raw database holds raw data). A profile replaces the default import rules."""
+untouched (the raw database holds raw data)."""
 import re
 from collections import Counter
 from pathlib import Path
@@ -92,7 +92,7 @@ def ensure_profile_columns(config, profile):
         position = len([c for c in columns if not c.get("system")]) + 1
         columns.append({"column": item["column"], "display_name": str(item.get("display_name") or item["header"]),
                         "position": position, "data_type": data_type,
-                        "nullable": True, "visible": True, "editable": True, "import_rules": []})
+                        "nullable": True, "visible": True, "editable": True})
         known.add(item["column"])
         added.append(item["column"])
     if added:
