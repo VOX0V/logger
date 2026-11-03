@@ -158,6 +158,7 @@ skip_rows:
 22_leg_time:
   type: text
   rules:
+    - value: hhmm(minutes_between(dep_time_utc, arr_time_utc))
     - when: not is_blank(dep_time_utc) and not is_blank(arr_time_utc) and minutes(arr_time_utc) >= minutes(dep_time_utc)
       value: hhmm(minutes(arr_time_utc) - minutes(dep_time_utc))
     - when: not is_blank(dep_time_utc) and not is_blank(arr_time_utc) and minutes(arr_time_utc) < minutes(dep_time_utc)
@@ -204,6 +205,8 @@ skip_rows:
 30_remarks:
   type: text
   rules:
+    - when: has_word(employer, "Jazz") and not is_blank(flight_number)
+      value: '"AC" + flight_number'
     - value: remarks
 
 ############### FLIGHT TIME ###############

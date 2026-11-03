@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.21 — World map
+
+- New **World map** tab: every airport of the work data and the legs flown between them, drawn as great circles on a dark map (Leaflet, shipped in `static/vendor/leaflet`). Line colour and thickness follow how often a route was flown (blue = once, orange = most flown); airport dots grow with the number of movements; hover for details, airport codes appear when zoomed in; year filter and totals (airports, routes, legs, nautical miles).
+- It reads `departure_code`, `arrival_code` and the four latitude / longitude columns of the work data (`year` and the airport names are used when present).
+- The map tiles come from CARTO / OpenStreetMap: the content security policy now allows images from `*.basemaps.cartocdn.com`. Without internet access the routes and airports are still drawn, on a plain background.
+
 ## 0.3.20 — Import YAML editor, logbook mapped to the work data
 
 - **Data page**: new administrator button **YML IMPORT** (Raw data row) opens the web YAML editor on `importer/import.yml` (check without saving, save, backup and *Restore*). The edited copy is kept in `appdata/importer/import.yml` and wins over the shipped file. The file is checked on save (profiles, duplicate columns, unknown profile names, data types).
