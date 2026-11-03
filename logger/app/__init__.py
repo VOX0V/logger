@@ -163,7 +163,7 @@ def create_app(test_config=None, *, require_admin=True):
         headers, nonce = response.headers, g.get("csp_nonce", "")
         policy = "; ".join([
             "default-src 'self'", f"script-src 'self' 'nonce-{nonce}'", "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https://*.basemaps.cartocdn.com", "font-src 'self'", "connect-src 'self'", "object-src 'none'",
+            "img-src 'self' data: blob: https://tiles.openfreemap.org", "font-src 'self'", "connect-src 'self' https://tiles.openfreemap.org", "object-src 'none'",
             "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'"])
         headers.setdefault("Content-Security-Policy-Report-Only" if app.config["CSP_REPORT_ONLY"] else "Content-Security-Policy", policy)
         headers.setdefault("X-Content-Type-Options", "nosniff")

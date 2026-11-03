@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.22 — World map on a globe, no API key
+
+- CARTO now requires an API key on its raster tiles (the map showed "API KEY REQUIRED"). The World map now uses **MapLibre GL** (shipped in `static/vendor/maplibre`, CSP build) with the keyless **OpenFreeMap** dark vector style, drawn on a **globe** (button *Flat map* / *Globe* in the panel). Leaflet is removed.
+- Content security policy: `connect-src` and `img-src` allow `https://tiles.openfreemap.org` (style, tiles, fonts); images also allow `blob:`. Without internet access the routes and airports are still drawn on a plain globe, without airport codes.
+
 ## 0.3.21 — World map
 
 - New **World map** tab: every airport of the work data and the legs flown between them, drawn as great circles on a dark map (Leaflet, shipped in `static/vendor/leaflet`). Line colour and thickness follow how often a route was flown (blue = once, orange = most flown); airport dots grow with the number of movements; hover for details, airport codes appear when zoomed in; year filter and totals (airports, routes, legs, nautical miles).

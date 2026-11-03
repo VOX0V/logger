@@ -1,6 +1,9 @@
-.git
-.env
-__pycache__
+tests
 .pytest_cache
-logger/appdata
-logger/users
+__pycache__
+*.pyc
+appdata
+users
+.env
+.git
+requirements-dev.txt
