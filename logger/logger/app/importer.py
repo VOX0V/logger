@@ -1,0 +1,113 @@
+import csv
+import io
+import re
+from datetime import date, datetime, time
+from openpyxl import load_workbook
+
+from .uploads import check_xlsx
+
+
+class FileImportError(Exception):
+    pass
+
+
+def normalize(value):
+    """Normalize Excel headers/import rules to a common comparison form."""
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    # Treat punctuation/separators (hyphens, underscores, dots, slashes, etc.)
+    # like spaces so aliases such as ``SE-DUAL-DAY`` and ``se dual day`` match.
+    text = re.sub(r"[^\w]+", " ", text, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def sqlite_value(value):
+    """Convert Excel/openpyxl values to SQLite-compatible values."""
+    if isinstance(value, datetime):
+        return value.isoformat(sep=" ")
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, time):
+        return value.isoformat()
+    return value
+
+
+def _select_sheet(workbook, sheet_name=None):
+    if sheet_name:
+        if sheet_name not in workbook.sheetnames:
+            raise FileImportError(f'The sheet “{sheet_name}” does not exist in this file.')
+        return workbook[sheet_name]
+    for name in workbook.sheetnames:
+        if normalize(name) == "raw":
+            return workbook[name]
+    return workbook.active
+
+
+def _read_table(filename, file_bytes, sheet_name=None):
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext in ("xlsx", "xlsm"):
+        try:
+            check_xlsx(file_bytes)
+        except ValueError as exc:
+            raise FileImportError(str(exc)) from exc
+        try:
+            workbook = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+            sheet = _select_sheet(workbook, sheet_name)
+            rows = list(sheet.iter_rows(values_only=True))
+        except Exception as exc:
+            raise FileImportError("The Excel file is unreadable or corrupted.") from exc
+        finally:
+            try:
+                workbook.close()
+            except Exception:
+                pass
+        if not rows:
+            raise FileImportError("The Excel file is empty.")
+        return list(rows[0]), rows[1:]
+    if ext == "csv":
+        try:
+            rows = list(csv.reader(io.StringIO(file_bytes.decode("utf-8-sig"))))
+        except UnicodeDecodeError as exc:
+            raise FileImportError("The CSV file is not UTF-8 encoded.") from exc
+        if not rows:
+            raise FileImportError("The CSV file is empty.")
+        return rows[0], rows[1:]
+    raise FileImportError("Unsupported file format: use an .xlsx, .xlsm or .csv file.")
+
+
+def importable_rows(filename, file_bytes, categories=None, sheet_name=None, profile=None):
+    """Rows to import, using the header mapping of an import profile (importer/import.yml)."""
+    if profile is None:
+        raise FileImportError("Select an import profile.")
+    sheet_name = sheet_name or profile.get("sheet")
+    headers, rows = _read_table(filename, file_bytes, sheet_name)
+    rule_map = {}
+    for item in profile["columns"]:
+        rule_map.setdefault(normalize(item["header"]), item["column"])
+
+    source_indexes = {}
+    for idx, value in enumerate(headers):
+        key = normalize(value)
+        if key in rule_map:
+            source_indexes[idx] = rule_map[key]
+
+    if not source_indexes:
+        raise FileImportError(f"No column of this file matches the headers of the '{profile['name']}' import profile.")
+
+    rows_out = []
+    for values in rows:
+        if not any(v not in (None, "") for v in values):
+            continue
+        row = {}
+        for idx, destination in source_indexes.items():
+            if idx < len(values) and values[idx] not in (None, ""):
+                # If two source columns use aliases for the same destination,
+                # keep the first non-empty value encountered.
+                if destination not in row:
+                    row[destination] = sqlite_value(values[idx])
+        if row:
+            rows_out.append(row)
+    if not rows_out:
+        raise FileImportError("No data to import in the file.")
+    return rows_out, len(source_indexes)

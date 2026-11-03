@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-head"><h2>{{title}}</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button><a class="btn secondary" href="{{export_url}}">Export data</a><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+{% include "_grid_add.html" %}
+<div class="card grid-card"><p class="muted">{{note}}</p><div id="grid"></div></div>
+<link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='grid.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+initGrid({rowsUrl: "{{rows_url}}", cellUrl: "{{cell_url}}", addUrl: "{{add_url}}", deleteUrl: "{{delete_url}}", columns: {{columns|tojson}}});
+</script>
+{% endblock %}

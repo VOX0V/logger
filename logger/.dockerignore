@@ -1,9 +1,6 @@
-tests
-.pytest_cache
-__pycache__
-*.pyc
-appdata
-users
-.env
 .git
-requirements-dev.txt
+.env
+__pycache__
+.pytest_cache
+logger/appdata
+logger/users

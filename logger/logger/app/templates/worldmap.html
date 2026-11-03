@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<link href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}" rel="stylesheet">
+<style>
+.wm-wrap{position:relative;height:calc(100vh - 150px);min-height:480px;border-radius:14px;overflow:hidden;box-shadow:0 10px 34px rgba(2,6,23,.35);border:1px solid #1e293b}
+#wm{height:100%;width:100%;background:#0b1220}
+.wm-panel{position:absolute;top:14px;left:62px;z-index:1000;min-width:190px;padding:12px 16px;border-radius:12px;color:#e2e8f0;background:rgba(15,23,42,.78);backdrop-filter:blur(8px);border:1px solid rgba(148,163,184,.25);font-size:13px}
+.wm-panel h3{margin:0 0 8px;font-size:15px;letter-spacing:.04em;color:#fff}
+.wm-panel select{width:100%;margin:0 0 10px;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font:inherit}
+.wm-stat{display:flex;justify-content:space-between;gap:18px;padding:2px 0}.wm-stat b{color:#fbbf24;font-variant-numeric:tabular-nums}
+.wm-legend{margin-top:10px;height:6px;border-radius:3px;background:linear-gradient(90deg,hsl(195,95%,60%),hsl(110,95%,60%),hsl(25,95%,60%))}
+.wm-legend-l{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:3px}
+.wm-msg{position:absolute;inset:0;z-index:1001;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:15px;text-align:center;padding:30px;pointer-events:none}
+.leaflet-tooltip.wm-tip{background:#0f172a;color:#e2e8f0;border:1px solid #334155;box-shadow:0 4px 14px rgba(0,0,0,.45);font-size:12px}
+.leaflet-tooltip.wm-tip:before{display:none}
+.leaflet-tooltip.wm-label{display:none;background:none;border:0;box-shadow:none;color:#f1f5f9;font-weight:600;font-size:11px;text-shadow:0 0 4px #000,0 0 2px #000;padding:0 0 0 2px}
+.leaflet-tooltip.wm-label:before{display:none}
+.wm-z5 .leaflet-tooltip.wm-label{display:block}
+.leaflet-container .leaflet-control-attribution{background:rgba(15,23,42,.7);color:#94a3b8}.leaflet-control-attribution a{color:#cbd5e1}
+</style>
+<div class="page-head"><h2>World map</h2></div>
+<div class="wm-wrap">
+  <div id="wm" data-url="{{ url_for('worldmap.data') }}"></div>
+  <div class="wm-panel">
+    <h3>Flown routes</h3>
+    <select id="wm-year" aria-label="Year"><option value="">All years</option></select>
+    <div class="wm-stat"><span>Airports</span><b id="wm-n-ap">–</b></div>
+    <div class="wm-stat"><span>Routes</span><b id="wm-n-rt">–</b></div>
+    <div class="wm-stat"><span>Legs</span><b id="wm-n-lg">–</b></div>
+    <div class="wm-stat"><span>Distance</span><b id="wm-n-nm">–</b></div>
+    <div class="wm-legend"></div><div class="wm-legend-l"><span>1 flight</span><span>most flown</span></div>
+  </div>
+  <div class="wm-msg" id="wm-msg" hidden></div>
+</div>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='worldmap.js') }}"></script>
+{% endblock %}

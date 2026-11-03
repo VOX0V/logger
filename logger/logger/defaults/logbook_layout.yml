@@ -1,0 +1,247 @@
+title: Logbook
+rows_per_page: 30
+row_height_u: 22
+# Unit u: 1 u = 0.01 in (Letter landscape 11 x 8.5 in = 1100 x 850 u). Column widths = “width” field of each column (in u), identical on the web page and the PDF.
+# row_height_u: thickness of ALL rows (web and PDF); 37 rows x 22 u = 814 u on the PDF.
+pdf:
+  page_width_u: 1100
+  page_height_u: 850
+  offset_top_u: 0         # offset of the table from the top (0: the printer handles the margins)
+  blank_first_page: true  # blank page 1 so that pages 2 and 3 face each other
+  # Gutters (PDF only, for punching the pages): each sheet must total page_width_u.
+  # left sheet = columns A to N + gutter_left_u; right sheet = gutter_right_u + columns O to AF.
+  gutter_left_u: 29
+  gutter_right_u: 38
+# On the web page: no gutters, only the two “spacer” columns (width in u) between the left and right tables.
+styles:
+  font_family: Arial
+  font_size: 10
+  header_font_size: 9
+  border: '1px solid #000000'
+  header_background: '#ffffff'
+  total_background: '#eeeeee'
+  text_align: center
+  vertical_align: middle
+  alternate_white: true
+  data_blocks:
+  - name: block1
+    rows: 10
+    color: '#f1dddd'
+  - name: block2
+    rows: 10
+    color: '#dce7f2'
+  - name: block3
+    rows: 10
+    color: '#eaf1dc'
+columns:
+- key: year
+  label: YEAR
+  db_column: date
+  date_part: year
+  width: 51
+  group: date
+- key: month
+  label: Month
+  db_column: date
+  date_part: month
+  width: 51
+  group: date
+- key: day
+  label: Day
+  db_column: date
+  date_part: day
+  width: 51
+  group: date
+- key: type
+  label: Type
+  db_column: type
+  width: 65
+  group: aircraft
+- key: registration
+  label: Registr.
+  db_column: registration
+  width: 90
+  group: aircraft
+- key: pilot
+  label: Pilot
+  db_column: pilot
+  width: 90
+  group: crew
+- key: copilot
+  label: Co-Pilot
+  db_column: copilot
+  width: 77
+  group: crew
+- key: departure
+  label: Departure
+  db_column: departure_code
+  width: 77
+  group: route
+- key: arrival
+  label: Arrival
+  db_column: arrival_code
+  width: 77
+  group: route
+- key: remarks
+  label: Exercise, Mission, Flight Number…
+  db_column: remarks
+  width: 210
+  group: remarks
+- key: se_dual_day
+  label: Dual
+  db_column: single_engine_dual_day
+  width: 58
+  group: single_engine
+  subgroup: Day
+- key: se_pic_day
+  label: PIC
+  db_column: single_engine_solo_day
+  width: 58
+  group: single_engine
+  subgroup: Day
+- key: se_dual_night
+  label: Dual
+  db_column: single_engine_dual_night
+  width: 58
+  group: single_engine
+  subgroup: Night
+- key: se_pic_night
+  label: PIC
+  db_column: single_engine_solo_night
+  width: 58
+  group: single_engine
+  subgroup: Night
+- key: spacer1
+  label: ''
+  width: 5
+  group: spacer
+- key: spacer2
+  label: ''
+  width: 5
+  group: spacer
+- key: me_dual_day
+  label: Dual
+  db_column: multi_engine_dual_day
+  width: 59
+  group: multi_engine
+  subgroup: Day
+- key: me_pic_day
+  label: PIC
+  db_column: multi_engine_pic_day
+  width: 59
+  group: multi_engine
+  subgroup: Day
+- key: me_copilot_day
+  label: Co-Pilot
+  db_column: multi_engine_copi_day
+  width: 59
+  group: multi_engine
+  subgroup: Day
+- key: me_dual_night
+  label: Dual
+  db_column: multi_engine_dual_night
+  width: 59
+  group: multi_engine
+  subgroup: Night
+- key: me_pic_night
+  label: PIC
+  db_column: multi_engine_pic_night
+  width: 59
+  group: multi_engine
+  subgroup: Night
+- key: me_copilot_night
+  label: Co-Pilot
+  db_column: multi_engine_copi_night
+  width: 59
+  group: multi_engine
+  subgroup: Night
+- key: ifr
+  label: IFR
+  db_column: ifr
+  width: 59
+  group: instruments
+- key: hood
+  label: Hood
+  db_column: hood
+  width: 59
+  group: instruments
+- key: ftd
+  label: FTD
+  db_column: ftd
+  width: 59
+  group: instruments
+- key: ifr_app
+  label: IFR app
+  db_column: ifr_app
+  width: 59
+  group: instruments
+- key: cc_dual_day
+  label: Dual
+  db_column: cross_country_dual_day
+  width: 59
+  group: cross_country
+  subgroup: Day
+- key: cc_pic_day
+  label: PIC
+  db_column: cross_country_pic_day
+  width: 59
+  group: cross_country
+  subgroup: Day
+- key: cc_dual_night
+  label: Dual
+  db_column: cross_country_dual_night
+  width: 59
+  group: cross_country
+  subgroup: Night
+- key: cc_pic_night
+  label: PIC
+  db_column: cross_country_pic_night
+  width: 59
+  group: cross_country
+  subgroup: Night
+- key: land_day
+  label: Day
+  db_column: landings_day
+  width: 59
+  group: landings
+- key: land_night
+  label: Night
+  db_column: landings_night
+  width: 59
+  group: landings
+- key: instruction_day
+  label: Day
+  db_column: instruction_day
+  width: 59
+  group: instruction
+- key: instruction_night
+  label: Night
+  db_column: instruction_night
+  width: 59
+  group: instruction
+group_labels:
+  date: YEAR
+  aircraft: AIRCRAFT
+  crew: FLIGHT CREW
+  route: ROUTE OF FLIGHT
+  remarks: REMARKS
+  single_engine: SINGLE-ENGINE
+  spacer: ''
+  multi_engine: MULTI-ENGINE
+  instruments: INSTRUMENTS
+  cross_country: CROSS-COUNTRY
+  landings: TAKEOFFS & LANDINGS
+  instruction: INSTRUCTION
+group_spans:
+  date: 3
+  aircraft: 2
+  crew: 2
+  route: 2
+  remarks: 1
+  single_engine: 4
+  spacer: 2
+  multi_engine: 6
+  instruments: 4
+  cross_country: 4
+  landings: 2
+  instruction: 2
