@@ -54,7 +54,7 @@ columns:
   group: date
 - key: type
   label: Type
-  db_column: aircraft_type
+  db_column: type
   width: 65
   group: aircraft
 - key: registration
@@ -64,7 +64,7 @@ columns:
   group: aircraft
 - key: pilot
   label: Pilot
-  db_column: pilot_in_command
+  db_column: pilot
   width: 90
   group: crew
 - key: copilot
@@ -74,12 +74,12 @@ columns:
   group: crew
 - key: departure
   label: Departure
-  db_column: departure
+  db_column: departure_code
   width: 77
   group: route
 - key: arrival
   label: Arrival
-  db_column: arrival
+  db_column: arrival_code
   width: 77
   group: route
 - key: remarks
@@ -95,7 +95,7 @@ columns:
   subgroup: Day
 - key: se_pic_day
   label: PIC
-  db_column: single_engine_pic_day
+  db_column: single_engine_solo_day
   width: 58
   group: single_engine
   subgroup: Day
@@ -107,7 +107,7 @@ columns:
   subgroup: Night
 - key: se_pic_night
   label: PIC
-  db_column: single_engine_pic_night
+  db_column: single_engine_solo_night
   width: 58
   group: single_engine
   subgroup: Night
@@ -172,7 +172,7 @@ columns:
   group: instruments
 - key: ifr_app
   label: IFR app
-  db_column: ifr_approach
+  db_column: ifr_app
   width: 59
   group: instruments
 - key: cc_dual_day

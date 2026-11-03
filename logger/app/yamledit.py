@@ -17,7 +17,8 @@ from . import cssafe
 from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
 from .converter.transforms import FUNCTIONS
 from .models import init_user_db
-from . import workdb
+from . import import_profiles, workdb
+from .importer import FileImportError
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
 
@@ -159,9 +160,17 @@ def check_workdb(data):
         raise Problem(str(exc))
 
 
+def check_importer(data):
+    try:
+        import_profiles.parse_spec(data)
+    except FileImportError as exc:
+        raise Problem(str(exc))
+
+
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
+    "importer": ("Raw data — import definition (import.yml)", lambda _u: import_profiles.profiles_path(), check_importer),
 }
 
 
@@ -193,6 +202,10 @@ def _write_target(key, path):
         folder = workdb.edited_path().parent
         folder.mkdir(parents=True, exist_ok=True)
         return folder / "work_db.yml"
+    if key == "importer":
+        folder = import_profiles.edited_path().parent
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / "import.yml"
     if key.startswith("convert_"):
         folder = edited_dir()
         folder.mkdir(parents=True, exist_ok=True)

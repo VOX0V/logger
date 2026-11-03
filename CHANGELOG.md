@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.20 — Import YAML editor, logbook mapped to the work data
+
+- **Data page**: new administrator button **YML IMPORT** (Raw data row) opens the web YAML editor on `importer/import.yml` (check without saving, save, backup and *Restore*). The edited copy is kept in `appdata/importer/import.yml` and wins over the shipped file. The file is checked on save (profiles, duplicate columns, unknown profile names, data types).
+- The profile drop-down of the Data page import panel no longer offers “Default (current rules)”: a profile is required and `default` is listed like the others.
+- **Logbook**: `defaults/logbook_layout.yml` now points to the work data columns of `work_db.yml` (`type`, `pilot`, `departure_code`, `arrival_code`, `single_engine_solo_*`, `ifr_app`).
+- `work_db.yml`: new raw names, date fallback on `dep_time_utc`, registration formatted with the new `registration_format()` function.
+
 ## 0.3.19 — Single import file (importer/import.yml), no default import
 
 - **One import file**: `logger/importer/import.yml` replaces the `*_import.yml` files and `import_profiles/`. Structure: groups -> RAW column -> header of the airline file per profile (`default`, `creebec`, `jazz`), plus the headers deliberately `ignored`. Air Canada is dropped.

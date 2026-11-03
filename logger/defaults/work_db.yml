@@ -5,33 +5,360 @@
 # "when" always applies) and whose "value" is not empty gives the value of the column.
 #
 # Expressions ("when" and "value") can use:
-#   - the columns of the raw data by name (year, month, day, departure_local, crew_list, ...) and pilot_name
-#   - numbers, "text", true / false, and / or / not, = comparisons (==, !=, <, <=, >, >=), + - * /
-#   - functions: is_blank(x), year_of(x), month_of(x), day_of(x) (x = a date or a datetime YYYY-MM-DD...),
-#     is_zero_time(x) (a block time filled but equal to 0:00), has_word(text, word)
+#   - the columns of the raw data by name (year, month, day, date, dep_code, crew_list, ...) and pilot_name
+#   - w_<column>: the value already computed for a work column with a lower number (w_leg_time, ...)
+#   - numbers, "text", true / false, and / or / not, comparisons (== != < <= > >=), + - * /
+#   - dates:    year_of(x), month_of(x), day_of(x)   (x = 2026-09-27, 27/09/2026 or 27/10/23; two digits: 00-69 = 2000s, 70-99 = 1900s)
+#   - times:    time_of(x) = HH:MM of a datetime, minutes_between(a, b) (datetimes or epoch milliseconds),
+#               hhmm(minutes), minutes("HH:MM"), is_zero_time(x)
+#   - numbers:  round(x, digits), distance_nm(lat1, lon1, lat2, lon2) (great circle, nautical miles)
+#   - flight time: tc_hours(x) = decimal hours; H:MM is converted with the Transport Canada table (1:35 -> 1.6), a number is kept
+#   - sun:      utc_datetime(year, month, day, time_utc, earlier_time) = YYYY-MM-DDTHH:MM (next day if time_utc < earlier_time),
+#               sun_angle(lat, lon, datetime_utc) = angle of the sun above the horizon in degrees (0 = horizon, -6 = end of civil twilight)
+#   - people:   is_pilot_format(x), pilot_format(x) (-> P.Name), crew_captain(crew_list), crew_copilot(crew_list, pilot_name)
+#   - tables:   aircraft(type, field)  fields: display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg
+#               airport(code, field)   fields: display, icao, iata, company, name, country, latitude, longitude
+#   - other:    is_blank(x), has_word(text, word), registration_format(x) (CGABC -> C-GABC)
 # "type" is one of: integer, decimal, boolean, date, datetime, text (default: text).
+#
+# Raw column names follow importer/import.yml (pic_name, copi_name, dep_code, arr_code, dep_time_utc,
+# arr_time_utc, flight_time, se_*, me_*, cc_*, ifr_time, hood_time, ftd_time, ifr_app, landing_day, ...).
 
 # Raw rows matching one of these rules are left out of the work data.
 skip_rows:
   - name: Flights with a 0:00 block time (not operated)
-    when: is_zero_time(block_time)
-  - name: Deadhead, or flights where I am not in the crew list
-    when: not is_blank(deadhead) or (not is_blank(crew_list) and not has_word(crew_list, pilot_name))
+    when: is_zero_time(flight_time)
+  - name: Flights where I am not in the crew list
+    when: not is_blank(crew_list) and not has_word(crew_list, pilot_name)
 
+############### DATE ###############
 1_year:
   type: integer
   rules:
     - value: year
-    - value: year_of(departure_local)
+    - value: year_of(date)
+    - value: year_of(dep_time_utc)
 
 2_month:
   type: integer
   rules:
     - value: month
-    - value: month_of(departure_local)
+    - value: month_of(date)
+    - value: month_of(dep_time_utc)
 
 3_day:
   type: integer
   rules:
     - value: day
-    - value: day_of(departure_local)
+    - value: day_of(date)
+    - value: day_of(dep_time_utc)
+
+############### AIRCRAFT ###############
+4_type:
+  type: text
+  rules:
+    - value: aircraft(type, "display")
+    - value: type
+
+5_category:
+  type: text
+  rules:
+    - value: aircraft(type, "category")
+
+6_registration:
+  type: text
+  rules:
+    - value: registration_format(registration)
+
+7_engines:
+  type: text
+  rules:
+    - value: aircraft(type, "engines")
+
+8_crew:
+  type: text
+  rules:
+    - value: aircraft(type, "crew")
+
+############### CREW ###############
+9_pilot:
+  type: text
+  rules:
+    - when: is_pilot_format(pic_name)
+      value: pic_name
+    - value: pilot_format(pic_name)
+    - value: crew_captain(crew_list)
+
+10_copilot:
+  type: text
+  rules:
+    - when: is_pilot_format(copi_name)
+      value: copi_name
+    - value: pilot_format(copi_name)
+    - value: crew_copilot(crew_list, pilot_name)
+
+11_employer:
+  type: text
+  rules:
+    - value: employer
+
+############### AIRPORTS ###############
+12_departure_code:
+  type: text
+  rules:
+    - value: airport(dep_code, "display")
+    - value: dep_code
+
+13_departure_name:
+  type: text
+  rules:
+    - value: airport(dep_code, "name")
+
+14_departure_latitude:
+  type: decimal
+  rules:
+    - value: airport(dep_code, "latitude")
+
+15_departure_longitude:
+  type: decimal
+  rules:
+    - value: airport(dep_code, "longitude")
+
+16_departure_time_utc:
+  type: text
+  rules:
+    - value: time_of(dep_time_utc)
+
+17_arrival_code:
+  type: text
+  rules:
+    - value: airport(arr_code, "display")
+    - value: arr_code
+
+18_arrival_name:
+  type: text
+  rules:
+    - value: airport(arr_code, "name")
+
+19_arrival_latitude:
+  type: decimal
+  rules:
+    - value: airport(arr_code, "latitude")
+
+20_arrival_longitude:
+  type: decimal
+  rules:
+    - value: airport(arr_code, "longitude")
+
+21_arrival_time_utc:
+  type: text
+  rules:
+    - value: time_of(arr_time_utc)
+
+22_leg_time:
+  type: text
+  rules:
+    - when: not is_blank(dep_time_utc) and not is_blank(arr_time_utc) and minutes(arr_time_utc) >= minutes(dep_time_utc)
+      value: hhmm(minutes(arr_time_utc) - minutes(dep_time_utc))
+    - when: not is_blank(dep_time_utc) and not is_blank(arr_time_utc) and minutes(arr_time_utc) < minutes(dep_time_utc)
+      value: hhmm(minutes(arr_time_utc) - minutes(dep_time_utc) + 1440)
+
+23_leg_length:
+  type: decimal
+  rules:
+    - value: round(distance_nm(w_departure_latitude, w_departure_longitude, w_arrival_latitude, w_arrival_longitude), 1)
+
+24_average_speed:
+  type: decimal
+  rules:
+    - value: round(w_leg_length / (minutes(w_leg_time) / 60), 0)
+
+############### SUN AND DAY / NIGHT ###############
+25_departure_sun:
+  type: decimal
+  rules:
+    - value: round(sun_angle(w_departure_latitude, w_departure_longitude, utc_datetime(w_year, w_month, w_day, w_departure_time_utc, "")), 1)
+
+26_departure_day_night:
+  type: text
+  rules:
+    - when: not is_blank(w_departure_sun) and w_departure_sun > -6
+      value: '"day"'
+    - when: not is_blank(w_departure_sun)
+      value: '"night"'
+
+27_arrival_sun:
+  type: decimal
+  rules:
+    - value: round(sun_angle(w_arrival_latitude, w_arrival_longitude, utc_datetime(w_year, w_month, w_day, w_arrival_time_utc, w_departure_time_utc)), 1)
+
+28_arrival_day_night:
+  type: text
+  rules:
+    - when: not is_blank(w_arrival_sun) and w_arrival_sun > -6
+      value: '"day"'
+    - when: not is_blank(w_arrival_sun)
+      value: '"night"'
+
+############### REMARKS ###############
+30_remarks:
+  type: text
+  rules:
+    - value: remarks
+
+############### FLIGHT TIME ###############
+# Decimal hours (Transport Canada table). Only one of these raw columns is filled for a flight, so the order does not matter.
+31_flight_time:
+  type: decimal
+  rules:
+    - value: tc_hours(se_dual_day)
+    - value: tc_hours(se_pic_day)
+    - value: tc_hours(se_dual_night)
+    - value: tc_hours(se_pic_night)
+    - value: tc_hours(me_dual_day)
+    - value: tc_hours(me_pic_day)
+    - value: tc_hours(me_copi_day)
+    - value: tc_hours(me_dual_night)
+    - value: tc_hours(me_pic_night)
+    - value: tc_hours(me_copi_night)
+    - value: tc_hours(flight_time)
+
+# First pass: the flight time is copied into every column of the right category (single or multi engine, day or night
+# of the arrival), whatever the role (dual, solo, pic, copi), so that errors show in the totals.
+# Next step: keep only the column that matches the role.
+
+32_single_engine_dual_day:
+  type: decimal
+  rules:
+    - when: w_engines == "single" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+33_single_engine_solo_day:
+  type: decimal
+  rules:
+    - when: w_engines == "single" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+34_single_engine_dual_night:
+  type: decimal
+  rules:
+    - when: w_engines == "single" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+35_single_engine_solo_night:
+  type: decimal
+  rules:
+    - when: w_engines == "single" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+36_multi_engine_dual_day:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+37_multi_engine_pic_day:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+38_multi_engine_copi_day:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+39_multi_engine_dual_night:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+40_multi_engine_pic_night:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+41_multi_engine_copi_night:
+  type: decimal
+  rules:
+    - when: w_engines == "multi" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+############### FLIGHT DETAILS ###############
+# Instruments: the raw value when there is one; an IFR time equal to the flight time for a multi engine multi crew aircraft.
+42_ifr:
+  type: decimal
+  rules:
+    - value: tc_hours(ifr_time)
+    - when: w_engines == "multi" and w_crew == "multi"
+      value: w_flight_time
+
+43_hood:
+  type: decimal
+  rules:
+    - value: tc_hours(hood_time)
+
+44_ftd:
+  type: decimal
+  rules:
+    - value: tc_hours(ftd_time)
+
+45_ifr_app:
+  type: integer
+  rules:
+    - value: ifr_app
+
+# Cross-country: same rule as the IFR; the flight time goes to the day or night column of the arrival,
+# dual and pic both receive it for now (first pass, like the engine columns above).
+
+46_cross_country_dual_day:
+  type: decimal
+  rules:
+    - value: tc_hours(cc_dual_day)
+    - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+47_cross_country_pic_day:
+  type: decimal
+  rules:
+    - value: tc_hours(cc_pic_day)
+    - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "day"
+      value: w_flight_time
+
+48_cross_country_dual_night:
+  type: decimal
+  rules:
+    - value: tc_hours(cc_dual_night)
+    - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+49_cross_country_pic_night:
+  type: decimal
+  rules:
+    - value: tc_hours(cc_pic_night)
+    - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "night"
+      value: w_flight_time
+
+# Takeoffs and landings, instruction
+50_landings_day:
+  type: integer
+  rules:
+    - value: landing_day
+
+51_landings_night:
+  type: integer
+  rules:
+    - value: landing_night
+
+52_instruction_day:
+  type: decimal
+  rules:
+    - value: tc_hours(instruction_day)
+
+53_instruction_night:
+  type: decimal
+  rules:
+    - value: tc_hours(instruction_night)

@@ -288,6 +288,14 @@ def _cached(kind, code, finder):
     return _cache[key]
 
 
+def _registration_format(value):
+    """Registration as in the converter (format_registration): upper case, C-GABC for a 5 letter code without dash."""
+    raw = str(value or "").strip().upper()
+    if raw and "-" not in raw and len(raw) == 5:
+        raw = raw[0] + "-" + raw[1:]
+    return raw or None
+
+
 def _aircraft(code, field):
     from .refdata import find_aircraft_type
     row = _cached("aircraft", code, find_aircraft_type)
@@ -328,12 +336,13 @@ FUNCS = {
     "pilot_format": _pilot_format,
     "crew_captain": _crew_captain,
     "crew_copilot": _crew_copilot,
+    "registration_format": _registration_format,
     "aircraft": _aircraft,
     "airport": _airport,
 }
 _ARITY = {"is_blank": 1, "year_of": 1, "month_of": 1, "day_of": 1, "is_zero_time": 1, "has_word": 2, "time_of": 1,
           "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "tc_hours": 1, "utc_datetime": 5, "sun_angle": 3, "is_pilot_format": 1,
-          "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "airport": 2}
+          "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "airport": 2, "registration_format": 1}
 _CMP = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
 _ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 

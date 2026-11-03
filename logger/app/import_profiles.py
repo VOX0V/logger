@@ -17,8 +17,61 @@ DEFAULT_ID = "default"
 DATA_TYPES = {"text", "integer", "decimal", "date", "datetime", "boolean"}
 
 
+def edited_path():
+    """Writable copy edited in the web interface (appdata/importer/import.yml); None outside the app."""
+    try:
+        from .db import appdata_root
+        return appdata_root() / "importer" / FILE_NAME
+    except RuntimeError:
+        return None
+
+
 def profiles_path():
-    return Path(__file__).resolve().parent.parent / "importer" / FILE_NAME
+    edited = edited_path()
+    return edited if edited is not None and edited.is_file() else Path(__file__).resolve().parent.parent / "importer" / FILE_NAME
+
+
+def parse_spec(data):
+    """Checks the content of import.yml; raises FileImportError with a readable message."""
+    if not isinstance(data, dict) or not isinstance(data.get("profiles"), dict) or not data["profiles"]:
+        raise FileImportError("“profiles” must list at least one profile.")
+    ids = set()
+    for pid, info in data["profiles"].items():
+        if not PROFILE_ID.fullmatch(str(pid)):
+            raise FileImportError(f"Invalid profile id “{pid}” (lower case letters, digits, - and _).")
+        if info is not None and not isinstance(info, dict):
+            raise FileImportError(f"Profile “{pid}” must be written {{name: ...}}.")
+        ids.add(str(pid))
+    if not isinstance(data.get("groups"), list):
+        raise FileImportError("“groups” must be a list.")
+    seen = set()
+    for group in data["groups"]:
+        if not isinstance(group, dict) or not isinstance(group.get("columns"), list):
+            raise FileImportError("Each group needs “group” and a “columns” list.")
+        for item in group["columns"]:
+            if not isinstance(item, dict) or not item.get("column"):
+                raise FileImportError(f"Group “{group.get('group')}”: each column needs a “column” name.")
+            try:
+                name = technical_name(item["column"])
+            except ValueError as exc:
+                raise FileImportError(f"Invalid column name “{item['column']}”.") from exc
+            if name in seen:
+                raise FileImportError(f"Column “{name}” is defined twice.")
+            seen.add(name)
+            data_type = str(item.get("data_type") or "text")
+            if data_type not in DATA_TYPES:
+                raise FileImportError(f"Column “{name}”: unknown data_type “{data_type}”.")
+            for key, headers in item.items():
+                if key in ("column", "data_type"):
+                    continue
+                if key not in ids:
+                    raise FileImportError(f"Column “{name}”: “{key}” is not a profile of this file.")
+                if not isinstance(headers, (str, list)):
+                    raise FileImportError(f"Column “{name}”, profile “{key}”: give a header or a list of headers.")
+    ignored = data.get("ignored")
+    if ignored is not None:
+        if not isinstance(ignored, dict) or any(str(k) not in ids or not isinstance(v, list) for k, v in ignored.items()):
+            raise FileImportError("“ignored” must map a profile to a list of headers.")
 
 
 def _read():
@@ -27,8 +80,10 @@ def _read():
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
         raise FileImportError(f"{FILE_NAME} is unreadable.") from exc
-    if not isinstance(data, dict) or not isinstance(data.get("profiles"), dict):
-        raise FileImportError(f"{FILE_NAME} is invalid.")
+    try:
+        parse_spec(data)
+    except FileImportError as exc:
+        raise FileImportError(f"{FILE_NAME}: {exc}") from exc
     return data
 
 

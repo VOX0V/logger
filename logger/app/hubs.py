@@ -25,7 +25,7 @@ def _items(rows):
 @login_required
 def data():
     from .import_profiles import list_profiles
-    return render_template("data.html", profiles=list_profiles(), is_admin=g.role == "admin")
+    return render_template("data.html", profiles=list_profiles(include_default=True), is_admin=g.role == "admin")
 
 
 @hubs_bp.route("/export")
