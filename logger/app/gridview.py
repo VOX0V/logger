@@ -34,7 +34,13 @@ def _clauses(columns, expressions=None):
         field = args.get(f"sort[{j}][field]", "")
         direction = args.get(f"sort[{j}][dir]", "asc")
         if field in allowed and direction in ("asc", "desc"):
-            sorts.append(f'{_sql(field, expressions)} {direction.upper()}')
+            col, d = _sql(field, expressions), direction.upper()
+            # blanks last; numeric-looking values in numeric order; the rest alphabetical, ignoring case
+            numeric = f"CAST({col} AS TEXT) != '' AND CAST({col} AS TEXT) NOT GLOB '*[^0-9.-]*'"
+            sorts.append(f"({col} IS NULL OR {col} = '') ASC")
+            sorts.append(f"CASE WHEN {numeric} THEN 0 ELSE 1 END ASC")
+            sorts.append(f"CASE WHEN {numeric} THEN CAST({col} AS REAL) END {d}")
+            sorts.append(f"{col} COLLATE NOCASE {d}")
         j += 1
     return where, params, sorts
 

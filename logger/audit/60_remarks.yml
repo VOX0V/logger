@@ -1,0 +1,24 @@
+# Audit — text columns and remarks.
+name: Remarks and text
+rules:
+  - name: Stray spaces
+    severity: ANOMALY
+    each: text_columns
+    when: has_stray_spaces(value)
+    message: '{column} : “{value}”'
+  - name: Faute d'orthographe
+    severity: ANOMALY
+    when: 'matches(remarks, "(?i)\\bINTRUCTEUR\\b")'
+    message: '“INTRUCTEUR” should be “INSTRUCTEUR”'
+  - name: Faute d'orthographe
+    severity: ANOMALY
+    when: 'matches(remarks, "(?i)\\bRefrest\\b")'
+    message: '“Refrest” should be “Refresh”'
+  - name: Faute d'orthographe
+    severity: ANOMALY
+    when: 'matches(remarks, "(?i)\\bCKS3\\b")'
+    message: '“CKS3” should be “CSK3”'
+  - name: Exercices suspects
+    severity: ANOMALY
+    when: not is_blank(exercise_issues(remarks))
+    message: '{exercise_issues(remarks)}'

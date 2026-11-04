@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.23 — One import file per employer, audit rules in YAML, grid filters and sorting fixed
+
+- **Import**: back to one file per employer, `importer/<id>_import.yml` (`default`, `creebec`, `jazz`), each with its own columns (`header` of the airline file -> RAW `column`) and its own `ignored` list; no shared rule. A header can be a list (Creebec accepts `pic` and `pic_name`). `import.yml` is removed. Each file has its own button entry in the YAML editor (Data > YML IMPORT, then pick the file); edited copies are kept in `appdata/importer/`.
+- **Audit**: the checks are now YAML files in `audit/` (`00_common`, `10_dates`, `20_times`, `30_aircraft`, `40_airports`, `50_crew`, `60_remarks`), merged in file name order, using the expression language of `work_db.yml` plus a few functions (`valid_date`, `future_date`, `num`, `matches`, `length`, `has_stray_spaces`, `exercise_issues`, `known_airport`, `known_aircraft`). Rules over several rows are `group_rules` (`one_to_many`, `spellings`). Administrators edit each file from the Audit page (copies in `appdata/audit/`, a new file there is added). A broken rule or an unknown column name is reported on the Audit page as “Audit rule problem” instead of being silently ignored. The MTOW check stays in the code. The Dockerfile copies `audit/`.
+- **Grids (Tabulator)**: filters and sorting never reached the server (Tabulator 6.3 sends `sort` and `filter`, the page read `sorters` and `filters`). Fixed. Sorting is now alphabetical ignoring case, numeric-looking values in numeric order, blanks last.
+
 ## 0.3.22 — World map on a globe, no API key
 
 - CARTO now requires an API key on its raster tiles (the map showed "API KEY REQUIRED"). The World map now uses **MapLibre GL** (shipped in `static/vendor/maplibre`, CSP build) with the keyless **OpenFreeMap** dark vector style, drawn on a **globe** (button *Flat map* / *Globe* in the panel). Leaflet is removed.

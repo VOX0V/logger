@@ -1,13 +1,27 @@
-"""Audit of the logbook database (B): dates, identity, flight times and column consistency.
-Adapted from the checks of the earlier Excel-based application (chronology, identity, times)."""
+"""Audit of the work data (table logbook). The rules are YAML files: <app root>/audit/*.yml (shipped) and
+appdata/audit/*.yml (copies edited in the web interface, which win by file name; a new file there is added).
+All files are merged in file name order. See the comments at the top of the shipped files for the format.
+
+  name:         shown in the editor
+  params:       {name: number}                      constants usable in expressions
+  lists:        {name: [columns]}                   for "each"
+  vars:         {name: expression}                  computed for every row, in order
+  skip_rows:    [expression]                        "empty lines": only rules with skipped_rows: true see them
+  rules:        - {name, severity, when, message, each, skipped_rows}
+  group_rules:  - {name, severity, kind: one_to_many | spellings, ...}   (rules over several rows)
+Expressions are those of work_db.yml (columns by name, and/or/not, comparisons, + - * /, functions), plus
+valid_date, future_date, num, matches, length, has_stray_spaces, exercise_issues, known_airport, known_aircraft."""
 import re
 import sqlite3
 import unicodedata
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 
-from flask import Blueprint, render_template
+import yaml
+from flask import Blueprint, g, render_template
 
+from . import workdb
 from .auth import login_required
 from .db import logbook_connect
 
@@ -15,40 +29,13 @@ audit_bp = Blueprint("audit", __name__, url_prefix="/audit")
 
 SEVERITY_ORDER = {"ERROR": 0, "ANOMALY": 1, "INFO": 2}
 MAX_SHOWN = 200
-
-COMPATIBLE_TYPES = [{"A152", "C152"}]
-TYPOS = [(r"\bINTRUCTEUR\b", "INSTRUCTEUR"), (r"\bRefrest\b", "Refresh"), (r"\bCKS3\b", "CSK3")]
-MAX_DURATION = 8.0          # hours on one line
-DECIMAL_SUSPECT = 12.0      # a value above this is probably "1,5" typed as 15
-AIRLINE_TYPES = {"CRJ"}
-
-SE = ["single_engine_dual_day", "single_engine_pic_day", "single_engine_dual_night", "single_engine_pic_night"]
-ME = ["multi_engine_dual_day", "multi_engine_pic_day", "multi_engine_copi_day",
-      "multi_engine_dual_night", "multi_engine_pic_night", "multi_engine_copi_night"]
-XC = ["cross_country_dual_day", "cross_country_pic_day", "cross_country_dual_night", "cross_country_pic_night"]
-OTHER = ["ifr", "hood", "ftd", "ifr_approach", "instruction_day", "instruction_night"]
-LANDINGS = ["landings_day", "landings_night"]
-DUAL = ["single_engine_dual_day", "single_engine_dual_night", "multi_engine_dual_day",
-        "multi_engine_dual_night", "cross_country_dual_day", "cross_country_dual_night"]
-TIME_COLS = SE + ME + XC + OTHER
-SIM_COLS = ["ftd", "instruction_day", "instruction_night"]       # un vol de simulateur ne comporte que ces temps
-EMPTY_MARKERS = {"vide", "empty"}                              # remarque d'une ligne volontairement vide (espacement du logbook)
-TEXT_COLS = ("aircraft_type", "registration", "pilot_in_command", "copilot", "departure", "arrival", "remarks")
-
-
-def num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+FILE_ID = re.compile(r"[a-z0-9_-]+")
+BUNDLED_DIR = Path(__file__).resolve().parent.parent / "audit"
+_STATE = {"today": None, "airports": None, "aircraft": None}
 
 
 def text(v):
     return "" if v is None else str(v)
-
-
-def is_sim(reg):
-    return bool(re.match(r"^(Elite|RB|FRASCA|SIM)", reg, re.I)) or reg in ("F-DMP", "---", "XXX")
 
 
 def name_key(name):
@@ -57,9 +44,74 @@ def name_key(name):
     return re.sub(r"[^a-z]", "", plain.lower())
 
 
-def is_empty_line(r):
-    """Ligne volontairement vide : la remarque est uniquement “vide” ou “empty”."""
-    return text(r.get("remarks")).strip().lower() in EMPTY_MARKERS
+# ---------------- functions added to the expression language ----------------
+def _date(y, m, d):
+    return date(int(float(y)), int(float(m)), int(float(d)))
+
+
+def _valid_date(y, m, d):
+    try:
+        _date(y, m, d)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _future_date(y, m, d):
+    try:
+        return _date(y, m, d) > (_STATE["today"] or date.today())
+    except (TypeError, ValueError):
+        return False
+
+
+def _num(v):
+    try:
+        return float(str(v).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _matches(x, pattern):
+    try:
+        return re.search(str(pattern), text(x)) is not None
+    except re.error as exc:
+        raise ValueError(f"invalid pattern ({exc})")
+
+
+def _length(x):
+    return len(text(x).strip())
+
+
+def _has_stray_spaces(x):
+    v = text(x)
+    return bool(v) and (v != v.strip() or "  " in v)
+
+
+def _exercise_issues(remarks):
+    """Exercise numbers of a remark such as “EX 3-4-4”: duplicates and numbers above 50."""
+    mx = re.match(r"^EX\s+([\d\-]+)", text(remarks))
+    if not mx:
+        return ""
+    seen, issues = set(), []
+    for n in (int(x) for x in re.findall(r"\d+", mx.group(1))):
+        if n in seen:
+            issues.append(f"number {n} duplicate")
+        seen.add(n)
+        if n > 50:
+            issues.append(f"number {n} suspicious (> 50)")
+    return " ; ".join(issues)
+
+
+def _known(table, x):
+    codes = _STATE[table]
+    return True if codes is None else text(x).strip().upper() in codes      # no table: nothing to compare with
+
+
+workdb.FUNCS.update({"valid_date": _valid_date, "future_date": _future_date, "num": _num, "matches": _matches,
+                     "length": _length, "has_stray_spaces": _has_stray_spaces, "exercise_issues": _exercise_issues,
+                     "known_airport": lambda x: _known("airports", x), "known_aircraft": lambda x: _known("aircraft", x)})
+workdb._ARITY.update({"valid_date": 3, "future_date": 3, "num": 1, "matches": 2, "length": 1, "has_stray_spaces": 1,
+                      "exercise_issues": 1, "known_airport": 1, "known_aircraft": 1})
 
 
 def airport_codes():
@@ -91,153 +143,235 @@ def mtow_mismatches(tolerance=0.01):
             for t in rows if t["mtow_lb"] and t["mtow_kg"] and abs(t["mtow_lb"] / LB_PER_KG - t["mtow_kg"]) > tolerance * t["mtow_kg"]]
 
 
-def check_row(r, today, icao=None, types=None):
-    out = []
-
-    def add(sev, cat, msg):
-        out.append((sev, cat, msg))
-
-    if is_empty_line(r):
-        try:
-            date.fromisoformat(text(r.get("date"))[:10])
-        except ValueError:
-            add("ANOMALY", "Empty row without date", "row “empty” without a valid date: it may end up anywhere in the logbook")
-        return out                                     # aucun autre test sur une ligne vide
-
-    d = text(r.get("date"))[:10]
+# ---------------- the rule files ----------------
+def edited_dir():
     try:
-        if date.fromisoformat(d) > today:
-            add("INFO", "Future date", f"{d} (planned flight?)")
-    except ValueError:
-        add("ERROR", "Missing or invalid date", repr(r.get("date")))
+        from .db import appdata_root
+        return appdata_root() / "audit"
+    except RuntimeError:
+        return None
 
-    typ, reg = text(r.get("aircraft_type")).strip(), text(r.get("registration")).strip()
-    cop, dep, arr = text(r.get("copilot")).strip(), text(r.get("departure")).strip(), text(r.get("arrival")).strip()
-    times = {c: num(r.get(c)) for c in TIME_COLS}
-    has_time = any(times.values())
 
-    for c, v in times.items():
-        if v < 0:
-            add("ERROR", "Negative value", f"{c} = {v:g}")
-        elif v >= DECIMAL_SUSPECT:
-            add("ANOMALY", "Suspicious decimal value", f"{c} = {v:g} (1.5 entered as 15?)")
-        elif v > MAX_DURATION:
-            add("ANOMALY", "Abnormal duration", f"{c} = {v:g} h (> {MAX_DURATION:g} h)")
-    if not has_time and not any(num(r.get(c)) for c in LANDINGS):
-        add("ANOMALY", "Row without time", "no time or landing recorded")
-    if typ.upper() == "SIM":                           # simulateur : uniquement du temps FTD (entraînement) ou instruction (formation)
-        if not sum(times[c] for c in SIM_COLS):
-            add("ANOMALY", "Simulator without FTD or instruction", "no FTD or instruction time")
-        other = [f"{c} = {v:g}" for c, v in times.items() if c not in SIM_COLS and v > 0]
-        if other:
-            add("ANOMALY", "Simulator with time outside FTD / instruction", ", ".join(other))
-    elif has_time and not (sum(times[c] for c in SE + ME) or times["ftd"]):
-        add("ANOMALY", "Hours without category", "time recorded outside single / multi / FTD")
+def audit_ids():
+    ids = set()
+    for folder in (BUNDLED_DIR, edited_dir()):
+        if folder is not None and folder.is_dir():
+            ids |= {p.stem for p in folder.glob("*.yml")}
+    return sorted(i for i in ids if FILE_ID.fullmatch(i))
 
-    if not typ:
-        add("ANOMALY", "Unknown aircraft type", "empty type")
-    elif types is not None and typ.upper() not in types:
-        add("ANOMALY", "Unknown aircraft type", f"“{typ}”")
 
-    if reg:
-        if not (is_sim(reg) or re.match(r"^C-[A-Z]{4}$", reg) or re.match(r"^[A-Z]{1,2}-[A-Z0-9]{3,5}$", reg)
-                or re.match(r"^N\d{1,5}[A-Z]{0,2}$", reg)):
-            add("ANOMALY", "Registration format", f"“{reg}”")
-    elif has_time and typ != "SIM":
-        add("ANOMALY", "Empty registration", "flight with time but no registration")
+def audit_path(file_id):
+    edited = edited_dir()
+    if edited is not None and (edited / f"{file_id}.yml").is_file():
+        return edited / f"{file_id}.yml"
+    return BUNDLED_DIR / f"{file_id}.yml"
 
-    for field, v in (("departure", dep), ("arrival", arr)):
-        if len(v) == 3 and not (icao is not None and v.upper() in icao):
-            add("ANOMALY", "Suspicious aerodrome format", f"{field} : “{v} ” (4-character ICAO code expected, e.g. KBNA)")
-        elif len(v) == 4 and icao is not None and v.upper() not in icao:
-            add("ANOMALY", "Unknown aerodrome", f"{field} : “{v} ” missing from the Airports table")
-        # toute autre longueur (nom de lieu, etc.) : pas de test
 
-    pilot = text(r.get("pilot_in_command")).strip()
-    if pilot and cop and pilot.lower() == cop.lower():
-        add("ANOMALY", "Pilot and copilot identical", f"“{pilot}”")
-    if not cop:
-        if times["instruction_day"] + times["instruction_night"] > 0:
-            add("ANOMALY", "Instruction without copilot", "instruction recorded without copilot")
-        if any(times[c] > 0 for c in DUAL):
-            add("ANOMALY", "Dual without copilot / instructor", "dual time without copilot filled in")
-    if typ in AIRLINE_TYPES and dep and dep == arr and any(times[c] > 0 for c in XC):
-        add("INFO", "Cross-country flight departure = arrival", f"{dep} → {arr} (mechanical return?)")
+def _expr(value, where):
+    if not isinstance(value, (str, int, float, bool)) or value == "":
+        raise workdb.SpecError(f"{where}: an expression is required.")
+    return workdb._compile(value, where)
 
-    total = sum(times[c] for c in SE + ME)
-    if total > 0:
-        if times["ifr"] > total + 0.05:
-            add("ANOMALY", "Inconsistency between columns", f"IFR {times['ifr']:g} > total time {total:g}")
-        xc = sum(times[c] for c in XC)
-        if xc > total + 0.05:
-            add("ANOMALY", "Inconsistency between columns", f"cross-country {xc:g} > total time {total:g}")
 
-    for c in TEXT_COLS:
-        v = text(r.get(c))
-        if v and (v != v.strip() or "  " in v):
-            add("ANOMALY", "Stray spaces", f"{c} : “{v}”")
+def _template(value, where):
+    """Message split into text and {expression} parts."""
+    parts, last = [], 0
+    value = str(value)
+    for m in re.finditer(r"\{([^{}]+)\}", value):
+        parts.append(("t", value[last:m.start()]))
+        parts.append(("e", workdb._compile(m.group(1), f"{where} (message)")))
+        last = m.end()
+    parts.append(("t", value[last:]))
+    return parts
 
-    rem = text(r.get("remarks"))
-    for pattern, fix in TYPOS:
-        m = re.search(pattern, rem, re.I)
-        if m:
-            add("ANOMALY", "Faute d'orthographe", f"“{m.group()} ” should be “ {fix}”")
-    mx = re.match(r"^EX\s+([\d\-]+)", rem)
-    if mx:
-        seen, issues = set(), []
-        for n in (int(x) for x in re.findall(r"\d+", mx.group(1))):
-            if n in seen:
-                issues.append(f"number {n} duplicate")
-            seen.add(n)
-            if n > 50:
-                issues.append(f"number {n} suspicious (> 50)")
-        if issues:
-            add("ANOMALY", "Exercices suspects", " ; ".join(issues))
+
+RULE_KEYS = {"name", "severity", "when", "message", "each", "skipped_rows"}
+GROUP_KEYS = {"name", "severity", "kind", "where", "group_by", "distinct", "allowed_sets", "columns", "key", "ignore_values"}
+TOP_KEYS = {"name", "params", "lists", "vars", "skip_rows", "rules", "group_rules"}
+
+
+def _severity(item, where):
+    if item.get("severity") not in SEVERITY_ORDER:
+        raise workdb.SpecError(f"{where}: severity must be ERROR, ANOMALY or INFO.")
+    return item["severity"]
+
+
+def parse_audit(data):
+    """Validates and compiles one audit file; raises workdb.SpecError with a readable message."""
+    if not isinstance(data, dict):
+        raise workdb.SpecError("The file must contain “rules” and/or “group_rules” (see the shipped files).")
+    unknown = set(data) - TOP_KEYS
+    if unknown:
+        raise workdb.SpecError(f"Unknown key “{sorted(unknown)[0]}” (allowed: {', '.join(sorted(TOP_KEYS))}).")
+    out = {"params": {}, "lists": {}, "vars": [], "skips": [], "rules": [], "group_rules": []}
+    params = data.get("params") or {}
+    if not isinstance(params, dict) or not all(isinstance(v, (int, float, str, bool)) for v in params.values()):
+        raise workdb.SpecError("“params” must map a name to a number or a text.")
+    out["params"] = {str(k).lower(): v for k, v in params.items()}
+    lists = data.get("lists") or {}
+    if not isinstance(lists, dict) or not all(isinstance(v, list) for v in lists.values()):
+        raise workdb.SpecError("“lists” must map a name to a list of columns.")
+    out["lists"] = {str(k): [str(c) for c in v] for k, v in lists.items()}
+    vars_ = data.get("vars") or {}
+    if not isinstance(vars_, dict):
+        raise workdb.SpecError("“vars” must map a name to an expression.")
+    out["vars"] = [(str(k).lower(), _expr(v, f"vars.{k}")) for k, v in vars_.items()]
+    skips = data.get("skip_rows") or []
+    for i, e in enumerate(skips if isinstance(skips, list) else [skips], 1):
+        out["skips"].append(_expr(e, f"skip_rows #{i}"))
+    for i, rule in enumerate(data.get("rules") or [], 1):
+        where = f"rule #{i}"
+        if not isinstance(rule, dict) or not rule.get("name"):
+            raise workdb.SpecError(f"{where}: each rule needs a “name”.")
+        where = f"rule “{rule['name']}”"
+        if set(rule) - RULE_KEYS:
+            raise workdb.SpecError(f"{where}: unknown key “{sorted(set(rule) - RULE_KEYS)[0]}”.")
+        each = rule.get("each")
+        if each is not None and not (isinstance(each, str) or (isinstance(each, list) and all(isinstance(c, str) for c in each))):
+            raise workdb.SpecError(f"{where}: “each” is a list of columns or the name of a list.")
+        out["rules"].append({"name": str(rule["name"]), "sev": _severity(rule, where), "when": _expr(rule.get("when"), f"{where} (when)"),
+                             "message": _template(rule.get("message", ""), where), "each": each, "skipped": bool(rule.get("skipped_rows"))})
+    for i, rule in enumerate(data.get("group_rules") or [], 1):
+        if not isinstance(rule, dict) or not rule.get("name"):
+            raise workdb.SpecError(f"group rule #{i}: each rule needs a “name”.")
+        where = f"group rule “{rule['name']}”"
+        if set(rule) - GROUP_KEYS:
+            raise workdb.SpecError(f"{where}: unknown key “{sorted(set(rule) - GROUP_KEYS)[0]}”.")
+        kind = rule.get("kind")
+        if kind == "one_to_many":
+            if not (rule.get("group_by") and rule.get("distinct")):
+                raise workdb.SpecError(f"{where}: one_to_many needs “group_by” and “distinct” (columns).")
+        elif kind == "spellings":
+            if not (isinstance(rule.get("columns"), list) and rule["columns"]) or rule.get("key", "alnum") not in ("alnum", "letters"):
+                raise workdb.SpecError(f"{where}: spellings needs “columns” (a list) and key alnum or letters.")
+        else:
+            raise workdb.SpecError(f"{where}: kind must be one_to_many or spellings.")
+        out["group_rules"].append({**rule, "sev": _severity(rule, where), "kind": kind,
+                                   "where_ast": _expr(rule["where"], f"{where} (where)") if rule.get("where") else None})
     return out
 
 
-def check_global(rows):
-    out = []
-    rows = [r for r in rows if not is_empty_line(r)]
-    types_by_reg, forms_by_reg = defaultdict(set), defaultdict(set)
-    forms_by_name, forms_by_aero = defaultdict(set), defaultdict(set)
-    for r in rows:
-        reg, typ = text(r.get("registration")).strip(), text(r.get("aircraft_type")).strip()
-        if reg and not is_sim(reg):
-            forms_by_reg[re.sub(r"[^A-Z0-9]", "", reg.upper())].add(reg)
-            if typ:
-                types_by_reg[reg.upper()].add(typ)
-        for c in ("pilot_in_command", "copilot"):
-            n = text(r.get(c)).strip()
-            if n and n.upper() != "NAME":
-                forms_by_name[name_key(n)].add(n)
-        for c in ("departure", "arrival"):
-            a = text(r.get(c)).strip()
-            if a:
-                forms_by_aero[re.sub(r"[^A-Z0-9]", "", a.upper())].add(a)
-    for reg, types in sorted(types_by_reg.items()):
-        if len(types) > 1 and not any(types <= c for c in COMPATIBLE_TYPES):
-            out.append(("ANOMALY", "Registration ↔ type", f"{reg} : {' / '.join(sorted(types))}"))
-    for cat, groups in (("Different spellings: registration", forms_by_reg),
-                        ("Different spellings: pilot name", forms_by_name),
-                        ("Different spellings: aerodrome", forms_by_aero)):
-        for forms in groups.values():
-            if len(forms) > 1:
-                out.append(("ANOMALY", cat, " / ".join(sorted(forms))))
-    return out
+def load_rules():
+    """Merged rules of every file, and the problems met while reading them."""
+    spec = {"params": {}, "lists": {}, "vars": [], "skips": [], "rules": [], "group_rules": []}
+    problems = []
+    for file_id in audit_ids():
+        try:
+            part = parse_audit(yaml.safe_load(audit_path(file_id).read_text(encoding="utf-8")))
+        except (OSError, yaml.YAMLError, workdb.SpecError) as exc:
+            problems.append(f"{file_id}.yml : {exc}")
+            continue
+        spec["params"].update(part["params"]); spec["lists"].update(part["lists"])
+        for key in ("vars", "skips", "rules", "group_rules"):
+            spec[key] += part[key]
+    return spec, problems
+
+
+# ---------------- checks ----------------
+def _fmt(v):
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, float):
+        return f"{v:g}"
+    return str(v)
+
+
+def _truthy(v):
+    return bool(v) and not (isinstance(v, str) and not v.strip())
+
+
+def row_date(r):
+    try:
+        return _date(r.get("year"), r.get("month"), r.get("day"))
+    except (TypeError, ValueError):
+        return None
 
 
 def run_checks(rows, today=None):
-    today = today or date.today()
-    findings = []
-    icao, types = airport_codes(), aircraft_codes()
+    _STATE.update(today=today or date.today(), airports=airport_codes(), aircraft=aircraft_codes())
+    spec, problems = load_rules()
+    findings = [{"sev": "ERROR", "cat": "Audit rule problem", "date": "", "label": "audit/", "msg": p} for p in problems]
+    unknown, failed = set(), set()
+
+    def warn(message):
+        m = re.search(r"“([^”]+)”", message)
+        unknown.add(m.group(1) if m else message)
+
+    def ev(tree, env, where):
+        try:
+            return workdb._eval(tree, env, warn)
+        except workdb.ExprError as exc:
+            if where not in failed:
+                failed.add(where)
+                findings.append({"sev": "ERROR", "cat": "Audit rule problem", "date": "", "label": "audit/", "msg": f"{where} : {exc}"})
+            return None
+
+    def render(parts, env, where):
+        return "".join(v if k == "t" else _fmt(ev(v, env, where)) for k, v in parts)
+
+    envs = []
     for r in rows:
-        route = f"{text(r.get('departure'))}→{text(r.get('arrival'))}" if r.get("departure") or r.get("arrival") else ""
+        env = dict(spec["params"])
+        env.update({str(k).lower(): v for k, v in r.items()})
+        for name, tree in spec["vars"]:
+            env[name] = ev(tree, env, f"variable {name}")
+        skipped = any(_truthy(ev(t, env, "skip_rows")) for t in spec["skips"])
+        envs.append((r, env, skipped))
+        route = f"{text(r.get('departure_code'))}→{text(r.get('arrival_code'))}" if r.get("departure_code") or r.get("arrival_code") else ""
         label = " ".join(x for x in (text(r.get("registration")).strip(), route, text(r.get("remarks")).strip()[:40]) if x)
-        for sev, cat, msg in check_row(r, today, icao, types):
-            findings.append({"sev": sev, "cat": cat, "date": text(r.get("date"))[:10], "label": label, "msg": msg})
-    for sev, cat, msg in check_global(rows):
-        findings.append({"sev": sev, "cat": cat, "date": "", "label": "several rows", "msg": msg})
+        d = row_date(r)
+        for rule in spec["rules"]:
+            if rule["skipped"] != skipped:
+                continue
+            each = rule["each"]
+            if isinstance(each, str):
+                if each not in spec["lists"]:
+                    if rule["name"] not in failed:
+                        failed.add(rule["name"])
+                        findings.append({"sev": "ERROR", "cat": "Audit rule problem", "date": "", "label": "audit/", "msg": f"rule “{rule['name']}” : unknown list “{each}”."})
+                    continue
+                each = spec["lists"][each]
+            for column in (each if each is not None else [None]):
+                e = env if column is None else {**env, "column": column, "value": env.get(column.lower())}
+                where = f"rule “{rule['name']}”"
+                if _truthy(ev(rule["when"], e, where)):
+                    findings.append({"sev": rule["sev"], "cat": rule["name"], "date": d.isoformat() if d else "", "label": label,
+                                     "msg": render(rule["message"], e, where)})
+
+    live = [env for _r, env, skipped in envs if not skipped]
+    for rule in spec["group_rules"]:
+        where = f"group rule “{rule['name']}”"
+        if rule["where_ast"] is not None:
+            pool = [e for e in live if _truthy(ev(rule["where_ast"], e, where))]
+        else:
+            pool = live
+        if rule["kind"] == "one_to_many":
+            allowed = [{str(x).upper() for x in s} for s in rule.get("allowed_sets") or []]
+            buckets = defaultdict(set)
+            for e in pool:
+                key, val = text(e.get(str(rule["group_by"]).lower())).strip().upper(), text(e.get(str(rule["distinct"]).lower())).strip()
+                if key and val:
+                    buckets[key].add(val)
+            for key, vals in sorted(buckets.items()):
+                if len(vals) > 1 and not any({v.upper() for v in vals} <= s for s in allowed):
+                    findings.append({"sev": rule["sev"], "cat": rule["name"], "date": "", "label": "several rows", "msg": f"{key} : {' / '.join(sorted(vals))}"})
+        else:
+            ignore = {str(x).upper() for x in rule.get("ignore_values") or []}
+            kf = (lambda v: re.sub(r"[^A-Z0-9]", "", v.upper())) if rule.get("key", "alnum") == "alnum" else name_key
+            forms = defaultdict(set)
+            for e in pool:
+                for c in rule["columns"]:
+                    v = text(e.get(str(c).lower())).strip()
+                    if v and v.upper() not in ignore and kf(v):
+                        forms[kf(v)].add(v)
+            for group in forms.values():
+                if len(group) > 1:
+                    findings.append({"sev": rule["sev"], "cat": rule["name"], "date": "", "label": "several rows", "msg": " / ".join(sorted(group))})
+    for name in sorted(unknown):
+        findings.append({"sev": "INFO", "cat": "Audit rule problem", "date": "", "label": "audit/",
+                         "msg": f"unknown name “{name}” in a rule (not a work data column, parameter or variable)"})
     for msg in mtow_mismatches():
         findings.append({"sev": "ANOMALY", "cat": "MTOW differs between lb and kg", "date": "", "label": "Aircraft table", "msg": msg})
     return findings
@@ -267,4 +401,12 @@ def index():
     except sqlite3.Error:
         rows = []
     groups, counts = group_findings(run_checks(rows))
-    return render_template("audit.html", total=len(rows), groups=groups, counts=counts)
+    edit_files = []
+    if g.get("role") == "admin":
+        for file_id in audit_ids():
+            try:
+                label = str(yaml.safe_load(audit_path(file_id).read_text(encoding="utf-8")).get("name") or file_id)
+            except Exception:
+                label = file_id
+            edit_files.append((f"audit_{file_id}", label))
+    return render_template("audit.html", total=len(rows), groups=groups, counts=counts, edit_files=edit_files)

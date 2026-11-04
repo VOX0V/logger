@@ -226,68 +226,79 @@ skip_rows:
     - value: tc_hours(me_copi_night)
     - value: tc_hours(flight_time)
 
-# First pass: the flight time is copied into every column of the right category (single or multi engine, day or night
-# of the arrival), whatever the role (dual, solo, pic, copi), so that errors show in the totals.
+# Each column first takes its own raw value (se_*, me_*). Only when a flight has none of these raw values (airline
+# files without role columns), the flight time is copied into every column of the right category (single or multi engine,
+# day or night of the arrival), whatever the role (dual, solo, pic, copi), so that errors show in the totals.
 # Next step: keep only the column that matches the role.
 
 32_single_engine_dual_day:
   type: decimal
   rules:
-    - when: w_engines == "single" and w_arrival_day_night == "day"
+    - value: tc_hours(se_dual_day)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "single" and w_arrival_day_night == "day"
       value: w_flight_time
 
 33_single_engine_solo_day:
   type: decimal
   rules:
-    - when: w_engines == "single" and w_arrival_day_night == "day"
+    - value: tc_hours(se_pic_day)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "single" and w_arrival_day_night == "day"
       value: w_flight_time
 
 34_single_engine_dual_night:
   type: decimal
   rules:
-    - when: w_engines == "single" and w_arrival_day_night == "night"
+    - value: tc_hours(se_dual_night)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "single" and w_arrival_day_night == "night"
       value: w_flight_time
 
 35_single_engine_solo_night:
   type: decimal
   rules:
-    - when: w_engines == "single" and w_arrival_day_night == "night"
+    - value: tc_hours(se_pic_night)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "single" and w_arrival_day_night == "night"
       value: w_flight_time
 
 36_multi_engine_dual_day:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "day"
+    - value: tc_hours(me_dual_day)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
       value: w_flight_time
 
 37_multi_engine_pic_day:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "day"
+    - value: tc_hours(me_pic_day)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
       value: w_flight_time
 
 38_multi_engine_copi_day:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "day"
+    - value: tc_hours(me_copi_day)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
       value: w_flight_time
 
 39_multi_engine_dual_night:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "night"
+    - value: tc_hours(me_dual_night)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
       value: w_flight_time
 
 40_multi_engine_pic_night:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "night"
+    - value: tc_hours(me_pic_night)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
       value: w_flight_time
 
 41_multi_engine_copi_night:
   type: decimal
   rules:
-    - when: w_engines == "multi" and w_arrival_day_night == "night"
+    - value: tc_hours(me_copi_night)
+    - when: is_blank(se_dual_day) and is_blank(se_pic_day) and is_blank(se_dual_night) and is_blank(se_pic_night) and is_blank(me_dual_day) and is_blank(me_pic_day) and is_blank(me_copi_day) and is_blank(me_dual_night) and is_blank(me_pic_night) and is_blank(me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
       value: w_flight_time
 
 ############### FLIGHT DETAILS ###############

@@ -1,0 +1,42 @@
+# Import profile "Jazz Aviation": maps the headers of the file to RAW database columns (values are imported untouched).
+# Format: see the top of app/import_profiles.py. Editable from Data > YML IMPORT.
+name: Jazz Aviation
+groups:
+  - group: aircrafts
+    columns:
+      - {column: type, header: fcv_aircraft_type}
+      - {column: registration, header: fcv_tail_number}
+  - group: crew
+    columns:
+      - {column: crew_list, header: crew_list}
+  - group: airports
+    columns:
+      - {column: dep_code, header: dep_airport}
+      - {column: dep_time_utc, header: dep_datetime_utc}
+      - {column: arr_code, header: arr_airport}
+      - {column: arr_time_utc, header: arr_datetime_utc}
+  - group: leg
+    columns:
+      - {column: flight_time, header: block}
+      - {column: leg_length, header: nautical_miles}
+  - group: misc
+    columns:
+      - {column: flight_number, header: flight_number}
+
+# Headers of the file that are deliberately not imported.
+ignored:
+  - deadhead
+  - airplane_change
+  - fcv_skd_dep_datetime_local
+  - fcv_skd_arr_datetime_local
+  - dep_datetime_local
+  - fcv_off_datetime_local
+  - fcv_on_datetime_local
+  - arr_datetime_local
+  - fcv_off_datetime_utc
+  - fcv_on_datetime_utc
+  - dep_millis_utc
+  - fcv_off_millis_utc
+  - fcv_on_millis_utc
+  - arr_millis_utc
+  - tail_number

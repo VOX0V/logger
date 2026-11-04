@@ -2,6 +2,7 @@
 {% block content %}
 <h2>Logbook audit</h2>
 <p class="muted">{{total}} row(s) checked · <a href="{{url_for('main.logbook')}}">Back to logbook</a></p>
+{% if edit_files %}<p class="muted">Edit the rules: {% for key, label in edit_files %}<a href="{{url_for('yamledit.editor', file=key)}}">{{label}}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
 <div class="card">
   <strong>{{counts.get('ERROR', 0)}}</strong> error(s) · <strong>{{counts.get('ANOMALY', 0)}}</strong> anomalie(s) · <strong>{{counts.get('INFO', 0)}}</strong> information(s)
 </div>

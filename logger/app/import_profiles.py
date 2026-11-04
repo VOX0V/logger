@@ -1,7 +1,18 @@
-"""Import profiles: a single file <app root>/importer/import.yml (groups -> RAW columns -> header per profile), shared by all accounts.
+"""Import profiles: one file per employer, <id>_import.yml, in <app root>/importer/ (shipped) and appdata/importer/
+(copy edited in the web interface, which wins). Shared by all accounts.
 
-A profile only maps the headers of an airline file to database columns. Values are imported
-untouched (the raw database holds raw data)."""
+A profile only maps the headers of an airline file to RAW database columns. Values are imported
+untouched (the raw database holds raw data).
+
+    name: Jazz Aviation          # shown in the import menu
+    sheet: raw                   # optional: sheet to read (default: "raw", else the active sheet)
+    groups:                      # groups are only there to keep the file readable
+      - group: aircrafts
+        columns:
+          - {column: type, header: fcv_aircraft_type}          # header: one name or a list of names
+          - {column: takeoff_day, header: to_day, data_type: integer}   # data_type: text (default), integer, ...
+    ignored: [deadhead, tail_number]    # headers of the file deliberately not imported (documentation)
+"""
 import re
 from collections import Counter
 from pathlib import Path
@@ -12,42 +23,51 @@ from .config import save_config, technical_name
 from .importer import FileImportError
 
 PROFILE_ID = re.compile(r"[a-z0-9_-]+")
-FILE_NAME = "import.yml"
+SUFFIX = "_import.yml"
 DEFAULT_ID = "default"
 DATA_TYPES = {"text", "integer", "decimal", "date", "datetime", "boolean"}
+BUNDLED_DIR = Path(__file__).resolve().parent.parent / "importer"
 
 
-def edited_path():
-    """Writable copy edited in the web interface (appdata/importer/import.yml); None outside the app."""
+def edited_dir():
+    """Writable folder of the files edited in the web interface (appdata/importer); None outside the app."""
     try:
         from .db import appdata_root
-        return appdata_root() / "importer" / FILE_NAME
+        return appdata_root() / "importer"
     except RuntimeError:
         return None
 
 
-def profiles_path():
-    edited = edited_path()
-    return edited if edited is not None and edited.is_file() else Path(__file__).resolve().parent.parent / "importer" / FILE_NAME
+def profile_ids():
+    ids = set()
+    for folder in (BUNDLED_DIR, edited_dir()):
+        if folder is not None and folder.is_dir():
+            ids |= {p.name[:-len(SUFFIX)] for p in folder.glob("*" + SUFFIX)}
+    return sorted(i for i in ids if PROFILE_ID.fullmatch(i))
+
+
+def profile_path(profile_id):
+    """The edited copy when there is one, otherwise the shipped file."""
+    edited = edited_dir()
+    if edited is not None and (edited / f"{profile_id}{SUFFIX}").is_file():
+        return edited / f"{profile_id}{SUFFIX}"
+    return BUNDLED_DIR / f"{profile_id}{SUFFIX}"
 
 
 def parse_spec(data):
-    """Checks the content of import.yml; raises FileImportError with a readable message."""
-    if not isinstance(data, dict) or not isinstance(data.get("profiles"), dict) or not data["profiles"]:
-        raise FileImportError("“profiles” must list at least one profile.")
-    ids = set()
-    for pid, info in data["profiles"].items():
-        if not PROFILE_ID.fullmatch(str(pid)):
-            raise FileImportError(f"Invalid profile id “{pid}” (lower case letters, digits, - and _).")
-        if info is not None and not isinstance(info, dict):
-            raise FileImportError(f"Profile “{pid}” must be written {{name: ...}}.")
-        ids.add(str(pid))
-    if not isinstance(data.get("groups"), list):
-        raise FileImportError("“groups” must be a list.")
+    """Checks the content of one <id>_import.yml; raises FileImportError with a readable message."""
+    if not isinstance(data, dict):
+        raise FileImportError("The file must contain “name”, “groups” and optionally “ignored”.")
+    if data.get("name") is not None and not isinstance(data["name"], str):
+        raise FileImportError("“name” must be a text.")
+    if data.get("sheet") is not None and not isinstance(data["sheet"], str):
+        raise FileImportError("“sheet” must be a text.")
+    if not isinstance(data.get("groups"), list) or not data["groups"]:
+        raise FileImportError("“groups” must be a list of groups.")
     seen = set()
     for group in data["groups"]:
         if not isinstance(group, dict) or not isinstance(group.get("columns"), list):
-            raise FileImportError("Each group needs “group” and a “columns” list.")
+            raise FileImportError("Each group needs “group” (its name) and a “columns” list.")
         for item in group["columns"]:
             if not isinstance(item, dict) or not item.get("column"):
                 raise FileImportError(f"Group “{group.get('group')}”: each column needs a “column” name.")
@@ -58,79 +78,61 @@ def parse_spec(data):
             if name in seen:
                 raise FileImportError(f"Column “{name}” is defined twice.")
             seen.add(name)
-            data_type = str(item.get("data_type") or "text")
-            if data_type not in DATA_TYPES:
-                raise FileImportError(f"Column “{name}”: unknown data_type “{data_type}”.")
-            for key, headers in item.items():
-                if key in ("column", "data_type"):
-                    continue
-                if key not in ids:
-                    raise FileImportError(f"Column “{name}”: “{key}” is not a profile of this file.")
-                if not isinstance(headers, (str, list)):
-                    raise FileImportError(f"Column “{name}”, profile “{key}”: give a header or a list of headers.")
+            headers = item.get("header")
+            if isinstance(headers, str):
+                headers = [headers]
+            if not isinstance(headers, list) or not headers or not all(isinstance(h, str) and h.strip() for h in headers):
+                raise FileImportError(f"Column “{name}”: “header” must be a header of the file or a list of headers.")
+            if str(item.get("data_type") or "text") not in DATA_TYPES:
+                raise FileImportError(f"Column “{name}”: unknown data_type “{item.get('data_type')}”.")
+            unknown = set(item) - {"column", "header", "data_type", "display_name"}
+            if unknown:
+                raise FileImportError(f"Column “{name}”: unknown key “{sorted(unknown)[0]}”.")
     ignored = data.get("ignored")
-    if ignored is not None:
-        if not isinstance(ignored, dict) or any(str(k) not in ids or not isinstance(v, list) for k, v in ignored.items()):
-            raise FileImportError("“ignored” must map a profile to a list of headers.")
+    if ignored is not None and not (isinstance(ignored, list) and all(isinstance(h, str) for h in ignored)):
+        raise FileImportError("“ignored” must be a list of headers.")
 
 
-def _read():
-    path = profiles_path()
+def _read(profile_id):
+    path = profile_path(profile_id)
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
-        raise FileImportError(f"{FILE_NAME} is unreadable.") from exc
+        raise FileImportError(f"{path.name} is unreadable.") from exc
     try:
         parse_spec(data)
     except FileImportError as exc:
-        raise FileImportError(f"{FILE_NAME}: {exc}") from exc
+        raise FileImportError(f"{path.name}: {exc}") from exc
     return data
 
 
-def _profile_info(data, profile_id):
-    info = data["profiles"].get(profile_id)
-    if info is None or not PROFILE_ID.fullmatch(str(profile_id)):
-        return None
-    return info if isinstance(info, dict) else {}
-
-
 def list_profiles(include_default=False):
-    """[{id, name}] of the profiles of import.yml, sorted by name (the default profile only on request)."""
-    try:
-        data = _read()
-    except FileImportError:
-        return []
+    """[{id, name}] of the import profiles, sorted by name (the default profile only on request)."""
     found = []
-    for profile_id in data["profiles"]:
+    for profile_id in profile_ids():
         if profile_id == DEFAULT_ID and not include_default:
             continue
-        info = _profile_info(data, profile_id)
-        if info is not None:
-            found.append({"id": str(profile_id), "name": str(info.get("name") or profile_id)})
+        try:
+            data = _read(profile_id)
+        except FileImportError:
+            continue
+        found.append({"id": profile_id, "name": str(data.get("name") or profile_id)})
     return sorted(found, key=lambda p: p["name"].lower())
 
 
 def load_profile(profile_id):
-    data = _read()
-    info = _profile_info(data, profile_id) if PROFILE_ID.fullmatch(profile_id or "") else None
-    if info is None:
+    if not PROFILE_ID.fullmatch(profile_id or "") or profile_id not in profile_ids():
         raise FileImportError("Unknown import profile.")
+    data = _read(profile_id)
     columns = []
-    for group in data.get("groups") or []:
-        for item in (group or {}).get("columns") or []:
-            headers = item.get(profile_id) if isinstance(item, dict) else None
-            if not headers:
-                continue
-            try:
-                column = technical_name(item.get("column"))
-            except ValueError as exc:
-                raise FileImportError(f"{FILE_NAME}: invalid column name '{item.get('column')}'.") from exc
-            for header in headers if isinstance(headers, list) else [headers]:
-                columns.append({"header": str(header), "column": column, "display_name": column,
+    for group in data["groups"]:
+        for item in group["columns"]:
+            headers = item["header"] if isinstance(item["header"], list) else [item["header"]]
+            column = technical_name(item["column"])
+            for header in headers:
+                columns.append({"header": str(header), "column": column, "display_name": str(item.get("display_name") or column),
                                 "group": str(group.get("group") or ""), "data_type": str(item.get("data_type") or "text")})
-    if not columns:
-        raise FileImportError(f"Import profile '{profile_id}' has no columns.")
-    return {"id": profile_id, "name": str(info.get("name") or profile_id), "sheet": info.get("sheet") or None, "columns": columns}
+    return {"id": profile_id, "name": str(data.get("name") or profile_id), "sheet": data.get("sheet") or None, "columns": columns}
 
 
 def ensure_profile_columns(config, profile):

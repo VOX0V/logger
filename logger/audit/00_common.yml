@@ -1,0 +1,33 @@
+# Audit — shared settings used by the other files of this folder (all files are merged, in file name order).
+# Rules see the columns of the work data by name, plus the parameters and variables below.
+name: Common settings
+
+params:
+  max_duration: 8          # hours on one line
+  decimal_suspect: 12      # a value above this is probably "1,5" typed as 15
+
+lists:
+  time_columns: [single_engine_dual_day, single_engine_solo_day, single_engine_dual_night, single_engine_solo_night,
+                 multi_engine_dual_day, multi_engine_pic_day, multi_engine_copi_day,
+                 multi_engine_dual_night, multi_engine_pic_night, multi_engine_copi_night,
+                 cross_country_dual_day, cross_country_pic_day, cross_country_dual_night, cross_country_pic_night,
+                 ifr, hood, ftd, ifr_app, instruction_day, instruction_night]
+  text_columns: [type, registration, pilot, copilot, departure_code, arrival_code, remarks]
+
+# Computed for every row, in this order (a variable can use the ones above it).
+vars:
+  se_total: num(single_engine_dual_day) + num(single_engine_solo_day) + num(single_engine_dual_night) + num(single_engine_solo_night)
+  me_total: num(multi_engine_dual_day) + num(multi_engine_pic_day) + num(multi_engine_copi_day) + num(multi_engine_dual_night) + num(multi_engine_pic_night) + num(multi_engine_copi_night)
+  xc_total: num(cross_country_dual_day) + num(cross_country_pic_day) + num(cross_country_dual_night) + num(cross_country_pic_night)
+  cat_total: se_total + me_total
+  instruction_total: num(instruction_day) + num(instruction_night)
+  sim_total: num(ftd) + instruction_total
+  non_sim_total: se_total + me_total + xc_total + num(ifr) + num(hood) + num(ifr_app)
+  time_total: non_sim_total + sim_total
+  landings_total: num(landings_day) + num(landings_night)
+  dual_total: num(single_engine_dual_day) + num(single_engine_dual_night) + num(multi_engine_dual_day) + num(multi_engine_dual_night) + num(cross_country_dual_day) + num(cross_country_dual_night)
+  is_sim_reg: 'matches(registration, "(?i)^(Elite|RB|FRASCA|SIM)") or registration == "F-DMP" or registration == "---" or registration == "XXX"'
+
+# Rows matching one of these are "empty lines" (spacing of the logbook): only rules with skipped_rows: true see them.
+skip_rows:
+  - 'remarks == "vide" or remarks == "empty"'

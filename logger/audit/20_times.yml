@@ -1,0 +1,42 @@
+# Audit — flight times and consistency between columns.
+name: Flight times
+rules:
+  - name: Negative value
+    severity: ERROR
+    each: time_columns
+    when: num(value) < 0
+    message: '{column} = {value}'
+  - name: Suspicious decimal value
+    severity: ANOMALY
+    each: time_columns
+    when: num(value) >= decimal_suspect
+    message: '{column} = {value} (1.5 entered as 15?)'
+  - name: Abnormal duration
+    severity: ANOMALY
+    each: time_columns
+    when: num(value) > max_duration and num(value) < decimal_suspect
+    message: '{column} = {value} h (> {max_duration} h)'
+  - name: Row without time
+    severity: ANOMALY
+    when: time_total == 0 and landings_total == 0
+    message: no time or landing recorded
+  - name: Simulator without FTD or instruction
+    severity: ANOMALY
+    when: type == "SIM" and sim_total == 0
+    message: no FTD or instruction time
+  - name: Simulator with time outside FTD / instruction
+    severity: ANOMALY
+    when: type == "SIM" and non_sim_total > 0
+    message: 'time outside FTD / instruction: {non_sim_total} h'
+  - name: Hours without category
+    severity: ANOMALY
+    when: type != "SIM" and time_total > 0 and cat_total == 0 and num(ftd) == 0
+    message: time recorded outside single / multi / FTD
+  - name: Inconsistency between columns
+    severity: ANOMALY
+    when: cat_total > 0 and num(ifr) > cat_total + 0.05
+    message: 'IFR {num(ifr)} > total time {cat_total}'
+  - name: Inconsistency between columns
+    severity: ANOMALY
+    when: cat_total > 0 and xc_total > cat_total + 0.05
+    message: 'cross-country {xc_total} > total time {cat_total}'

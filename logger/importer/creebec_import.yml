@@ -1,0 +1,39 @@
+# Import profile "Air Creebec": maps the headers of the file to RAW database columns (values are imported untouched).
+# Format: see the top of app/import_profiles.py. Editable from Data > YML IMPORT.
+name: Air Creebec
+groups:
+  - group: date
+    columns:
+      - {column: date, header: date}
+  - group: aircrafts
+    columns:
+      - {column: type, header: type}
+      - {column: registration, header: reg}
+  - group: crew
+    columns:
+      - {column: pic_name, header: [pic, pic_name]}
+  - group: airports
+    columns:
+      - {column: dep_code, header: dep}
+      - {column: dep_time_utc, header: dep_time}
+      - {column: arr_code, header: arr}
+      - {column: arr_time_utc, header: arr_time}
+  - group: leg
+    columns:
+      - {column: flight_time, header: flt_time}
+  - group: flight_time
+    columns:
+      - {column: pic_time, header: pic_time}
+      - {column: copi_time, header: copi_time}
+  - group: flight_details
+    columns:
+      - {column: takeoff_day, header: to_day, data_type: integer}
+      - {column: landing_day, header: ldg_day, data_type: integer}
+      - {column: takeoff_night, header: to_night, data_type: integer}
+      - {column: landing_night, header: ldg_night, data_type: integer}
+
+# Headers of the file that are deliberately not imported.
+ignored:
+  - instr
+  - sim_time
+  - sim_type

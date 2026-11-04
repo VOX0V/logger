@@ -1,0 +1,19 @@
+# Audit — dates (year, month, day of the work data).
+# A rule: name, severity (ERROR, ANOMALY or INFO), when (expression, true = problem found),
+# message ({expression} is replaced by its value). Optional: each (a list of columns: "value" and "column"
+# are then the current column) and skipped_rows: true (rule applies to the empty lines only).
+name: Dates
+rules:
+  - name: Empty row without date
+    severity: ANOMALY
+    skipped_rows: true
+    when: not valid_date(year, month, day)
+    message: 'row “empty” without a valid date: it may end up anywhere in the logbook'
+  - name: Missing or invalid date
+    severity: ERROR
+    when: not valid_date(year, month, day)
+    message: 'year = {year}, month = {month}, day = {day}'
+  - name: Future date
+    severity: INFO
+    when: future_date(year, month, day)
+    message: '{year}-{month}-{day} (planned flight?)'

@@ -11,8 +11,8 @@
     const qs = new URLSearchParams();
     qs.set("page", params.page || 1);
     qs.set("size", params.size || 200);
-    (params.sorters || []).forEach(function (s, i) { qs.set("sort[" + i + "][field]", s.field); qs.set("sort[" + i + "][dir]", s.dir); });
-    (params.filters || []).forEach(function (f, i) { qs.set("filter[" + i + "][field]", f.field); qs.set("filter[" + i + "][type]", f.type); qs.set("filter[" + i + "][value]", f.value); });
+    (params.sort || params.sorters || []).forEach(function (s, i) { qs.set("sort[" + i + "][field]", s.field); qs.set("sort[" + i + "][dir]", s.dir); });
+    (params.filter || params.filters || []).forEach(function (f, i) { qs.set("filter[" + i + "][field]", f.field); qs.set("filter[" + i + "][type]", f.type); qs.set("filter[" + i + "][value]", f.value); });
     return fetch(url + "?" + qs.toString()).then(function (r) { return r.json(); });
   }
   window.initGrid = function (cfg) {

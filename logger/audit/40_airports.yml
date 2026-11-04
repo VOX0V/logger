@@ -1,0 +1,24 @@
+# Audit — aerodromes (table: Airports).
+name: Airports
+rules:
+  - name: Suspicious aerodrome format
+    severity: ANOMALY
+    each: [departure_code, arrival_code]
+    when: length(value) == 3 and not known_airport(value)
+    message: '{column} : “{value}” (4-character ICAO code expected, e.g. KBNA)'
+  - name: Unknown aerodrome
+    severity: ANOMALY
+    each: [departure_code, arrival_code]
+    when: length(value) == 4 and not known_airport(value)
+    message: '{column} : “{value}” missing from the Airports table'
+  - name: Cross-country flight departure = arrival
+    severity: INFO
+    when: type == "CRJ" and not is_blank(departure_code) and departure_code == arrival_code and xc_total > 0
+    message: '{departure_code} → {arrival_code} (mechanical return?)'
+
+group_rules:
+  - name: 'Different spellings: aerodrome'
+    severity: ANOMALY
+    kind: spellings
+    columns: [departure_code, arrival_code]
+    key: alnum

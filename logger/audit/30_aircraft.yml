@@ -1,0 +1,35 @@
+# Audit — aircraft type and registration (tables: Aircraft types).
+name: Aircraft
+rules:
+  - name: Unknown aircraft type
+    severity: ANOMALY
+    when: is_blank(type)
+    message: empty type
+  - name: Unknown aircraft type
+    severity: ANOMALY
+    when: not is_blank(type) and not known_aircraft(type)
+    message: '“{type}”'
+  - name: Registration format
+    severity: ANOMALY
+    when: 'not is_blank(registration) and not is_sim_reg and not matches(registration, "^C-[A-Z]{4}$") and not matches(registration, "^[A-Z]{1,2}-[A-Z0-9]{3,5}$") and not matches(registration, "^N[0-9]{1,5}[A-Z]{0,2}$")'
+    message: '“{registration}”'
+  - name: Empty registration
+    severity: ANOMALY
+    when: is_blank(registration) and time_total > 0 and type != "SIM"
+    message: flight with time but no registration
+
+group_rules:
+  # A registration flown with several aircraft types (types in an allowed set are compatible).
+  - name: Registration ↔ type
+    severity: ANOMALY
+    kind: one_to_many
+    where: not is_blank(registration) and not is_sim_reg
+    group_by: registration
+    distinct: type
+    allowed_sets: [[A152, C152]]
+  - name: 'Different spellings: registration'
+    severity: ANOMALY
+    kind: spellings
+    where: not is_sim_reg
+    columns: [registration]
+    key: alnum

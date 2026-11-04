@@ -17,7 +17,7 @@ from . import cssafe
 from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
 from .converter.transforms import FUNCTIONS
 from .models import init_user_db
-from . import import_profiles, workdb
+from . import audit, import_profiles, workdb
 from .importer import FileImportError
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
@@ -170,7 +170,6 @@ def check_importer(data):
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
-    "importer": ("Raw data — import definition (import.yml)", lambda _u: import_profiles.profiles_path(), check_importer),
 }
 
 
@@ -187,11 +186,44 @@ def converter_files():
     return out
 
 
+def importer_files():
+    """Import profiles (<id>_import.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for pid in import_profiles.profile_ids():
+        try:
+            name = str(yaml.safe_load(import_profiles.profile_path(pid).read_text(encoding="utf-8")).get("name") or pid)
+        except Exception:
+            name = pid
+        out[f"import_{pid}"] = (f"Import — {name}", lambda _u, i=pid: import_profiles.profile_path(i), check_importer)
+    return out
+
+
+def check_audit(data):
+    try:
+        audit.parse_audit(data)
+    except workdb.SpecError as exc:
+        raise Problem(str(exc))
+
+
+def audit_files():
+    """Audit rule files (audit/*.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for fid in audit.audit_ids():
+        try:
+            name = str(yaml.safe_load(audit.audit_path(fid).read_text(encoding="utf-8")).get("name") or fid)
+        except Exception:
+            name = fid
+        out[f"audit_{fid}"] = (f"Audit — {name}", lambda _u, i=fid: audit.audit_path(i), check_audit)
+    return out
+
+
 def _registry():
     """Files the current account may edit: its own YAML files, plus the converter profiles for administrators."""
     files = dict(FILES)
     if g.get("role") == "admin":
         files.update(ADMIN_FILES)
+        files.update(importer_files())
+        files.update(audit_files())
         files.update(converter_files())
     return files
 
@@ -202,10 +234,14 @@ def _write_target(key, path):
         folder = workdb.edited_path().parent
         folder.mkdir(parents=True, exist_ok=True)
         return folder / "work_db.yml"
-    if key == "importer":
-        folder = import_profiles.edited_path().parent
+    if key.startswith("audit_"):
+        folder = audit.edited_dir()
         folder.mkdir(parents=True, exist_ok=True)
-        return folder / "import.yml"
+        return folder / path.name
+    if key.startswith("import_"):
+        folder = import_profiles.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
     if key.startswith("convert_"):
         folder = edited_dir()
         folder.mkdir(parents=True, exist_ok=True)
@@ -216,7 +252,7 @@ def _write_target(key, path):
 def validate(key, text):
     """Retourne None si le contenu est valable, sinon le message d'erreur."""
     try:
-        (FILES.get(key) or ADMIN_FILES.get(key) or converter_files()[key])[2](parse(text))
+        (FILES.get(key) or ADMIN_FILES.get(key) or importer_files().get(key) or audit_files().get(key) or converter_files()[key])[2](parse(text))
     except Problem as exc:
         return str(exc)
     return None
