@@ -152,6 +152,13 @@ def check_importer(data):
         raise Problem(str(exc))
 
 
+def check_options(data):
+    try:
+        refdata.check_options(data)
+    except ValueError as exc:
+        raise Problem(str(exc))
+
+
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
@@ -182,13 +189,6 @@ def importer_files():
             name = pid
         out[f"import_{pid}"] = (f"Import — {name}", lambda _u, i=pid: import_profiles.profile_path(i), check_importer)
     return out
-
-
-def check_options(data):
-    try:
-        refdata.check_options(data)
-    except ValueError as exc:
-        raise Problem(str(exc))
 
 
 def check_graph(data):
