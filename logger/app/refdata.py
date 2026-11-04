@@ -6,15 +6,83 @@ import re, sqlite3, unicodedata
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+import yaml
 from .db import airport_connect, aircrafts_connect
 from .importer import _read_table, FileImportError
 
-ENGINES = ("single", "multi")
-ENGINE_LABELS = {"single": "Single-engine", "multi": "Multi-engine"}
-CATEGORIES = (("airplane", "Airplane"), ("helicopter", "Helicopter"), ("simulator", "Simulator"))
-ENGINE_TYPES = (("piston", "Piston"), ("turboprop", "Turboprop"), ("turbofan", "Turbofan"), ("turboshaft", "Turboshaft"))
-CREWS = (("single", "Single-pilot"), ("multi", "Multi-crew"))
+ENGINES = ("single", "multi")      # legacy table "aircrafts" (by registration), no longer used
+OPTION_FIELDS = {"category": "Category", "engines": "Engines", "engine_type": "Engine type", "crew": "Crew", "landing_gear": "Landing gear"}
+SHIPPED_OPTIONS = Path(__file__).resolve().parent.parent / "defaults" / "aircraft_options.yml"
+OPTION_CODE = re.compile(r"[a-z0-9_-]+")
 LB_PER_KG = 2.20462262
+
+
+# ---------------- choice lists of the aircraft table (aircraft_options.yml, edited by the administrators) ----------------
+
+def edited_options_path():
+    return Path(current_app.config["APPDATA_DIR"]) / "aircraft_options.yml"
+
+
+def options_path():
+    try:
+        edited = edited_options_path()
+        return edited if edited.is_file() else SHIPPED_OPTIONS
+    except RuntimeError:
+        return SHIPPED_OPTIONS
+
+
+def parse_options(data):
+    """{field: ((code, label), ...)}; raises ValueError with a readable message."""
+    if not isinstance(data, dict):
+        raise ValueError("The file must contain the lists: " + ", ".join(OPTION_FIELDS) + ".")
+    unknown = set(map(str, data)) - set(OPTION_FIELDS)
+    if unknown:
+        raise ValueError(f"Unknown list “{sorted(unknown)[0]}” (lists: {', '.join(OPTION_FIELDS)}).")
+    out = {}
+    for field in OPTION_FIELDS:
+        entry = data.get(field)
+        if not isinstance(entry, dict) or not entry:
+            raise ValueError(f"“{field}” must list at least one value (code: Label).")
+        pairs = []
+        for code, label in entry.items():
+            if not isinstance(code, str) or not OPTION_CODE.fullmatch(code):
+                raise ValueError(f"{field}: invalid code “{code}” (lower case letters, digits, - and _; put yes / no / on / off between quotes).")
+            if not isinstance(label, str) or not label.strip():
+                raise ValueError(f"{field}: “{code}” needs a label.")
+            pairs.append((code, label.strip()))
+        out[field] = tuple(pairs)
+    return out
+
+
+def load_options():
+    for path in (options_path(), SHIPPED_OPTIONS):
+        try:
+            return parse_options(yaml.safe_load(path.read_text(encoding="utf-8")))
+        except (OSError, yaml.YAMLError, ValueError):
+            continue
+    return {f: () for f in OPTION_FIELDS}
+
+
+def option_pairs(field):
+    return load_options()[field]
+
+
+def used_option_values(field):
+    conn = aircrafts_connect()
+    try:
+        return {r[0] for r in conn.execute(f"SELECT DISTINCT {field} FROM aircraft_types WHERE {field} IS NOT NULL AND {field} != ''")}
+    finally:
+        conn.close()
+
+
+def check_options(data):
+    """Validation on save: a value still used by an aircraft type cannot disappear."""
+    parsed = parse_options(data)
+    for field, pairs in parsed.items():
+        missing = used_option_values(field) - {c for c, _l in pairs}
+        if missing:
+            raise ValueError(f"{field}: “{sorted(missing)[0]}” is still used by aircraft types: change them first.")
+    return parsed
 
 
 def _clean(value):
@@ -152,20 +220,31 @@ def init_aircrafts_db():
         notes TEXT
     )""")   # legacy table by registration: kept as is, no longer used
     _drop_if_old(conn, "aircraft_types", "designator")
-    existed = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='aircraft_types'").fetchone()
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='aircraft_types'").fetchone()
+    existed = row is not None
+    migrate = existed and "CHECK" in (row[0] or "")
+    if migrate:       # older versions froze the lists with CHECK constraints: rebuild the table without them
+        conn.execute("ALTER TABLE aircraft_types RENAME TO aircraft_types_old")
     conn.execute("""CREATE TABLE IF NOT EXISTS aircraft_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         display TEXT,
         designator TEXT NOT NULL UNIQUE,
         maker TEXT,
         model TEXT,
-        category TEXT CHECK (category IN ('airplane','helicopter','simulator')),
-        engines TEXT CHECK (engines IN ('single','multi')),
+        category TEXT,
+        engines TEXT,
         engine_type TEXT,
-        crew TEXT CHECK (crew IN ('single','multi')),
+        crew TEXT,
+        landing_gear TEXT,
         mtow_lb REAL,
         mtow_kg REAL
     )""")
+    if migrate:
+        conn.execute("""INSERT INTO aircraft_types (id, display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg)
+                        SELECT id, display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg FROM aircraft_types_old""")
+        conn.execute("DROP TABLE aircraft_types_old")
+    if "landing_gear" not in {r[1] for r in conn.execute("PRAGMA table_info(aircraft_types)")}:
+        conn.execute("ALTER TABLE aircraft_types ADD COLUMN landing_gear TEXT")
     conn.commit(); conn.close()
     if not existed:
         _load_default("aircrafts.xlsx", import_aircraft_types)
@@ -295,20 +374,21 @@ def save_aircraft_type(type_id, form):
     designator = (_clean(form.get("designator")) or "").upper()
     if not designator:
         raise ValueError("Designator required.")
-    category = _choice(form.get("category"), CATEGORIES, "category")
-    engines = _choice(form.get("engines"), tuple(ENGINE_LABELS.items()), "number of engines")
-    engine_type = _choice(form.get("engine_type"), ENGINE_TYPES, "engine type")
-    crew = _choice(form.get("crew"), CREWS, "crew")
+    category = _choice(form.get("category"), option_pairs("category"), "category")
+    engines = _choice(form.get("engines"), option_pairs("engines"), "number of engines")
+    engine_type = _choice(form.get("engine_type"), option_pairs("engine_type"), "engine type")
+    crew = _choice(form.get("crew"), option_pairs("crew"), "crew")
+    landing_gear = _choice(form.get("landing_gear"), option_pairs("landing_gear"), "landing gear")
     lb, kg = _fill_mtow(_weight(form.get("mtow_lb"), "MTOW (lb)"), _weight(form.get("mtow_kg"), "MTOW (kg)"))
     values = (_clean(form.get("display")) or designator, designator, _clean(form.get("maker")), _clean(form.get("model")),
-              category, engines, engine_type, crew, lb, kg)
+              category, engines, engine_type, crew, landing_gear, lb, kg)
     conn = aircrafts_connect()
     try:
         if type_id:
-            conn.execute("UPDATE aircraft_types SET display=?, designator=?, maker=?, model=?, category=?, engines=?, engine_type=?, crew=?, mtow_lb=?, mtow_kg=? WHERE id=?",
+            conn.execute("UPDATE aircraft_types SET display=?, designator=?, maker=?, model=?, category=?, engines=?, engine_type=?, crew=?, landing_gear=?, mtow_lb=?, mtow_kg=? WHERE id=?",
                          values + (type_id,))
         else:
-            conn.execute("INSERT INTO aircraft_types (display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg) VALUES (?,?,?,?,?,?,?,?,?,?)", values)
+            conn.execute("INSERT INTO aircraft_types (display, designator, maker, model, category, engines, engine_type, crew, landing_gear, mtow_lb, mtow_kg) VALUES (?,?,?,?,?,?,?,?,?,?,?)", values)
         conn.commit()
     except Exception as exc:
         conn.rollback()
@@ -352,10 +432,11 @@ def _xlsx(sheet, headers, rows):
 
 
 def export_aircraft_types_xlsx():
-    categories, engine_types, crews = dict(CATEGORIES), dict(ENGINE_TYPES), dict(CREWS)
-    rows = [(t["display"], t["designator"], t["maker"], t["model"], categories.get(t["category"], ""), ENGINE_LABELS.get(t["engines"], ""),
-             engine_types.get(t["engine_type"], ""), crews.get(t["crew"], ""), t["mtow_lb"], t["mtow_kg"]) for t in list_aircraft_types()]
-    return _xlsx("Aircraft", ["display", "designator", "maker", "model", "Category", "Engines", "Engine type", "crew", "MTOWlb", "MTOWkg"], rows)
+    opts = {f: dict(option_pairs(f)) for f in OPTION_FIELDS}
+    rows = [(t["display"], t["designator"], t["maker"], t["model"], opts["category"].get(t["category"], ""), opts["engines"].get(t["engines"], ""),
+             opts["engine_type"].get(t["engine_type"], ""), opts["crew"].get(t["crew"], ""), opts["landing_gear"].get(t["landing_gear"], ""),
+             t["mtow_lb"], t["mtow_kg"]) for t in list_aircraft_types()]
+    return _xlsx("Aircraft", ["display", "designator", "maker", "model", "Category", "Engines", "Engine type", "crew", "Landing gear", "MTOWlb", "MTOWkg"], rows)
 
 
 def export_airports_xlsx():
@@ -375,7 +456,7 @@ AIRPORT_COLUMNS = {
 AIRCRAFT_COLUMNS = {
     "display": ("display",), "designator": ("designator", "code"), "maker": ("maker", "make", "marque"),
     "model": ("model", "modele"), "category": ("category", "categorie"), "engines": ("engines",),
-    "engine_type": ("engine type", "engine_type"), "crew": ("crew",), "mtow_lb": ("mtowlb", "mtow lb"), "mtow_kg": ("mtowkg", "mtow kg")}
+    "engine_type": ("engine type", "engine_type"), "crew": ("crew",), "landing_gear": ("landing gear", "landing_gear", "gear"), "mtow_lb": ("mtowlb", "mtow lb"), "mtow_kg": ("mtowkg", "mtow kg")}
 
 
 def _hdr(value):
@@ -471,10 +552,11 @@ def import_aircraft_types(filename, data):
             except ValueError:
                 lb = kg = None
             new = {"display": d.get("display") or code, "designator": code, "maker": d.get("maker"), "model": d.get("model"),
-                   "category": _code_for(d.get("category"), CATEGORIES),
-                   "engines": _code_for(d.get("engines"), tuple(ENGINE_LABELS.items())),
-                   "engine_type": _code_for(d.get("engine_type"), ENGINE_TYPES),
-                   "crew": _code_for(d.get("crew"), CREWS), "mtow_lb": lb, "mtow_kg": kg}
+                   "category": _code_for(d.get("category"), option_pairs("category")),
+                   "engines": _code_for(d.get("engines"), option_pairs("engines")),
+                   "engine_type": _code_for(d.get("engine_type"), option_pairs("engine_type")),
+                   "crew": _code_for(d.get("crew"), option_pairs("crew")),
+                   "landing_gear": _code_for(d.get("landing_gear"), option_pairs("landing_gear")), "mtow_lb": lb, "mtow_kg": kg}
             row = conn.execute("SELECT * FROM aircraft_types WHERE UPPER(designator)=?", (code,)).fetchone()
             try:
                 if row:

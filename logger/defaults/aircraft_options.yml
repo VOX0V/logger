@@ -1,0 +1,31 @@
+# Choice lists of the aircraft table (Aircraft page, forms, Excel import / export, work_db.yml: aircraft(type, "category")...).
+# Format:   field:   code: Label shown in the menus
+# Codes: lower case letters, digits, - and _ (put "yes", "no", "on", "off" between quotes). You can add, rename or
+# remove values. A value still used by an aircraft type cannot be removed: change those types first.
+# Fields: category, engines, engine_type, crew, landing_gear (all five must be present).
+category:
+  airplane: Airplane
+  helicopter: Helicopter
+  glider: Glider
+  simulator: Simulator
+
+engines:
+  none: No engine
+  single: Single-engine
+  multi: Multi-engine
+
+engine_type:
+  piston: Piston
+  turboprop: Turboprop
+  turbofan: Turbofan
+  turboshaft: Turboshaft
+
+crew:
+  single: Single-pilot
+  multi: Multi-crew
+
+landing_gear:
+  wheels: Wheels
+  floats: Floats
+  skis: Skis
+  amphibious: Amphibious

@@ -1,0 +1,71 @@
+# Graph — the charts of the Graph page (all files of this folder are merged, in file name order).
+#
+# measures: what is counted (an expression on the columns of the work data, as in work_db.yml; num(x) = 0 when blank,
+#           iif(condition, a, b) = a if the condition is true, else b). Names are free; they label the series.
+# charts:   name        shown in the menu
+#           type        bar | line | area
+#           group_by    year | month (calendar month, all years together) | year_month | any column (type, pilot, employer…)
+#           measure     one measure, or a list of measures (one series each)
+#           cumulative  true = running total (progression)            [optional]
+#           stack_by    one series per value of this column / year / month / year_month   [optional, one measure only]
+#           stacked     true = stacked bars/areas (default: true when there are several series)   [optional]
+#           horizontal  true = horizontal bars                       [optional]
+#           where       expression: only the rows where it is true   [optional]
+#           limit       keep the N biggest groups, the rest becomes “Other” (columns only)   [optional]
+name: Hours
+measures:
+  total: num(flight_time)
+  day: iif(arrival_day_night == "day", num(flight_time), 0)
+  night: iif(arrival_day_night == "night", num(flight_time), 0)
+  single_engine: iif(engines == "single", num(flight_time), 0)
+  multi_engine: iif(engines == "multi", num(flight_time), 0)
+  ifr: num(ifr)
+
+charts:
+  - name: Career — cumulative hours per month
+    type: line
+    group_by: year_month
+    measure: total
+    cumulative: true
+  - name: Hours per month
+    type: bar
+    group_by: year_month
+    measure: total
+  - name: Hours per year
+    type: bar
+    group_by: year
+    measure: total
+  - name: Cumulative hours per year
+    type: area
+    group_by: year
+    measure: total
+    cumulative: true
+  - name: Hours by calendar month (all years)
+    type: bar
+    group_by: month
+    measure: total
+  - name: Day and night per year
+    type: bar
+    group_by: year
+    measure: [day, night]
+  - name: Single and multi-engine per year
+    type: bar
+    group_by: year
+    measure: [single_engine, multi_engine]
+  - name: Hours per year by aircraft type
+    type: bar
+    group_by: year
+    measure: total
+    stack_by: type
+  - name: Hours per aircraft type
+    type: bar
+    horizontal: true
+    group_by: type
+    measure: total
+    limit: 15
+  - name: Hours per airport of departure
+    type: bar
+    horizontal: true
+    group_by: departure_code
+    measure: total
+    limit: 20

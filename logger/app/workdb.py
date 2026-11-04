@@ -271,7 +271,7 @@ def _crew_copilot(crew, pilot):
 
 # ---- reference tables (Aircraft and Airports); the cache is emptied each time work_db.yml is loaded
 _cache = {}
-AIRCRAFT_FIELDS = {"display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "mtow_lb", "mtow_kg"}
+AIRCRAFT_FIELDS = {"display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "landing_gear", "mtow_lb", "mtow_kg"}
 AIRPORT_FIELDS = {"display", "icao", "iata", "company", "name", "country", "latitude", "longitude"}
 _AIRPORT_COLUMN = {"icao": "icao_code", "iata": "iata_code", "company": "company_code", "name": "full_name"}
 

@@ -9,7 +9,7 @@
 const view = {{view|tojson}};
 initGrid({rowsUrl: "{{url_for('main.logbook_db_rows')}}", cellUrl: "{{url_for('main.edit_logbook_cell')}}", addUrl: "{{url_for('main.add_logbook_row')}}", deleteUrl: "{{url_for('main.delete_logbook_rows')}}",
   placeholder: "No data. Click Refresh.",
-  columns: view.map(c => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align, frozen: c.frozen,
+  columns: view.map(c => ({field: c.column, title: c.label,
     sorter: (c.data_type === "integer" || c.data_type === "decimal") ? "number" : "string",
     formatter: (c.column === "month" || c.column === "day") ? (cell => { const v = cell.getValue(); return (v === null || v === undefined || v === "") ? "" : String(v).padStart(2, "0"); }) : undefined}))});
 </script>

@@ -215,38 +215,14 @@ def save_logbook_layout(data, username=None):
 def configurable_columns(config): return [c for c in config["database"]["columns"] if not is_system(c)]
 
 
-# ---------------- read-only grid view (visual only — never touches the data) ----------------
+# ---------------- grid columns (no appearance setting: Tabulator sizes the columns to their content) ----------------
 
-def data_view_path(username=None): u = _cfg_username(username); return user_file(f"{u}_data_view.yml", username)
-def logbook_view_path(username=None): u = _cfg_username(username); return user_file(f"{u}_logbook_view.yml", username)
-
-
-def _default_view(columns):
-    view = []
-    for i, c in enumerate(columns):
-        view.append({"column": c["column"], "label": c["display_name"],
-                     "width": 160, "align": "right" if c["data_type"] in ("integer", "decimal") else "left",
-                     "frozen": i == 0})
-    return view
-
-
-def _load_view(path, columns):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        _atomic_write(path, yaml.safe_dump({"columns": _default_view(columns)}, allow_unicode=True, sort_keys=False))
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    by = {v.get("column"): v for v in raw.get("columns", []) if v.get("column")}
-    out = []
-    for c in columns:
-        v = by.get(c["column"], {})
-        out.append({"column": c["column"], "data_type": c["data_type"], "label": str(v.get("label", c["display_name"])),
-                    "width": int(v.get("width", 160)), "align": v.get("align", "left") if v.get("align") in ("left", "center", "right") else "left",
-                    "frozen": bool(v.get("frozen", False))})
-    return out
+def _view(columns):
+    return [{"column": c["column"], "data_type": c["data_type"], "label": str(c["display_name"])} for c in columns]
 
 
 def load_data_view(config, username=None):
-    return _load_view(data_view_path(username), configurable_columns(config))
+    return _view(configurable_columns(config))
 
 
 DATE_PARTS = ("year", "month", "day")
@@ -261,7 +237,7 @@ def load_logbook_view(username=None):
             columns += [{"column": p, "display_name": p, "data_type": "integer"} for p in DATE_PARTS]
         else:
             columns.append(c)
-    return _load_view(logbook_view_path(username), columns)
+    return _view(columns)
 def logbook_columns(config, username=None): return [c for c in load_logbook_db_config(username)["database"]["columns"] if not is_system(c)]
 def system_columns(config): return [c for c in config["database"]["columns"] if is_system(c)]
 

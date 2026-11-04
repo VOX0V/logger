@@ -8,8 +8,7 @@ from ..gridview import grid_data
 from ..db import airport_connect, aircrafts_connect
 from ..config import load_config, load_logbook_db_config, configurable_columns
 from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
-                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, ENGINES,
-    CATEGORIES, ENGINE_TYPES, ENGINE_LABELS, CREWS, export_aircraft_types_xlsx, export_airports_xlsx,
+                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, option_pairs, OPTION_FIELDS, export_aircraft_types_xlsx, export_airports_xlsx,
     import_airports, import_aircraft_types, clear_airports, clear_aircraft_types)
 from ..importer import FileImportError
 from . import catalog
@@ -154,26 +153,26 @@ def rule_delete(rule_id):
 
 AIRPORT_FIELDS = ("display", "icao_code", "iata_code", "company_code", "full_name", "country", "latitude", "longitude")
 AIRPORT_COLUMNS = [
-    {"field": "display", "title": "Display", "width": 150}, {"field": "icao_code", "title": "ICAO", "width": 90},
-    {"field": "iata_code", "title": "IATA", "width": 80}, {"field": "company_code", "title": "Company code", "width": 120},
-    {"field": "full_name", "title": "Name", "width": 280}, {"field": "country", "title": "Country", "width": 120},
-    {"field": "latitude", "title": "Latitude", "width": 110, "sorter": "number"},
-    {"field": "longitude", "title": "Longitude", "width": 110, "sorter": "number"}]
-AIRCRAFT_FIELDS = ("display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "mtow_lb", "mtow_kg")
+    {"field": "display", "title": "Display"}, {"field": "icao_code", "title": "ICAO"},
+    {"field": "iata_code", "title": "IATA"}, {"field": "company_code", "title": "Company code"},
+    {"field": "full_name", "title": "Name"}, {"field": "country", "title": "Country"},
+    {"field": "latitude", "title": "Latitude", "sorter": "number"},
+    {"field": "longitude", "title": "Longitude", "sorter": "number"}]
+AIRCRAFT_FIELDS = ("display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "landing_gear", "mtow_lb", "mtow_kg")
 
 
-def _lookup(field, title, labels, width):
-    return {"field": field, "title": title, "width": width, "editor": "list",
+def _lookup(field, title, labels):
+    return {"field": field, "title": title, "editor": "list",
             "editorParams": {"values": dict(labels), "clearable": True}, "formatter": "lookup", "formatterParams": dict(labels)}
 
 
-AIRCRAFT_COLUMNS = [
-    {"field": "display", "title": "Display", "width": 110}, {"field": "designator", "title": "Designator", "width": 110},
-    {"field": "maker", "title": "Maker", "width": 170}, {"field": "model", "title": "Model", "width": 170},
-    _lookup("category", "Category", CATEGORIES, 120), _lookup("engines", "Engines", ENGINE_LABELS, 130),
-    _lookup("engine_type", "Engine type", ENGINE_TYPES, 130), _lookup("crew", "Crew", CREWS, 120),
-    {"field": "mtow_lb", "title": "MTOW (lb)", "width": 110, "sorter": "number"},
-    {"field": "mtow_kg", "title": "MTOW (kg)", "width": 110, "sorter": "number"}]
+def aircraft_columns():
+    """The choice lists come from aircraft_options.yml, so they are read for every page."""
+    return [
+        {"field": "display", "title": "Display"}, {"field": "designator", "title": "Designator"},
+        {"field": "maker", "title": "Maker"}, {"field": "model", "title": "Model"},
+        *[_lookup(f, t, option_pairs(f)) for f, t in OPTION_FIELDS.items()],
+        {"field": "mtow_lb", "title": "MTOW (lb)", "sorter": "number"}, {"field": "mtow_kg", "title": "MTOW (kg)", "sorter": "number"}]
 
 
 def _ids():
@@ -302,7 +301,7 @@ def airport_delete(airport_id):
 @converter_bp.route("/aircrafts")
 @admin_required
 def aircrafts():
-    return render_template("refdata_grid.html", title="Aircraft", columns=AIRCRAFT_COLUMNS, add_fields=_fields(AIRCRAFT_COLUMNS),
+    return render_template("refdata_grid.html", title="Aircraft", columns=aircraft_columns(), add_fields=_fields(aircraft_columns()), edit_lists_url=url_for("yamledit.editor", file="aircraft_options"),
                            note="The flight is linked to its type by the designator (DH1, CR9...); the logbook shows the display name (DHC8, CRJ...), "
                                 "which several designators can share. Both MTOW values are official data, entered by hand. "
                                 "The number of engines is used by the day/night rules, and the audit checks the types against this table.",
@@ -353,8 +352,7 @@ def aircraft_form(aircraft_id=None):
             return redirect(url_for("converter.aircrafts"))
         except ValueError as exc:
             flash(str(exc))
-    return render_template("aircraft_form.html", aircraft=aircraft, engines=ENGINES, categories=CATEGORIES,
-                           engine_types=ENGINE_TYPES, engine_labels=ENGINE_LABELS, crews=CREWS,
+    return render_template("aircraft_form.html", aircraft=aircraft, options={f: (t, option_pairs(f)) for f, t in OPTION_FIELDS.items()},
                            form=request.form if request.method == "POST" else None)
 
 

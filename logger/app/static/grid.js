@@ -16,10 +16,10 @@
     return fetch(url + "?" + qs.toString()).then(function (r) { return r.json(); });
   }
   window.initGrid = function (cfg) {
-    const select = {formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 40, frozen: true,
+    const select = {formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 40, resizable: false,
                     cellClick: function (e, cell) { cell.getRow().toggleSelect(); }};
     const columns = [select].concat(cfg.columns.map(function (c) {
-      return Object.assign({editor: "input", headerFilter: "input", headerFilterPlaceholder: "filter…",
+      return Object.assign({editor: "input", headerFilter: "input", headerFilterPlaceholder: "⌕",
         cellEdited: function (cell) {
           const value = cell.getValue();
           post(cfg.cellUrl, {row_id: cell.getRow().getData().id, column: c.field, value: value === null || value === undefined ? "" : value})
@@ -29,9 +29,11 @@
     const table = new Tabulator(cfg.el || "#grid", {
       ajaxURL: cfg.rowsUrl, ajaxRequestFunc: remoteRequest,
       pagination: true, paginationMode: "remote", paginationSize: 200, paginationSizeSelector: [50, 200, 500, 1000],
-      sortMode: "remote", filterMode: "remote", layout: "fitDataFill", height: "70vh",
+      sortMode: "remote", filterMode: "remote", layout: "fitData", height: "70vh",
       placeholder: cfg.placeholder || "No data.", columns: columns
     });
+    // narrowest columns that still show their whole content: measured again for every page of data
+    table.on("dataProcessed", function () { table.redraw(true); });
     const del = document.getElementById("grid-delete");
     if (del) del.addEventListener("click", function () {
       const ids = table.getSelectedData().map(function (r) { return r.id; });

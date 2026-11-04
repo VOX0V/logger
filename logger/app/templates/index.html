@@ -8,7 +8,7 @@
 <script nonce="{{ csp_nonce }}">
 const view = {{view|tojson}};
 initGrid({rowsUrl: "{{url_for('main.data_rows')}}", cellUrl: "{{url_for('main.edit_data_cell')}}", addUrl: "{{url_for('main.add_data_row')}}", deleteUrl: "{{url_for('main.delete_data_rows')}}",
-  columns: view.map(c => ({field: c.column, title: c.label, width: c.width, hozAlign: c.align, frozen: c.frozen,
+  columns: view.map(c => ({field: c.column, title: c.label,
     sorter: (c.data_type === "integer" || c.data_type === "decimal") ? "number" : "string"}))});
 </script>
 {% endblock %}

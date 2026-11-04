@@ -17,7 +17,7 @@ from . import cssafe
 from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
 from .converter.transforms import FUNCTIONS
 from .models import init_user_db
-from . import audit, import_profiles, workdb
+from . import audit, graph, import_profiles, refdata, workdb
 from .importer import FileImportError
 
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
@@ -120,25 +120,10 @@ def check_breakdown(data):
         raise Problem(" ".join(problems))
 
 
-def check_view(data):
-    cols = data.get("columns")
-    if not isinstance(cols, list) or not all(isinstance(c, dict) and isinstance(c.get("column"), str) for c in cols):
-        raise Problem("“columns” must be a list of blocks with at least “column: name”.")
-    for c in cols:
-        if "width" in c:
-            _number(c["width"], f"{c['column']} : width", 20)
-        if c.get("align", "left") not in ("left", "center", "right"):
-            raise Problem(f"{c['column']} : align must be left, center or right.")
-        if "frozen" in c and not isinstance(c["frozen"], bool):
-            raise Problem(f"{c['column']} : frozen must be true or false.")
-
-
 # clé -> (libellé, fonction qui donne le chemin du fichier de l'utilisateur, vérification)
 FILES = {
     "data": ("Raw data — structure", C.config_path, check_data),
-    "data_view": ("Raw data — display", C.data_view_path, check_view),
     "logbook": ("Work data — structure", C.logbook_db_config_path, check_logbook),
-    "logbook_view": ("Work data — display", C.logbook_view_path, check_view),
     "layout": ("Logbook — layout", C.logbook_layout_path, check_layout),
     "breakdown": ("Breakdown — layout", C.breakdown_path, check_breakdown),
 }
@@ -170,6 +155,7 @@ def check_importer(data):
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
+    "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }
 
 
@@ -195,6 +181,32 @@ def importer_files():
         except Exception:
             name = pid
         out[f"import_{pid}"] = (f"Import — {name}", lambda _u, i=pid: import_profiles.profile_path(i), check_importer)
+    return out
+
+
+def check_options(data):
+    try:
+        refdata.check_options(data)
+    except ValueError as exc:
+        raise Problem(str(exc))
+
+
+def check_graph(data):
+    try:
+        graph.parse_graph(data)
+    except workdb.SpecError as exc:
+        raise Problem(str(exc))
+
+
+def graph_files():
+    """Graph files (graph/*.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for fid in graph.graph_ids():
+        try:
+            name = str(yaml.safe_load(graph.graph_path(fid).read_text(encoding="utf-8")).get("name") or fid)
+        except Exception:
+            name = fid
+        out[f"graph_{fid}"] = (f"Graph — {name}", lambda _u, i=fid: graph.graph_path(i), check_graph)
     return out
 
 
@@ -224,6 +236,7 @@ def _registry():
         files.update(ADMIN_FILES)
         files.update(importer_files())
         files.update(audit_files())
+        files.update(graph_files())
         files.update(converter_files())
     return files
 
@@ -234,6 +247,12 @@ def _write_target(key, path):
         folder = workdb.edited_path().parent
         folder.mkdir(parents=True, exist_ok=True)
         return folder / "work_db.yml"
+    if key == "aircraft_options":
+        return refdata.edited_options_path()
+    if key.startswith("graph_"):
+        folder = graph.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
     if key.startswith("audit_"):
         folder = audit.edited_dir()
         folder.mkdir(parents=True, exist_ok=True)
@@ -252,7 +271,7 @@ def _write_target(key, path):
 def validate(key, text):
     """Retourne None si le contenu est valable, sinon le message d'erreur."""
     try:
-        (FILES.get(key) or ADMIN_FILES.get(key) or importer_files().get(key) or audit_files().get(key) or converter_files()[key])[2](parse(text))
+        (FILES.get(key) or ADMIN_FILES.get(key) or importer_files().get(key) or audit_files().get(key) or graph_files().get(key) or converter_files()[key])[2](parse(text))
     except Problem as exc:
         return str(exc)
     return None
@@ -260,8 +279,6 @@ def validate(key, text):
 
 def _ensure_files(username):
     C.ensure_configs(username)
-    C.load_data_view(C.load_config(username), username)
-    C.load_logbook_view(username)
 
 
 def _backup_path(path):

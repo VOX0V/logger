@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.24 — Graph tab, editable aircraft lists, grids without appearance settings
+
+- **Graph tab** (next to World map): charts defined in YAML (`graph/*.yml`, merged in file name order; copies edited in the web interface in `appdata/graph/`). Each chart: `type` (bar / line / area), `group_by` (year, month, year_month or any column), `measure` (one or several, expressions on the work data such as `num(flight_time)`), `cumulative` (progression), `stack_by`, `stacked`, `horizontal`, `where`, `limit`. Shipped charts: cumulative career hours per month, hours per month / year / calendar month, day and night, single and multi-engine, per aircraft type, per airport. Chart.js is shipped in `static/vendor/chartjs` (no CDN). Administrators edit the files from the Graph page.
+- **Aircraft table**: the choice lists (category, engines, engine type, crew and the new **landing gear**) are now in `aircraft_options.yml`, edited by the administrators (Aircraft page > Edit lists): add, rename or remove values (new ones shipped: `glider`, engines `none`, landing gear wheels / floats / skis / amphibious). A value still used by an aircraft type cannot be removed. The `CHECK` constraints of the database are removed (the table is rebuilt once on startup) and `landing_gear` is available in `work_db.yml`: `aircraft(type, "landing_gear")`. Excel import / export of the aircraft table has the new column.
+- **Grids** (raw, work, airports, aircraft): no appearance setting any more. The `<user>_data_view.yml` and `<user>_logbook_view.yml` files (width, alignment, frozen column, label) and their editor entries are removed; columns are as narrow as their content (`fitData`, measured again for each page) and titled with the column display name. The logbook page, its PDF and `logbook_layout.yml` are unchanged.
+
 ## 0.3.23 — One import file per employer, audit rules in YAML, grid filters and sorting fixed
 
 - **Import**: back to one file per employer, `importer/<id>_import.yml` (`default`, `creebec`, `jazz`), each with its own columns (`header` of the airline file -> RAW `column`) and its own `ignored` list; no shared rule. A header can be a list (Creebec accepts `pic` and `pic_name`). `import.yml` is removed. Each file has its own button entry in the YAML editor (Data > YML IMPORT, then pick the file); edited copies are kept in `appdata/importer/`.

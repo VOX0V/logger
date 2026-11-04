@@ -109,9 +109,10 @@ def _known(table, x):
 
 workdb.FUNCS.update({"valid_date": _valid_date, "future_date": _future_date, "num": _num, "matches": _matches,
                      "length": _length, "has_stray_spaces": _has_stray_spaces, "exercise_issues": _exercise_issues,
-                     "known_airport": lambda x: _known("airports", x), "known_aircraft": lambda x: _known("aircraft", x)})
+                     "known_airport": lambda x: _known("airports", x), "known_aircraft": lambda x: _known("aircraft", x),
+                     "iif": lambda cond, a, b: a if _truthy(cond) else b})
 workdb._ARITY.update({"valid_date": 3, "future_date": 3, "num": 1, "matches": 2, "length": 1, "has_stray_spaces": 1,
-                      "exercise_issues": 1, "known_airport": 1, "known_aircraft": 1})
+                      "exercise_issues": 1, "known_airport": 1, "known_aircraft": 1, "iif": 3})
 
 
 def airport_codes():
