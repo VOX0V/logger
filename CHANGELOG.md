@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.25 — Edit mode on Breakdown, simpler Data hub, one YAML file per editor
+
+- **Breakdown**: the types are shown as plain text; **Edit breakdown** turns them into lists, **Save** / **Cancel** end the edit.
+- **Data hub**: new *Import data* row above *Raw data* (**Import**, **Edit import rules** for administrators). The *Converter* row has **Edit conversion rules** (opens `work_db.yml`); the old *Settings* and *YML WORK DB* buttons are gone.
+- **YAML editor**: the list of files is removed; the page only shows the file opened by the button.
+- **Work data grid**: no more computed year / month / day columns drawn from `date`; the grid shows the work db columns as they are (date, year, month, day).
+- `yamledit.py`: `check_options` moved before `ADMIN_FILES` (start-up crash fixed).
+
 ## 0.3.24 — Graph tab, editable aircraft lists, grids without appearance settings
 
 - **Graph tab** (next to World map): charts defined in YAML (`graph/*.yml`, merged in file name order; copies edited in the web interface in `appdata/graph/`). Each chart: `type` (bar / line / area), `group_by` (year, month, year_month or any column), `measure` (one or several, expressions on the work data such as `num(flight_time)`), `cumulative` (progression), `stack_by`, `stacked`, `horizontal`, `where`, `limit`. Shipped charts: cumulative career hours per month, hours per month / year / calendar month, day and night, single and multi-engine, per aircraft type, per airport. Chart.js is shipped in `static/vendor/chartjs` (no CDN). Administrators edit the files from the Graph page.

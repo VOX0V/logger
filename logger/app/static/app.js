@@ -14,6 +14,8 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   const toggle = e.target.closest && e.target.closest("[data-toggle]");
   if (toggle) { const panel = document.getElementById(toggle.getAttribute("data-toggle")); if (panel) panel.hidden = !panel.hidden; }
+  const edit = e.target.closest && e.target.closest("[data-edit-toggle]");
+  if (edit) { const box = document.getElementById(edit.getAttribute("data-edit-toggle")); if (box) box.classList.toggle("editing"); }
   const el = e.target.closest && e.target.closest("[data-confirm]");
   if (el && el.tagName !== "FORM" && !window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
 });

@@ -225,18 +225,12 @@ def load_data_view(config, username=None):
     return _view(configurable_columns(config))
 
 
-DATE_PARTS = ("year", "month", "day")
-
-
 def load_logbook_view(username=None):
-    """Colonnes affichées dans Données converties : la date est séparée en année / mois / jour (filtres plus simples)."""
+    """Colonnes affichées dans Données converties : celles de la work db, telles quelles."""
     columns = []
     for c in load_logbook_db_config(username)["database"]["columns"]:
         if is_system(c): continue
-        if c["column"] == "date":
-            columns += [{"column": p, "display_name": p, "data_type": "integer"} for p in DATE_PARTS]
-        else:
-            columns.append(c)
+        columns.append(c)
     return _view(columns)
 def logbook_columns(config, username=None): return [c for c in load_logbook_db_config(username)["database"]["columns"] if not is_system(c)]
 def system_columns(config): return [c for c in config["database"]["columns"] if is_system(c)]

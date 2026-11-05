@@ -204,18 +204,16 @@ def export_user_data():
     stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
     return send_file(buf,mimetype="application/zip",as_attachment=True,download_name=f"{username}_backup_{stamp}.zip")
 
-# année / mois / jour extraits de la date ISO (AAAA-MM-JJ) : colonnes calculées de la grille Données converties
-DATE_EXPR={"year":'substr("date",1,4)',"month":'substr("date",6,2)',"day":'substr("date",9,2)'}
 def _date_expr():
-    """The year / month / day expressions only apply when the work data still has a single 'date' column."""
-    return DATE_EXPR if any(c["column"]=="date" for c in logbook_columns(load_config())) else {}
+    """No computed year / month / day columns any more: the work data has its own date, year, month and day columns."""
+    return {}
 
 @main_bp.route("/logbook-db")
 @login_required
 def logbook_db_page():
     view=load_logbook_view()
     dx=_date_expr()
-    fields=([{"name":"date","label":"date","kind":"date"}] if dx else [])+[{"name":v["column"],"label":v["label"]} for v in view if v["column"] not in dx]
+    fields=[({"name":v["column"],"label":v["label"],"kind":"date"} if v["column"]=="date" else {"name":v["column"],"label":v["label"]}) for v in view if v["column"] not in dx]
     return render_template("logbook_db.html",view=view,add_fields=fields)
 
 @main_bp.route("/logbook-db/rows")
