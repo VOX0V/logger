@@ -1,30 +1,21 @@
-# Import profile "Jazz Aviation": maps the headers of the file to RAW database columns (values are imported untouched).
-# Format: see the top of app/import_profiles.py. Editable from Data > YML IMPORT.
+# Import profile "Jazz Aviation": one line per header of the file, written  header: entity  (entities: see entities.yml).
+# A header that is not listed here is not imported. The columns of the raw database are created by the import.
+# Editable from Data > Import data > Edit import rules.
 name: Jazz Aviation
-groups:
-  - group: aircrafts
-    columns:
-      - {column: type, header: fcv_aircraft_type}
-      - {column: registration, header: fcv_tail_number}
-  - group: crew
-    columns:
-      - {column: crew_list, header: crew_list}
-  - group: airports
-    columns:
-      - {column: dep_code, header: dep_airport}
-      - {column: dep_time_utc, header: dep_datetime_utc}
-      - {column: arr_code, header: arr_airport}
-      - {column: arr_time_utc, header: arr_datetime_utc}
-  - group: leg
-    columns:
-      - {column: flight_time, header: block}
-      - {column: leg_length, header: nautical_miles}
-  - group: misc
-    columns:
-      - {column: flight_number, header: flight_number}
+columns:
+  fcv_aircraft_type: aircraft_type
+  fcv_tail_number: aircraft_registration
+  crew_list: crew_list
+  dep_airport: location_departure_code
+  dep_datetime_utc: location_departure_time_utc
+  arr_airport: location_arrival_code
+  arr_datetime_utc: location_arrival_time_utc
+  block: leg_time
+  nautical_miles: leg_length
 
 # Headers of the file that are deliberately not imported.
 ignored:
+  - flight_number          # no entity for it yet
   - deadhead
   - airplane_change
   - fcv_skd_dep_datetime_local

@@ -1,0 +1,65 @@
+# Entities of the raw database: one line per column that an import profile may create.
+# entity = group_name (the only name used everywhere); display_name = the title shown in the grids;
+# data_type: text, integer, decimal, date, datetime or boolean. The order of the list is the order of the columns.
+# Edit from Data > Import data > Edit entities (administrators).
+entities:
+  - {entity: date_year, group: date, data_type: text, display_name: year}
+  - {entity: date_month, group: date, data_type: text, display_name: month}
+  - {entity: date_day, group: date, data_type: text, display_name: day}
+  - {entity: date_date, group: date, data_type: date, display_name: date}
+  - {entity: aircraft_type, group: aircraft, data_type: text, display_name: aircraft type}
+  - {entity: aircraft_registration, group: aircraft, data_type: text, display_name: aircraft registration}
+  - {entity: aircraft_category, group: aircraft, data_type: text, display_name: aircraft category}
+  - {entity: aircraft_engine, group: aircraft, data_type: text, display_name: aircraft engine}
+  - {entity: aircraft_engine_type, group: aircraft, data_type: text, display_name: aircraft engine_type}
+  - {entity: aircraft_crew, group: aircraft, data_type: text, display_name: aircraft crew}
+  - {entity: aircraft_landing_gear, group: aircraft, data_type: text, display_name: aircraft landing_gear}
+  - {entity: crew_pilot, group: crew, data_type: text, display_name: crew pilot}
+  - {entity: crew_copilot, group: crew, data_type: text, display_name: crew copilot}
+  - {entity: crew_list, group: crew, data_type: text, display_name: crew list}
+  - {entity: crew_company, group: crew, data_type: text, display_name: crew company}
+  - {entity: location_departure_code, group: location, data_type: text, display_name: location departure_code}
+  - {entity: location_departure_name, group: location, data_type: text, display_name: location departure_name}
+  - {entity: location_departure_latitude, group: location, data_type: decimal, display_name: location departure_latitude}
+  - {entity: location_departure_longitude, group: location, data_type: decimal, display_name: location departure_longitude}
+  - {entity: location_departure_time_utc, group: location, data_type: text, display_name: location departure_time_utc}
+  - {entity: location_departure_sun, group: location, data_type: decimal, display_name: location departure_sun}
+  - {entity: location_departure_light, group: location, data_type: text, display_name: location departure_light}
+  - {entity: location_arrival_code, group: location, data_type: text, display_name: location arrival_code}
+  - {entity: location_arrival_name, group: location, data_type: text, display_name: location arrival_name}
+  - {entity: location_arrival_latitude, group: location, data_type: decimal, display_name: location arrival_latitude}
+  - {entity: location_arrival_longitude, group: location, data_type: decimal, display_name: location arrival_longitude}
+  - {entity: location_arrival_time_utc, group: location, data_type: text, display_name: location arrival_time_utc}
+  - {entity: location_arrival_sun, group: location, data_type: decimal, display_name: location arrival_sun}
+  - {entity: location_arrival_light, group: location, data_type: text, display_name: location arrival_light}
+  - {entity: leg_time, group: leg, data_type: text, display_name: leg time}
+  - {entity: leg_length, group: leg, data_type: decimal, display_name: leg length}
+  - {entity: leg_average_speed, group: leg, data_type: decimal, display_name: leg average_speed}
+  - {entity: misc_remarks, group: misc, data_type: text, display_name: misc remarks}
+  - {entity: time_flight, group: time, data_type: decimal, display_name: time flight}
+  - {entity: time_pic, group: time, data_type: decimal, display_name: time pic}
+  - {entity: time_copilot, group: time, data_type: decimal, display_name: time copilot}
+  - {entity: time_se_dual_day, group: time, data_type: decimal, display_name: time se_dual_day}
+  - {entity: time_se_pic_day, group: time, data_type: decimal, display_name: time se_pic_day}
+  - {entity: time_se_dual_night, group: time, data_type: decimal, display_name: time se_dual_night}
+  - {entity: time_se_pic_night, group: time, data_type: decimal, display_name: time se_pic_night}
+  - {entity: time_me_dual_day, group: time, data_type: decimal, display_name: time me_dual_day}
+  - {entity: time_me_pic_day, group: time, data_type: decimal, display_name: time me_pic_day}
+  - {entity: time_me_copi_day, group: time, data_type: decimal, display_name: time me_copi_day}
+  - {entity: time_me_dual_night, group: time, data_type: decimal, display_name: time me_dual_night}
+  - {entity: time_me_pic_night, group: time, data_type: decimal, display_name: time me_pic_night}
+  - {entity: time_me_copi_night, group: time, data_type: decimal, display_name: time me_copi_night}
+  - {entity: time_ifr, group: time, data_type: decimal, display_name: time ifr}
+  - {entity: time_hood, group: time, data_type: decimal, display_name: time hood}
+  - {entity: time_ftd, group: time, data_type: decimal, display_name: time ftd}
+  - {entity: time_cc_dual_day, group: time, data_type: decimal, display_name: time cc_dual_day}
+  - {entity: time_cc_pic_day, group: time, data_type: decimal, display_name: time cc_pic_day}
+  - {entity: time_cc_dual_night, group: time, data_type: decimal, display_name: time cc_dual_night}
+  - {entity: time_cc_pic_night, group: time, data_type: decimal, display_name: time cc_pic_night}
+  - {entity: time_instruction_day, group: time, data_type: decimal, display_name: time instruction_day}
+  - {entity: time_instruction_night, group: time, data_type: decimal, display_name: time instruction_night}
+  - {entity: count_ifr_approach, group: count, data_type: integer, display_name: count ifr_approach}
+  - {entity: count_takeoff_day, group: count, data_type: integer, display_name: count takeoff_day}
+  - {entity: count_landing_day, group: count, data_type: integer, display_name: count landing_day}
+  - {entity: count_takeoff_night, group: count, data_type: integer, display_name: count takeoff_night}
+  - {entity: count_landing_night, group: count, data_type: integer, display_name: count landing_night}

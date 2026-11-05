@@ -10,10 +10,8 @@ from datetime import date
 from openpyxl import load_workbook
 
 FLIGHT_NUM_RE = re.compile(r"([A-Z]{2,3}\d{2,5})")
-SE_ME_COLUMNS = ["single_engine_dual_day", "single_engine_pic_day", "single_engine_dual_night",
-                 "single_engine_pic_night", "multi_engine_dual_day", "multi_engine_pic_day",
-                 "multi_engine_copi_day", "multi_engine_dual_night", "multi_engine_pic_night",
-                 "multi_engine_copi_night"]
+SE_ME_COLUMNS = ["time_se_dual_day", "time_se_pic_day", "time_se_dual_night", "time_se_pic_night", "time_me_dual_day", "time_me_pic_day",
+                 "time_me_copi_day", "time_me_dual_night", "time_me_pic_night", "time_me_copi_night"]
 HOURS_TOLERANCE = 0.15
 MAX_SAMPLES = 10
 
@@ -30,12 +28,12 @@ def num(v):
 
 
 def row_date(rec):
-    """ISO date of a flight: from the local departure time, else from year / month / day."""
-    d = str(rec.get("departure_local") or "").strip()[:10]
+    """ISO date of a flight: from date_date, else from date_year / date_month / date_day."""
+    d = str(rec.get("date_date") or "").strip()[:10]
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
         return d
     try:
-        return date(int(float(rec.get("year"))), int(float(rec.get("month"))), int(float(rec.get("day")))).isoformat()
+        return date(int(float(rec.get("date_year"))), int(float(rec.get("date_month"))), int(float(rec.get("date_day")))).isoformat()
     except (TypeError, ValueError):
         return None
 
@@ -47,7 +45,7 @@ def flight_digits(rec):
         digits = re.sub(r"\D", "", raw.split(".")[0])
         if digits:
             return digits
-    m = FLIGHT_NUM_RE.search(str(rec.get("remarks") or "").upper())
+    m = FLIGHT_NUM_RE.search(str(rec.get("misc_remarks") or "").upper())
     return re.sub(r"\D", "", m.group(1)) if m else ""
 
 
@@ -60,7 +58,7 @@ def norm_registration(v):
 
 
 def hours(rec):
-    block = rec.get("block_time")
+    block = rec.get("leg_time")
     if not blank(block):
         text = str(block).strip()
         m = re.fullmatch(r"(\d+):(\d{2})(?::\d{2})?", text)
@@ -102,11 +100,11 @@ def norm_type(v, ctx):
 
 
 def same_value(col, a, b, ctx):
-    if col == "registration":
+    if col == "aircraft_registration":
         return norm_registration(a) == norm_registration(b)
-    if col == "type":
+    if col == "aircraft_type":
         return norm_type(a, ctx) == norm_type(b, ctx)
-    if col in ("departure", "arrival"):
+    if col in ("location_departure_code", "location_arrival_code"):
         return canon_airport(a, ctx) == canon_airport(b, ctx)
     try:
         return abs(float(a) - float(b)) < 1e-6
@@ -119,10 +117,10 @@ def _conflicts(rec, e, ctx):
     a, b = flight_digits(rec), flight_digits(e)
     if a and b and a != b:
         return True
-    ra, rb = norm_registration(rec.get("registration")), norm_registration(e.get("registration"))
+    ra, rb = norm_registration(rec.get("aircraft_registration")), norm_registration(e.get("aircraft_registration"))
     if ra and rb and ra != rb:
         return True
-    for col in ("departure", "arrival"):
+    for col in ("location_departure_code", "location_arrival_code"):
         x, y = canon_airport(rec.get(col), ctx), canon_airport(e.get(col), ctx)
         if x and y and x != y:
             return True
@@ -136,22 +134,22 @@ def find_match(rec, candidates, ctx):
         for e in candidates:
             if flight_digits(e) == digits:
                 return e
-    remarks = norm_remarks(rec.get("remarks"))
+    remarks = norm_remarks(rec.get("misc_remarks"))
     if remarks:
         for e in candidates:
-            if norm_remarks(e.get("remarks")) == remarks and not _conflicts(rec, e, ctx):
+            if norm_remarks(e.get("misc_remarks")) == remarks and not _conflicts(rec, e, ctx):
                 return e
-    reg, dep, arr = norm_registration(rec.get("registration")), canon_airport(rec.get("departure"), ctx), canon_airport(rec.get("arrival"), ctx)
+    reg, dep, arr = norm_registration(rec.get("aircraft_registration")), canon_airport(rec.get("location_departure_code"), ctx), canon_airport(rec.get("location_arrival_code"), ctx)
     if reg and dep and arr:
         for e in candidates:
-            if (norm_registration(e.get("registration")) == reg and canon_airport(e.get("departure"), ctx) == dep
-                    and canon_airport(e.get("arrival"), ctx) == arr):
+            if (norm_registration(e.get("aircraft_registration")) == reg and canon_airport(e.get("location_departure_code"), ctx) == dep
+                    and canon_airport(e.get("location_arrival_code"), ctx) == arr):
                 return e
-    kind, duration = norm_type(rec.get("type"), ctx), hours(rec)
+    kind, duration = norm_type(rec.get("aircraft_type"), ctx), hours(rec)
     if kind and duration:
         for e in candidates:
             other = hours(e)
-            if norm_type(e.get("type"), ctx) == kind and other and abs(other - duration) <= HOURS_TOLERANCE and not _conflicts(rec, e, ctx):
+            if norm_type(e.get("aircraft_type"), ctx) == kind and other and abs(other - duration) <= HOURS_TOLERANCE and not _conflicts(rec, e, ctx):
                 return e
     return None
 
@@ -171,7 +169,7 @@ def plan_merge(existing, incoming, cols, ctx):
             pool = [e for e in by_date.get(d, []) if e["id"] not in used]
             match = find_match(rec, pool, ctx)
         else:      # no date: only an identical row counts as the same flight
-            filled = [c for c in cols if c != "employer" and not blank(rec.get(c))]      # the employer never decides whether two rows are the same flight
+            filled = [c for c in cols if c != "crew_company" and not blank(rec.get(c))]      # the employer never decides whether two rows are the same flight
             match = next((e for e in undated if e["id"] not in used and filled
                           and all(not blank(e.get(c)) and same_value(c, e.get(c), rec.get(c), ctx) for c in filled)), None)
         if match is None:
@@ -184,7 +182,7 @@ def plan_merge(existing, incoming, cols, ctx):
             new, old = rec.get(c), match.get(c)
             if blank(new):
                 continue
-            if blank(old) or (c == "employer" and old == "undefined"):      # "undefined" is a placeholder: a real employer replaces it
+            if blank(old) or (c == "crew_company" and old == "undefined"):      # "undefined" is a placeholder: a real employer replaces it
                 changes[c] = new
                 stats["filled"][c] += 1
             elif not same_value(c, old, new, ctx):

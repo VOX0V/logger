@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.27 — Entities: new import into the raw database
+
+- **entities.yml** (`importer/`): the list of the entities (name `group_name`, group, type, display name), from `entities.xlsx`. Editable by administrators (Data > Import data > Edit entities). `larrival_light` is spelled `arrival_light`.
+- **Import profiles**: one line per column, `header: entity`. A header with no line is not imported. The three shipped profiles are converted; profiles in the old `groups` format are refused with an explanation.
+- **Raw database**: no pre-created column any more (the `employer` column is gone: the import fills `crew_company` with the profile name when it is empty). The import creates the columns it needs, with name, type and order taken from the entities.
+- **Clear data** deletes the rows, the columns and resets the numbering.
+- **Raw data — structure** is no longer an editable YAML file: the structure comes from the imports.
+- `merge.py` uses the entity names. The work data conversion (`work_db.yml`, conversion rules), the audit, the graphs, the logbook and the reports still read the old raw names: they are to be aligned.
+
 ## 0.3.26 — Settings pages removed, Logbook and Breakdown sections in the Data hub
 
 - **Removed**: the Settings card of the account page and its pages (Logbook settings, Breakdown settings, Raw data columns, Converter settings) with their routes and forms. Only a **Configuration (YAML)** button stays on the account page; it lists all the YAML files.

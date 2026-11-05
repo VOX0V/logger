@@ -11,7 +11,7 @@ from .config import (load_config, save_config, configurable_columns, load_logboo
                       load_logbook_layout, save_logbook_layout,
                       logbook_columns, technical_name, load_data_view, load_logbook_view)
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
-from .models import import_rows, drop_unused_columns, ensure_employer_columns
+from .models import import_rows, drop_unused_columns
 from .gridview import grid_data, grid_export
 from .logbook_pdf import build_logbook_pdf
 from .errors import safe_message
@@ -323,7 +323,7 @@ def logbook_pdf():
 @login_required
 def refresh_logbook_data():
     try:
-        ensure_employer_columns(); result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
+        result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
         for warning in result["warnings"]: flash(f"Warning — {warning}")
     except Exception as exc: flash(f"Logbook refresh impossible — {safe_message(exc)}")
     return _back("main.logbook_db_page")
@@ -354,28 +354,31 @@ def edit_logbook_cell():
 @fresh_login_required
 def clear_data():
     if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
-    conn=connect(); conn.execute("DELETE FROM users"); conn.commit(); conn.close(); log_event("data_destroy", target="raw-data:all-rows"); flash("The raw data was deleted. The YAML files are kept."); return redirect(url_for("hubs.data"))
+    from .config import is_system
+    config=load_config(); config["database"]["columns"]=[c for c in config["database"]["columns"] if is_system(c)]; save_config(config)
+    conn=connect(); conn.execute("DELETE FROM users"); conn.execute("DELETE FROM sqlite_sequence WHERE name='users'"); drop_unused_columns(conn,config); conn.commit(); conn.close()
+    log_event("data_destroy", target="raw-data:all-rows-and-columns"); flash("The raw data and its columns were deleted. The import profiles are kept."); return redirect(url_for("hubs.data"))
 
 @main_bp.route("/import",methods=["GET","POST"])
 @login_required
 def import_files():
-    ensure_employer_columns(); config=load_config(); categories=_columns(config)
+    config=load_config(); categories=_columns(config)
     if request.method=="POST":
         files=[f for f in request.files.getlist("files")+request.files.getlist("file") if f and f.filename]
         if not files: flash("Select a file to import."); return _back("main.import_files")
         profile_id=request.form.get("profile","").strip()
         if not profile_id: flash("Select an import profile."); return _back("main.import_files")
         try:
-            profile=load_profile(profile_id); added=ensure_profile_columns(config,profile)
+            profile=load_profile(profile_id); added=ensure_profile_columns(config,profile,extra=("crew_company",))
         except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
         if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
         total=0
         for file in files:
             try:
                 data=file.read(); rows,matched=importable_rows(file.filename,data,profile=profile)
-                employer="undefined" if profile["id"]=="default" else profile["name"]        # an empty employer gets the profile name
+                company="undefined" if profile["id"]=="default" else profile["name"]        # an empty company gets the profile name
                 for r in rows:
-                    if not r.get("employer"): r["employer"]=employer
+                    if not r.get("crew_company"): r["crew_company"]=company
                 stats=import_rows(file.filename,rows,config,profile=profile["id"]); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
                 if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))

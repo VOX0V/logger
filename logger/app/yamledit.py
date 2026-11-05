@@ -83,7 +83,6 @@ def check_structure(data, normalize):
         raise Problem("At least one data column is required (in addition to the system columns).")
 
 
-def check_data(data): check_structure(data, C._norm_user)
 def check_logbook(data): check_structure(data, C._norm_lb)
 
 
@@ -122,7 +121,6 @@ def check_breakdown(data):
 
 # clé -> (libellé, fonction qui donne le chemin du fichier de l'utilisateur, vérification)
 FILES = {
-    "data": ("Raw data — structure", C.config_path, check_data),
     "logbook": ("Work data — structure", C.logbook_db_config_path, check_logbook),
     "layout": ("Logbook — layout", C.logbook_layout_path, check_layout),
     "breakdown": ("Breakdown — layout", C.breakdown_path, check_breakdown),
@@ -190,10 +188,18 @@ def _converter_settings_path(_username):
     return catalog.settings_path()
 
 
+def check_entities(data):
+    try:
+        import_profiles.parse_entities(data)
+    except FileImportError as exc:
+        raise Problem(str(exc))
+
+
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
     "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
+    "entities": ("Import — entities (entities.yml)", lambda _u: import_profiles.entities_path(), check_entities),
     "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }
 
@@ -281,6 +287,10 @@ def _write_target(key, path):
         return folder / "work_db.yml"
     if key == "aircraft_options":
         return refdata.edited_options_path()
+    if key == "entities":
+        folder = import_profiles.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / import_profiles.ENTITIES_FILE
     if key.startswith("graph_"):
         folder = graph.edited_dir()
         folder.mkdir(parents=True, exist_ok=True)
@@ -354,7 +364,7 @@ def editor():
                 tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(posted, encoding="utf-8")
                 os.replace(tmp, target)
-                if key in ("data", "logbook", "workdb"):
+                if key in ("logbook", "workdb"):
                     init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
                 log_event("config_change", target=f"yaml:{key}")
                 flash("File saved. The previous version is kept (“Restore” button).")

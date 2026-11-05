@@ -1,51 +1,38 @@
-# Import profile "Default": maps the headers of the file to RAW database columns (values are imported untouched).
-# Format: see the top of app/import_profiles.py. Editable from Data > YML IMPORT.
+# Import profile "Default": one line per header of the file, written  header: entity  (entities: see entities.yml).
+# A header that is not listed here is not imported. The columns of the raw database are created by the import.
+# Editable from Data > Import data > Edit import rules.
 name: Default
-groups:
-  - group: date
-    columns:
-      - {column: year, header: year}
-      - {column: month, header: month}
-      - {column: day, header: day}
-      - {column: date, header: date}
-  - group: aircrafts
-    columns:
-      - {column: type, header: type}
-      - {column: registration, header: reg}
-  - group: crew
-    columns:
-      - {column: pic_name, header: pic_name}
-      - {column: copi_name, header: copi_name}
-  - group: airports
-    columns:
-      - {column: dep_code, header: dep_code}
-      - {column: arr_code, header: arr_code}
-  - group: misc
-    columns:
-      - {column: remarks, header: remarks}
-  - group: flight_time
-    columns:
-      - {column: se_dual_day, header: se_dual_day}
-      - {column: se_pic_day, header: se_pic_day}
-      - {column: se_dual_night, header: se_dual_night}
-      - {column: se_pic_night, header: se_pic_night}
-      - {column: me_dual_day, header: me_dual_day}
-      - {column: me_pic_day, header: me_pic_day}
-      - {column: me_copi_day, header: me_copi_day}
-      - {column: me_dual_night, header: me_dual_night}
-      - {column: me_pic_night, header: me_pic_night}
-      - {column: me_copi_night, header: me_copi_night}
-  - group: flight_details
-    columns:
-      - {column: ifr_time, header: ifr_time}
-      - {column: hood_time, header: hood_time}
-      - {column: ftd_time, header: ftd_time}
-      - {column: ifr_app, header: ifr_app}
-      - {column: cc_dual_day, header: cc_dual_day}
-      - {column: cc_pic_day, header: cc_pic_day}
-      - {column: cc_dual_night, header: cc_dual_night}
-      - {column: cc_pic_night, header: cc_pic_night}
-      - {column: landing_day, header: ldg_day, data_type: integer}
-      - {column: landing_night, header: ldg_night, data_type: integer}
-      - {column: instruction_day, header: instr_day}
-      - {column: instruction_night, header: instr_night}
+columns:
+  year: date_year
+  month: date_month
+  day: date_day
+  date: date_date
+  type: aircraft_type
+  reg: aircraft_registration
+  pic_name: crew_pilot
+  copi_name: crew_copilot
+  dep_code: location_departure_code
+  arr_code: location_arrival_code
+  remarks: misc_remarks
+  se_dual_day: time_se_dual_day
+  se_pic_day: time_se_pic_day
+  se_dual_night: time_se_dual_night
+  se_pic_night: time_se_pic_night
+  me_dual_day: time_me_dual_day
+  me_pic_day: time_me_pic_day
+  me_copi_day: time_me_copi_day
+  me_dual_night: time_me_dual_night
+  me_pic_night: time_me_pic_night
+  me_copi_night: time_me_copi_night
+  ifr_time: time_ifr
+  hood_time: time_hood
+  ftd_time: time_ftd
+  ifr_app: count_ifr_approach
+  cc_dual_day: time_cc_dual_day
+  cc_pic_day: time_cc_pic_day
+  cc_dual_night: time_cc_dual_night
+  cc_pic_night: time_cc_pic_night
+  ldg_day: count_landing_day
+  ldg_night: count_landing_night
+  instr_day: time_instruction_day
+  instr_night: time_instruction_night

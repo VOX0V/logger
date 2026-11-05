@@ -1,17 +1,18 @@
 """Import profiles: one file per employer, <id>_import.yml, in <app root>/importer/ (shipped) and appdata/importer/
 (copy edited in the web interface, which wins). Shared by all accounts.
 
-A profile only maps the headers of an airline file to RAW database columns. Values are imported
-untouched (the raw database holds raw data).
+A profile only says which header of an airline file goes to which ENTITY (see entities.yml). Values are imported
+untouched (the raw database holds raw data). The columns of the raw database are created by the import, from the
+entities that the profile uses: name, type and order come from entities.yml.
 
     name: Jazz Aviation          # shown in the import menu
     sheet: raw                   # optional: sheet to read (default: "raw", else the active sheet)
-    groups:                      # groups are only there to keep the file readable
-      - group: aircrafts
-        columns:
-          - {column: type, header: fcv_aircraft_type}          # header: one name or a list of names
-          - {column: takeoff_day, header: to_day, data_type: integer}   # data_type: text (default), integer, ...
-    ignored: [deadhead, tail_number]    # headers of the file deliberately not imported (documentation)
+    columns:                     # header of the file: entity   (several headers may go to the same entity)
+      fcv_aircraft_type: aircraft_type
+      to_day: count_takeoff_day
+    ignored: [deadhead, tail_number]    # optional, documentation only: headers deliberately not imported
+
+A header of the file that is not listed under "columns" is not imported.
 """
 import re
 from collections import Counter
@@ -19,7 +20,7 @@ from pathlib import Path
 
 import yaml
 
-from .config import save_config, technical_name
+from .config import save_config, technical_name, is_system
 from .importer import FileImportError
 
 PROFILE_ID = re.compile(r"[a-z0-9_-]+")
@@ -54,40 +55,76 @@ def profile_path(profile_id):
     return BUNDLED_DIR / f"{profile_id}{SUFFIX}"
 
 
+ENTITIES_FILE = "entities.yml"
+
+
+def entities_path():
+    """The edited copy when there is one, otherwise the shipped file."""
+    edited = edited_dir()
+    if edited is not None and (edited / ENTITIES_FILE).is_file():
+        return edited / ENTITIES_FILE
+    return BUNDLED_DIR / ENTITIES_FILE
+
+
+def parse_entities(data):
+    """Checks the content of entities.yml; returns {entity: {entity, group, data_type, display_name}} in file order."""
+    items = data.get("entities") if isinstance(data, dict) else None
+    if not isinstance(items, list) or not items:
+        raise FileImportError("“entities” must be a non-empty list of entities.")
+    out = {}
+    for i, item in enumerate(items, 1):
+        if not isinstance(item, dict) or not isinstance(item.get("entity"), str):
+            raise FileImportError(f"Entity no.{i}: “entity” (its name) is required.")
+        name = item["entity"]
+        try:
+            valid = technical_name(name) == name
+        except ValueError as exc:
+            raise FileImportError(f"Entity no.{i} ({name}): {exc}") from exc
+        if not valid:
+            raise FileImportError(f"Entity no.{i}: “{name}” must only use lowercase letters, digits and underscores.")
+        if name in out:
+            raise FileImportError(f"Entity “{name}” is defined twice.")
+        data_type = str(item.get("data_type") or "text")
+        if data_type not in DATA_TYPES:
+            raise FileImportError(f"Entity “{name}”: unknown data_type “{data_type}”.")
+        unknown = set(item) - {"entity", "group", "data_type", "display_name"}
+        if unknown:
+            raise FileImportError(f"Entity “{name}”: unknown key “{sorted(unknown)[0]}”.")
+        out[name] = {"entity": name, "group": str(item.get("group") or ""), "data_type": data_type,
+                     "display_name": str(item.get("display_name") or name)}
+    return out
+
+
+def load_entities():
+    path = entities_path()
+    try:
+        return parse_entities(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    except (OSError, yaml.YAMLError) as exc:
+        raise FileImportError(f"{path.name} is unreadable.") from exc
+
+
 def parse_spec(data):
     """Checks the content of one <id>_import.yml; raises FileImportError with a readable message."""
     if not isinstance(data, dict):
-        raise FileImportError("The file must contain “name”, “groups” and optionally “ignored”.")
+        raise FileImportError("The file must contain “name” and “columns” (header: entity).")
+    if "groups" in data:
+        raise FileImportError("Old format: replace “groups” by “columns”, one line per header, written  header: entity.")
+    unknown = set(data) - {"name", "sheet", "columns", "ignored"}
+    if unknown:
+        raise FileImportError(f"Unknown key “{sorted(unknown)[0]}”.")
     if data.get("name") is not None and not isinstance(data["name"], str):
         raise FileImportError("“name” must be a text.")
     if data.get("sheet") is not None and not isinstance(data["sheet"], str):
         raise FileImportError("“sheet” must be a text.")
-    if not isinstance(data.get("groups"), list) or not data["groups"]:
-        raise FileImportError("“groups” must be a list of groups.")
-    seen = set()
-    for group in data["groups"]:
-        if not isinstance(group, dict) or not isinstance(group.get("columns"), list):
-            raise FileImportError("Each group needs “group” (its name) and a “columns” list.")
-        for item in group["columns"]:
-            if not isinstance(item, dict) or not item.get("column"):
-                raise FileImportError(f"Group “{group.get('group')}”: each column needs a “column” name.")
-            try:
-                name = technical_name(item["column"])
-            except ValueError as exc:
-                raise FileImportError(f"Invalid column name “{item['column']}”.") from exc
-            if name in seen:
-                raise FileImportError(f"Column “{name}” is defined twice.")
-            seen.add(name)
-            headers = item.get("header")
-            if isinstance(headers, str):
-                headers = [headers]
-            if not isinstance(headers, list) or not headers or not all(isinstance(h, str) and h.strip() for h in headers):
-                raise FileImportError(f"Column “{name}”: “header” must be a header of the file or a list of headers.")
-            if str(item.get("data_type") or "text") not in DATA_TYPES:
-                raise FileImportError(f"Column “{name}”: unknown data_type “{item.get('data_type')}”.")
-            unknown = set(item) - {"column", "header", "data_type", "display_name"}
-            if unknown:
-                raise FileImportError(f"Column “{name}”: unknown key “{sorted(unknown)[0]}”.")
+    columns = data.get("columns")
+    if not isinstance(columns, dict) or not columns:
+        raise FileImportError("“columns” must list the headers of the file, one per line, written  header: entity.")
+    entities = load_entities()
+    for header, entity in columns.items():
+        if not str(header).strip():
+            raise FileImportError("A header of “columns” is empty.")
+        if not isinstance(entity, str) or entity not in entities:
+            raise FileImportError(f"Header “{header}”: unknown entity “{entity}” (see entities.yml).")
     ignored = data.get("ignored")
     if ignored is not None and not (isinstance(ignored, list) and all(isinstance(h, str) for h in ignored)):
         raise FileImportError("“ignored” must be a list of headers.")
@@ -124,35 +161,34 @@ def load_profile(profile_id):
     if not PROFILE_ID.fullmatch(profile_id or "") or profile_id not in profile_ids():
         raise FileImportError("Unknown import profile.")
     data = _read(profile_id)
-    columns = []
-    for group in data["groups"]:
-        for item in group["columns"]:
-            headers = item["header"] if isinstance(item["header"], list) else [item["header"]]
-            column = technical_name(item["column"])
-            for header in headers:
-                columns.append({"header": str(header), "column": column, "display_name": str(item.get("display_name") or column),
-                                "group": str(group.get("group") or ""), "data_type": str(item.get("data_type") or "text")})
+    entities = load_entities()
+    columns = [{"header": str(header), "column": entity, "display_name": entities[entity]["display_name"],
+                "group": entities[entity]["group"], "data_type": entities[entity]["data_type"]}
+               for header, entity in data["columns"].items()]
     return {"id": profile_id, "name": str(data.get("name") or profile_id), "sheet": data.get("sheet") or None, "columns": columns}
 
 
-def ensure_profile_columns(config, profile):
-    """Add to the user's database the columns of the profile that do not exist yet. Returns their names."""
+def ensure_profile_columns(config, profile, extra=()):
+    """Create in the raw database the columns that the profile needs (plus the entities in `extra`) and that do not
+    exist yet: name, type and order come from entities.yml. Returns the names of the columns created."""
     columns = config["database"]["columns"]
     known = {c["column"] for c in columns}
+    entities = load_entities()
     added = []
-    for item in profile["columns"]:
-        if item["column"] in known:
+    for column in [item["column"] for item in profile["columns"]] + [e for e in extra if e in entities]:
+        if column in known:
             continue
-        data_type = str(item.get("data_type") or "text")
-        if data_type not in DATA_TYPES:
-            raise FileImportError(f"Import profile '{profile['id']}': invalid data_type '{data_type}' for '{item['column']}'.")
-        position = len([c for c in columns if not c.get("system")]) + 1
-        columns.append({"column": item["column"], "display_name": str(item.get("display_name") or item["header"]),
-                        "position": position, "data_type": data_type,
-                        "nullable": True, "visible": True, "editable": True})
-        known.add(item["column"])
-        added.append(item["column"])
+        columns.append({"column": column, "display_name": entities[column]["display_name"], "position": 0,
+                        "data_type": entities[column]["data_type"], "nullable": True, "visible": True, "editable": True})
+        known.add(column)
+        added.append(column)
     if added:
+        order = {name: i for i, name in enumerate(entities)}
+        system = [c for c in columns if is_system(c)]
+        data = sorted((c for c in columns if not is_system(c)), key=lambda c: order.get(c["column"], len(order)))
+        for i, c in enumerate(data, 1):
+            c["position"] = i
+        columns[:] = system + data
         save_config(config)
     return added
 
