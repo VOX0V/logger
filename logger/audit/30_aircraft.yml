@@ -3,19 +3,19 @@ name: Aircraft
 rules:
   - name: Unknown aircraft type
     severity: ANOMALY
-    when: is_blank(type)
+    when: is_blank(aircraft_type)
     message: empty type
   - name: Unknown aircraft type
     severity: ANOMALY
-    when: not is_blank(type) and not known_aircraft(type)
-    message: '“{type}”'
+    when: not is_blank(aircraft_type) and not known_aircraft(aircraft_type)
+    message: '“{aircraft_type}”'
   - name: Registration format
     severity: ANOMALY
     when: 'not is_blank(registration) and not is_sim_reg and not matches(registration, "^C-[A-Z]{4}$") and not matches(registration, "^[A-Z]{1,2}-[A-Z0-9]{3,5}$") and not matches(registration, "^N[0-9]{1,5}[A-Z]{0,2}$")'
     message: '“{registration}”'
   - name: Empty registration
     severity: ANOMALY
-    when: is_blank(registration) and time_total > 0 and type != "SIM"
+    when: is_blank(registration) and time_total > 0 and aircraft_type != "SIM"
     message: flight with time but no registration
 
 group_rules:
@@ -25,7 +25,7 @@ group_rules:
     kind: one_to_many
     where: not is_blank(registration) and not is_sim_reg
     group_by: registration
-    distinct: type
+    distinct: aircraft_type
     allowed_sets: [[A152, C152]]
   - name: 'Different spellings: registration'
     severity: ANOMALY

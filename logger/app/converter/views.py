@@ -54,33 +54,6 @@ def select():
     return redirect(url_for("converter.index"))
 
 
-@converter_bp.route("/settings")
-@admin_required
-def settings_page():
-    settings = catalog.load_settings()
-    return render_template("converter_settings.html", settings=settings,
-                           rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
-
-
-@converter_bp.route("/settings", methods=["POST"])
-@admin_required
-def save_settings_route():
-    try:
-        after = int(request.form.get("after_sunset_minutes", ""))
-        before = int(request.form.get("before_sunrise_minutes", ""))
-        if not (0 <= after <= 180 and 0 <= before <= 180):
-            raise ValueError("Night margins must be between 0 and 180 minutes.")
-        rules = catalog.rounding_from_text(request.form.get("tc_rounding", ""))
-        current = catalog.load_settings()
-        catalog.save_settings({**current, "night": {"after_sunset_minutes": after, "before_sunrise_minutes": before},
-                               "tc_rounding": {"comment": current["tc_rounding"].get("comment", ""), "rules": rules}})
-        log_event("config_change", target="converter:reglages")
-        flash("Converter settings saved.")
-    except ValueError as exc:
-        flash(f"Settings not saved — {exc}")
-    return redirect(url_for("converter.settings_page"))
-
-
 # ---------------- rules (admin) ----------------
 
 def _rule_values(rule):

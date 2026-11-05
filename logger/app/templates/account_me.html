@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <h2>My account</h2>
-<div class="card"><h3>Settings</h3><p><a class="btn secondary" href="{{url_for('main.logbook_settings')}}">Logbook settings</a> <a class="btn secondary" href="{{url_for('breakdown.settings')}}">Breakdown settings</a> <a class="btn secondary" href="{{url_for('main.settings')}}">Raw data columns</a> {% if g.role=='admin' %}<a class="btn secondary" href="{{url_for('converter.settings_page')}}">Converter settings</a> {% endif %}<a class="btn secondary" href="{{url_for('yamledit.editor')}}">Configuration (YAML)</a></p></div>
+<div class="card"><h3>Configuration</h3><p><a class="btn secondary" href="{{url_for('yamledit.editor')}}">Configuration (YAML)</a></p></div>
 <div class="card"><p><strong>{{g.username}}</strong> — {{'administrateur' if g.role=='admin' else 'utilisateur'}}</p></div>
 <div class="card"><h3>Email address</h3><p class="muted">Address of the logbook owner, printed at the bottom of every Logbook page.</p>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="email"><div class="grid">

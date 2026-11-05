@@ -103,21 +103,6 @@ def test_logbook_cell_edit(client, app):
     assert row['day'] == 28
 
 
-def test_logbook_settings_are_separate(client, app):
-    login(client)
-    assert client.get('/logbook/settings').status_code == 200
-    r = client.post('/logbook/settings/save', data={'rows_per_page': '30', 'row_height_u': '20', 'font_family': 'Arial', 'font_size': '10', 'header_font_size': '9', 'width_date': '7'}, follow_redirects=True)
-    assert r.status_code == 200
-    with app.app_context():
-        from app.config import load_logbook_layout, load_logbook_db_config, load_config
-        layout = load_logbook_layout(username="admin")
-        db = load_logbook_db_config(username="admin")
-        user = load_config(username="admin")
-    assert layout['rows_per_page'] == 30 and layout['row_height_u'] == 20
-    assert 'columns' in db['database']
-    assert 'columns' in user['database']
-
-
 def test_non_admin_cannot_manage_accounts(client, app):
     with app.app_context():
         from app.accounts import create_account
@@ -297,14 +282,6 @@ def test_admin_creates_edits_deletes_rule(client, app):
 
 def test_admin_settings_and_reference_pages(client, app):
     login(client)
-    r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-29=0.0\n30-60=0.5'}, follow_redirects=True)
-    assert 'saved' in r.get_data(as_text=True)
-    from app.converter.catalog import load_settings
-    with app.app_context():
-        st = load_settings()
-    assert st['night'] == {'after_sunset_minutes': 15, 'before_sunrise_minutes': 20}
-    r = client.post('/converter/settings', data={'after_sunset_minutes': '15', 'before_sunrise_minutes': '20', 'tc_rounding': '0-10=0.0'}, follow_redirects=True)
-    assert 'not saved' in r.get_data(as_text=True)
     for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
     r = client.post('/converter/aircrafts/new', data={'designator': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)

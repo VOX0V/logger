@@ -13,7 +13,7 @@ rules:
     message: '{column} : “{value}” missing from the Airports table'
   - name: Cross-country flight departure = arrival
     severity: INFO
-    when: type == "CRJ" and not is_blank(departure_code) and departure_code == arrival_code and xc_total > 0
+    when: aircraft_type == "CRJ" and not is_blank(departure_code) and departure_code == arrival_code and xc_total > 0
     message: '{departure_code} → {arrival_code} (mechanical return?)'
 
 group_rules:

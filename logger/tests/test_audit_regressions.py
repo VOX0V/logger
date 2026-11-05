@@ -40,22 +40,6 @@ FIRST = [[2024, 5, 3, "B738", "C-ABCD", "Jones", "CYUL", "CYYZ", "AC100 test"]]
 SECOND = [[2024, 6, 10, "C172", "C-WXYZ", "Brown", "CYHU", "CYQB", "AC200 autre"]]
 
 
-def test_renaming_display_name_keeps_column_and_data(app, admin):
-    _import(admin, _csv(app, FIRST))
-    cop = _columns(app)["copilot"]
-    r = admin.post(f"/settings/category/{cop['position']}/edit",
-                   {"display_name": "co pilot", "data_type": "text", "nullable": "1",
-                    "visible": "1", "editable": "1", "import_rules": "\n".join(cop["import_rules"])})
-    assert r.status_code == 302
-    _import(admin, _csv(app, SECOND))
-    db = _users_db(app)
-    names = [row[1] for row in db.execute("PRAGMA table_info(users)")]
-    assert "copilot" in names and "co_pilot" not in names
-    assert ("Jones",) in db.execute("SELECT copilot FROM users").fetchall()
-    db.close()
-    assert _columns(app)["copilot"]["display_name"] == "co pilot"
-
-
 def test_import_never_drops_a_column_missing_from_the_config(app, admin):
     from app.config import load_config, save_config
     first, second = _csv(app, FIRST), _csv(app, SECOND)

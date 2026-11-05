@@ -53,15 +53,18 @@
       var routes = {}, visits = {}, legs = 0;
       DATA.legs.forEach(function (g) {
         if (year && g[2] !== year) return;
-        var a = g[0], b = g[1], n = g[3], key = a < b ? a + "|" + b : b + "|" + a;
+        var a = g[0], b = g[1], n = g[3];
+        legs += n; visits[a] = (visits[a] || 0) + n; visits[b] = (visits[b] || 0) + n;
+        if (a === b) return;                                 // local flight (same airport): no line, and it must not set the colour scale
+        var key = a < b ? a + "|" + b : b + "|" + a;
         var r = routes[key] || (routes[key] = {a: a < b ? a : b, b: a < b ? b : a, n: 0});
-        r.n += n; legs += n; visits[a] = (visits[a] || 0) + n; visits[b] = (visits[b] || 0) + n;
+        r.n += n;
       });
       var list = Object.keys(routes).map(function (k) { return routes[k]; }).sort(function (x, y) { return x.n - y.n; });
       var max = list.length ? list[list.length - 1].n : 1, totalNm = 0;
       var rf = list.map(function (r) {
         var A = DATA.airports[r.a], B = DATA.airports[r.b];
-        var c = arc([A.lon, A.lat], [B.lon, B.lat]), t = max > 1 ? (r.n - 1) / (max - 1) : 0;
+        var c = arc([A.lon, A.lat], [B.lon, B.lat]), t = max > 1 ? Math.log(r.n) / Math.log(max) : 0;
         totalNm += c.nm * r.n;
         return {type: "Feature", geometry: {type: "LineString", coordinates: c.pts},
           properties: {a: r.a, b: r.b, n: r.n, nm: Math.round(c.nm), color: color(t), w: 1.1 + 1.7 * t, gw: 6 + 6 * t}};

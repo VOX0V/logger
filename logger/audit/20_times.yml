@@ -22,15 +22,15 @@ rules:
     message: no time or landing recorded
   - name: Simulator without FTD or instruction
     severity: ANOMALY
-    when: type == "SIM" and sim_total == 0
+    when: aircraft_type == "SIM" and sim_total == 0
     message: no FTD or instruction time
   - name: Simulator with time outside FTD / instruction
     severity: ANOMALY
-    when: type == "SIM" and non_sim_total > 0
+    when: aircraft_type == "SIM" and non_sim_total > 0
     message: 'time outside FTD / instruction: {non_sim_total} h'
   - name: Hours without category
     severity: ANOMALY
-    when: type != "SIM" and time_total > 0 and cat_total == 0 and num(ftd) == 0
+    when: aircraft_type != "SIM" and time_total > 0 and cat_total == 0 and num(ftd) == 0
     message: time recorded outside single / multi / FTD
   - name: Inconsistency between columns
     severity: ANOMALY

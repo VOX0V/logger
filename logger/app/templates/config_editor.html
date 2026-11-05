@@ -8,6 +8,9 @@
 @media(max-width:800px){.cfg{grid-template-columns:1fr}}
 </style>
 <div class="page-head"><h2>Configuration (YAML)</h2><div><a class="btn secondary" href="{{url_for('accounts.me')}}">My account</a></div></div>
+{% if index %}
+<div class="card"><h3>Files</h3><div class="cfg-files">{% for k, f in files.items() %}<a href="{{url_for('yamledit.editor', file=k)}}">{{f[0]}}</a>{% endfor %}</div></div>
+{% else %}
 <div class="cfg">
   <div class="card">
     <h3>{{label}} <span class="muted" style="font-weight:400">— {{filename}}</span></h3>
@@ -28,4 +31,5 @@ ta.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();document.getElementById('cfgsave').click();}
 });
 </script>
+{% endif %}
 {% endblock %}

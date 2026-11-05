@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.26 — Settings pages removed, Logbook and Breakdown sections in the Data hub
+
+- **Removed**: the Settings card of the account page and its pages (Logbook settings, Breakdown settings, Raw data columns, Converter settings) with their routes and forms. Only a **Configuration (YAML)** button stays on the account page; it lists all the YAML files.
+- **Data hub**: new *Logbook* (**Configure logbook** → `logbook_layout.yml`) and *Breakdown* (**Configure breakdown** → `breakdown.yml`) sections between *User data* and *App data*.
+- **YAML editor**: `/config` lists the files; `/config?file=…` shows only the chosen file. New administrator entry **Converter — settings** (`settings.yml`: night margins, Transport Canada rounding), with validation.
+- **World map**: local flights (same departure and arrival) no longer set the colour scale; the line colour follows a logarithmic scale of the route frequency.
+- **Default YAML files** follow the new work db (`date`, `aircraft_type`, `pic`, `ifr_approach`): `work_db.yml`, `logbook_layout.yml`, `audit/`, `graph/10_hours.yml`.
+- Tests of the removed settings pages are removed.
+
 ## 0.3.25 — Edit mode on Breakdown, simpler Data hub, one YAML file per editor
 
 - **Breakdown**: the types are shown as plain text; **Edit breakdown** turns them into lists, **Save** / **Cancel** end the edit.

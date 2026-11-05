@@ -36,25 +36,22 @@ styles:
 columns:
 - key: year
   label: YEAR
-  db_column: date
-  date_part: year
+  db_column: year
   width: 51
   group: date
 - key: month
   label: Month
-  db_column: date
-  date_part: month
+  db_column: month
   width: 51
   group: date
 - key: day
   label: Day
-  db_column: date
-  date_part: day
+  db_column: day
   width: 51
   group: date
 - key: type
   label: Type
-  db_column: type
+  db_column: aircraft_type
   width: 65
   group: aircraft
 - key: registration
@@ -95,7 +92,7 @@ columns:
   subgroup: Day
 - key: se_pic_day
   label: PIC
-  db_column: single_engine_solo_day
+  db_column: single_engine_pic_day
   width: 58
   group: single_engine
   subgroup: Day
@@ -107,7 +104,7 @@ columns:
   subgroup: Night
 - key: se_pic_night
   label: PIC
-  db_column: single_engine_solo_night
+  db_column: single_engine_pic_night
   width: 58
   group: single_engine
   subgroup: Night
@@ -172,7 +169,7 @@ columns:
   group: instruments
 - key: ifr_app
   label: IFR app
-  db_column: ifr_app
+  db_column: ifr_approach
   width: 59
   group: instruments
 - key: cc_dual_day

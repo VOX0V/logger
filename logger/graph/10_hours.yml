@@ -56,11 +56,11 @@ charts:
     type: bar
     group_by: year
     measure: total
-    stack_by: type
+    stack_by: aircraft_type
   - name: Hours per aircraft type
     type: bar
     horizontal: true
-    group_by: type
+    group_by: aircraft_type
     measure: total
     limit: 15
   - name: Hours per airport of departure

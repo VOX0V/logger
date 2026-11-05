@@ -159,9 +159,41 @@ def check_options(data):
         raise Problem(str(exc))
 
 
+def check_converter_settings(data):
+    night = data.get("night")
+    if not isinstance(night, dict):
+        raise Problem("“night” must be a key: value block.")
+    for k in ("after_sunset_minutes", "before_sunrise_minutes"):
+        _number(night.get(k), f"night.{k}", 0)
+        if night[k] > 180:
+            raise Problem(f"night.{k} must be at most 180.")
+    rounding = data.get("tc_rounding")
+    rules = rounding.get("rules") if isinstance(rounding, dict) else None
+    if not isinstance(rules, list) or not rules or not all(isinstance(r, dict) for r in rules):
+        raise Problem("“tc_rounding” must contain a non-empty list “rules” of blocks.")
+    covered = set()
+    for i, r in enumerate(rules, 1):
+        for k in ("min", "max", "decimal"):
+            _number(r.get(k), f"tc_rounding rule no.{i} : {k}", 0)
+        if r["min"] > r["max"] or r["max"] > 60:
+            raise Problem(f"tc_rounding rule no.{i} : invalid minute range.")
+        covered |= set(range(int(r["min"]), int(r["max"]) + 1))
+    if covered != set(range(61)):
+        raise Problem("The rounding table must cover all minutes from 0 to 60.")
+    if data.get("aircraft_types") is not None and not isinstance(data["aircraft_types"], dict):
+        raise Problem("“aircraft_types” must be a key: value block.")
+
+
+def _converter_settings_path(_username):
+    from .converter import catalog
+    catalog.ensure_defaults()
+    return catalog.settings_path()
+
+
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
+    "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
     "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }
 
@@ -289,8 +321,11 @@ def _backup_path(path):
 @login_required
 def editor():
     username = current_username()
-    key = request.values.get("file", "data")
+    key = request.values.get("file")
     files = _registry()
+    if key is None:                                        # no file chosen: list of the files to configure
+        _ensure_files(username)
+        return render_template("config_editor.html", files=files, index=True)
     if key not in files:
         abort(404)
     _ensure_files(username)

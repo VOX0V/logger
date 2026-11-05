@@ -403,39 +403,3 @@ def pdf():
         return redirect(url_for("breakdown.index"))
     return Response(out, mimetype="application/pdf", headers={
         "Content-Disposition": f'inline; filename="flight-time-breakdown-{date.today().isoformat()}.pdf"'})
-
-
-@breakdown_bp.route("/settings")
-@login_required
-def settings():
-    cfg = load_breakdown()
-    return render_template("breakdown_settings.html", cfg=cfg, labels=dict((k, l) for l, k in column_labels()),
-                           numbers=cssafe.BD_NUMBERS)
-
-
-@breakdown_bp.route("/settings/save", methods=["POST"])
-@login_required
-def save_settings():
-    cfg, f = load_breakdown(), request.form
-    try:
-        for key in cssafe.BD_NUMBERS:
-            if key in f:
-                cfg[key] = int(float(f[key]))
-        for key in ("font_family", "border", "header_background", "total_background", "zero_color", "text_align", "vertical_align"):
-            cfg["styles"][key] = f.get(key, cfg["styles"][key])
-        for key in ("font_size", "header_font_size"):
-            cfg["styles"][key] = int(float(f.get(key, cfg["styles"][key])))
-        for k in ("left", "middle", "right"):
-            cfg["top_widths_u"][k] = int(float(f.get("top_" + k, cfg["top_widths_u"][k])))
-        for col in cfg["columns"]:
-            col["width"] = int(float(f.get("width_" + col["key"], col["width"])))
-        problems = cssafe.breakdown_problems(cfg)
-        if problems:
-            raise ValueError(" ".join(problems))
-        geometry(cfg)
-        save_breakdown(cfg)
-        log_event("config_change", target="layout:breakdown")
-        flash("Breakdown report configuration saved.")
-    except Exception as exc:
-        flash(f"Configuration impossible — {safe_message(exc)}")
-    return redirect(url_for("breakdown.settings"))
