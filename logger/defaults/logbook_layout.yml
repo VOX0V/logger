@@ -170,6 +170,7 @@ columns:
 - key: ifr_app
   label: IFR app
   db_column: ifr_approach
+  decimals: 0
   width: 59
   group: instruments
 - key: cc_dual_day
@@ -199,11 +200,13 @@ columns:
 - key: land_day
   label: Day
   db_column: landings_day
+  decimals: 0
   width: 59
   group: landings
 - key: land_night
   label: Night
   db_column: landings_night
+  decimals: 0
   width: 59
   group: landings
 - key: instruction_day

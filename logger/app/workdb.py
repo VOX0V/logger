@@ -417,13 +417,25 @@ def _number(v):
         raise ExprError(f"“{v}” is not a number.")
 
 
+def _entity_names():
+    """Names of the entities (entities.yml): a raw column that no import has created yet is empty, not an error."""
+    if ("entities",) not in _cache:
+        try:
+            from .import_profiles import load_entities
+            _cache[("entities",)] = set(load_entities())
+        except Exception:
+            _cache[("entities",)] = set()
+    return _cache[("entities",)]
+
+
 def _eval(node, env, warn):
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Name):
         key = node.id.lower()
         if key not in env:
-            warn(f"Unknown name “{node.id}” in work_db.yml (not a raw data column)")
+            if key not in _entity_names():
+                warn(f"Unknown name “{node.id}” in work_db.yml (not a raw data column)")
             return None
         return env[key]
     if isinstance(node, ast.BoolOp):

@@ -63,12 +63,14 @@ def _two(value):
     except (TypeError, ValueError): return "" if value in (None,"") else str(value)
 
 @main_bp.app_template_filter("hours1")
-def _hours1(value):
-    """Heures de vol à la française, toujours une décimale : 6.38 -> 6,4 ; 1234.5 -> 1 234,5. Vide reste vide."""
+def _hours1(value, decimals=1):
+    """Heures de vol à la française, une décimale par défaut (0 pour les colonnes entières : approches, atterrissages) : 6.38 -> 6,4 ; 1234.5 -> 1 234,5. Vide reste vide."""
     if value is None or str(value).strip() in ("", "None"): return ""
-    try: d = Decimal(str(value).strip().replace("\u00a0", "").replace(" ", "").replace(",", ".")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    try: decimals = max(0, min(3, int(decimals)))
+    except (TypeError, ValueError): decimals = 1
+    try: d = Decimal(str(value).strip().replace("\u00a0", "").replace(" ", "").replace(",", ".")).quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError): return str(value)
-    return f"{d:,.1f}".replace(",", "\u00a0").replace(".", ",")      # 1234.5 -> 1 234,5 (espace insécable, virgule)
+    return f"{d:,.{decimals}f}".replace(",", "\u00a0").replace(".", ",")      # 1234.5 -> 1 234,5 (espace insécable, virgule)
 
 def _is_numeric_layout(col):
     return bool(col.get("db_column")) and col.get("group") not in {"date","aircraft","crew","route","remarks","spacer","remarks_cont"}

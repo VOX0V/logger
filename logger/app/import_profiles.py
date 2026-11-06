@@ -170,7 +170,8 @@ def load_profile(profile_id):
 
 def ensure_profile_columns(config, profile, extra=()):
     """Create in the raw database the columns that the profile needs (plus the entities in `extra`) and that do not
-    exist yet: name, type and order come from entities.yml. Returns the names of the columns created."""
+    exist yet: name, type and order come from entities.yml. The display name and the order of all the columns follow
+    entities.yml at every import (the type of an existing column does not change). Returns the names of the columns created."""
     columns = config["database"]["columns"]
     known = {c["column"] for c in columns}
     entities = load_entities()
@@ -182,13 +183,22 @@ def ensure_profile_columns(config, profile, extra=()):
                         "data_type": entities[column]["data_type"], "nullable": True, "visible": True, "editable": True})
         known.add(column)
         added.append(column)
-    if added:
-        order = {name: i for i, name in enumerate(entities)}
-        system = [c for c in columns if is_system(c)]
-        data = sorted((c for c in columns if not is_system(c)), key=lambda c: order.get(c["column"], len(order)))
-        for i, c in enumerate(data, 1):
-            c["position"] = i
-        columns[:] = system + data
+    changed = bool(added)
+    order = {name: i for i, name in enumerate(entities)}
+    system = [c for c in columns if is_system(c)]
+    data = [c for c in columns if not is_system(c)]
+    for c in data:                                          # the display name follows entities.yml
+        entity = entities.get(c["column"])
+        if entity and c.get("display_name") != entity["display_name"]:
+            c["display_name"] = entity["display_name"]
+            changed = True
+    ordered = sorted(data, key=lambda c: order.get(c["column"], len(order)))      # the order follows entities.yml
+    if [c["column"] for c in ordered] != [c["column"] for c in data] or any(c.get("position") != i for i, c in enumerate(ordered, 1)):
+        changed = True
+    for i, c in enumerate(ordered, 1):
+        c["position"] = i
+    columns[:] = system + ordered
+    if changed:
         save_config(config)
     return added
 

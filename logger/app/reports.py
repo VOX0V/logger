@@ -94,8 +94,8 @@ def collect_flights(rows, type_code="", today=None):
         landings = int(num(r.get("landings_day")) + num(r.get("landings_night"))) or 1     # a flight has at least one landing
         by_month[(d.year, d.month)].append({
             "remark": clean(r.get("remarks")), "date": f"{d.day:02d}/{d.month:02d}/{str(d.year)[2:]}",
-            "sort": (d, r.get("id") or 0), "org": text(r.get("departure")), "des": text(r.get("arrival")),
-            "block": block, "lndg": landings, "dn": dn, "pilot": text(r.get("pilot_in_command")),
+            "sort": (d, r.get("id") or 0), "org": text(r.get("departure_code")), "des": text(r.get("arrival_code")),
+            "block": block, "lndg": landings, "dn": dn, "pilot": text(r.get("pilot")),
             "copi": text(r.get("copilot"))})
     return by_month
 

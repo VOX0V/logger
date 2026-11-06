@@ -72,6 +72,8 @@ def sanitize_layout(cfg):
     for col in cfg.get("columns", []) or []:
         if isinstance(col, dict) and "width" in col and _num(col["width"], 0, 1100) is None:
             col["width"] = 51
+        if isinstance(col, dict) and "decimals" in col and (isinstance(col["decimals"], bool) or not isinstance(col["decimals"], int) or not 0 <= col["decimals"] <= 3):
+            col.pop("decimals")
     return cfg
 
 

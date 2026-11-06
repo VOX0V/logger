@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.28 — Entities in the work db, integers in the logbook, airports without coordinates
+
+- **entities.yml**: the administrator's version (display names `arrival time utc`, `cross country …`).
+- **Import**: the display name and the order of the raw db columns follow `entities.yml` at every import (the type of an existing column does not change).
+- **work_db.yml** (default file) reads the raw columns by their entity names. A raw column that no import has created is empty, with no “Unknown name” warning.
+- **Logbook**: new column option `decimals` in `logbook_layout.yml` (0 to 3, 1 by default); `decimals: 0` on IFR approaches and landings (page, totals, PDF).
+- **Airports**: latitude and longitude may stay empty (both or none); existing tables are rebuilt at start-up. Such airports are kept for the audit, without day/night, distance or map line.
+- **Edit import rules** opens the list of the import profiles.
+- **Reports and Excel export** read the work db column names (`departure_code`, `arrival_code`, `pilot`).
+
 ## 0.3.27 — Entities: new import into the raw database
 
 - **entities.yml** (`importer/`): the list of the entities (name `group_name`, group, type, display name), from `entities.xlsx`. Editable by administrators (Data > Import data > Edit entities). `larrival_light` is spelled `arrival_light`.

@@ -25,8 +25,8 @@ export_bp = Blueprint("export", __name__, url_prefix="/export")
 MAX_UPLOAD = 25 * 1024 * 1024
 LINES_PER_PAGE = 30
 COL_MONTH, COL_DAY = 2, 3
-TEXT_COLUMNS = {"aircraft_type": 4, "registration": 5, "pilot_in_command": 6, "copilot": 7,
-                "departure": 8, "arrival": 9, "remarks": 10}
+TEXT_COLUMNS = {"aircraft_type": 4, "registration": 5, "pilot": 6, "copilot": 7,
+                "departure_code": 8, "arrival_code": 9, "remarks": 10}
 TIME_COLUMNS = {
     "single_engine_dual_day": 12, "single_engine_pic_day": 13, "single_engine_dual_night": 14,
     "single_engine_pic_night": 15, "multi_engine_dual_day": 18, "multi_engine_pic_day": 19,

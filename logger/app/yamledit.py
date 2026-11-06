@@ -100,6 +100,9 @@ def check_layout(data):
     for i, col in enumerate(data.get("columns", []), 1):
         if not isinstance(col.get("key"), str) or not col["key"]:
             raise Problem(f"columns n°{i} : “key” manquant.")
+    for i, col in enumerate(data.get("columns", []), 1):
+        if "decimals" in col and (isinstance(col["decimals"], bool) or not isinstance(col["decimals"], int) or not 0 <= col["decimals"] <= 3):
+            raise Problem(f"columns n°{i} : decimals must be an integer from 0 to 3.")
     styles = data.get("styles", {})
     if not isinstance(styles, dict):
         raise Problem("“styles” must be a key: value block.")
@@ -335,7 +338,9 @@ def editor():
     files = _registry()
     if key is None:                                        # no file chosen: list of the files to configure
         _ensure_files(username)
-        return render_template("config_editor.html", files=files, index=True)
+        group = request.args.get("group", "")
+        listed = {k: v for k, v in files.items() if k.startswith(group + "_")} if group else files
+        return render_template("config_editor.html", files=listed, index=True, title="Import profiles" if group == "import" else "Files")
     if key not in files:
         abort(404)
     _ensure_files(username)

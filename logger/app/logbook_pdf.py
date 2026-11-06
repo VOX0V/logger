@@ -90,7 +90,8 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
         if n > 1:
             span(c, r, c + n - 1, r)
 
-    num = lambda d, k: _hours1(d.get(k, ""))
+    decimals = {c["key"]: c.get("decimals", 1) for c in columns}
+    num = lambda d, k: _hours1(d.get(k, ""), decimals.get(k, 1))
     keys = [c["key"] for c in columns if c.get("group") in RIGHT_GROUPS] if side == "right" else \
            [c["key"] for c in columns if c.get("group") == "single_engine"]
     s1, s2, s3 = (summary + [{}, {}, {}])[:3]

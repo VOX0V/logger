@@ -122,6 +122,10 @@ def _load_default(name, importer):
 def init_airport_db():
     conn = airport_connect()
     _drop_if_old(conn, "airports", "company_code")
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='airports'").fetchone()
+    migrate = row is not None and "latitude REAL NOT NULL" in (row[0] or "")
+    if migrate:       # older versions required the coordinates: rebuild the table so that they may stay empty
+        conn.execute("ALTER TABLE airports RENAME TO airports_old")
     conn.execute("""CREATE TABLE IF NOT EXISTS airports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         display TEXT,
@@ -130,9 +134,13 @@ def init_airport_db():
         company_code TEXT UNIQUE,
         full_name TEXT,
         country TEXT,
-        latitude REAL NOT NULL,
-        longitude REAL NOT NULL
+        latitude REAL,
+        longitude REAL
     )""")
+    if migrate:
+        conn.execute("""INSERT INTO airports (id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude)
+                        SELECT id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude FROM airports_old""")
+        conn.execute("DROP TABLE airports_old")
     empty = conn.execute("SELECT COUNT(*) FROM airports").fetchone()[0] == 0
     conn.commit(); conn.close()
     if empty:
@@ -177,8 +185,10 @@ def save_airport(airport_id, form):
     company = (_clean(form.get("company_code")) or "").upper() or None
     if not (icao or iata or company):
         raise ValueError("An ICAO, IATA or company code is required.")
-    lat = _float(form.get("latitude"), "Latitude", -90, 90)
-    lon = _float(form.get("longitude"), "Longitude", -180, 180)
+    lat = _float(form.get("latitude"), "Latitude", -90, 90, required=False)
+    lon = _float(form.get("longitude"), "Longitude", -180, 180, required=False)
+    if (lat is None) != (lon is None):
+        raise ValueError("Latitude and longitude go together: fill both, or leave both empty.")
     values = (_clean(form.get("display")), icao, iata, company, _clean(form.get("full_name")), _clean(form.get("country")), lat, lon)
     conn = airport_connect()
     try:
