@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.29 — Entities page, raw and work db structure
+
+- **Entities** (Data > Entities, administrators): the list now lives in `appdata/db/entities.db` instead of `entities.yml` (first use: filled from the former `entities.yml`). Columns position, group, name, entity, data type, display name. Cells are editable, rows can be added and deleted, and a row dragged by its handle takes the number of the place where it is dropped while the following ones move down. Excel import (replaces the whole list) and export. The import profiles and the work data definition read this list.
+- **Raw db structure** and **Work db structure** (Data hub): tick which entities are present in your raw / work database and which columns are visible, editable and nullable. Unticking a present entity removes its column and its data (confirmation). Columns that are not entities are listed after them and can be removed the same way. Column order follows the entity list.
+- **Removed**: *Edit entities* (YAML editor) in the Data hub and in the Configuration (YAML) list.
+
 ## 0.3.28 — Entities in the work db, integers in the logbook, airports without coordinates
 
 - **entities.yml**: the administrator's version (display names `arrival time utc`, `cross country …`).

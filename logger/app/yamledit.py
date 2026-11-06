@@ -202,7 +202,6 @@ def check_entities(data):
 ADMIN_FILES = {
     "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
     "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
-    "entities": ("Import — entities (entities.yml)", lambda _u: import_profiles.entities_path(), check_entities),
     "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }
 

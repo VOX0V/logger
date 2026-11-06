@@ -96,11 +96,9 @@ def parse_entities(data):
 
 
 def load_entities():
-    path = entities_path()
-    try:
-        return parse_entities(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
-    except (OSError, yaml.YAMLError) as exc:
-        raise FileImportError(f"{path.name} is unreadable.") from exc
+    """The entity list (Data > Entities): {entity: {entity, group, data_type, display_name}} in position order."""
+    from .entities import load_entities as _load
+    return _load()
 
 
 def parse_spec(data):
