@@ -141,7 +141,7 @@ def check_convert(data):
 
 def check_workdb(data):
     try:
-        workdb.parse_spec(data)
+        workdb.check_rules_data(data)
     except workdb.SpecError as exc:
         raise Problem(str(exc))
 
@@ -200,7 +200,7 @@ def check_entities(data):
 
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
-    "workdb": ("Work data — database definition (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
+    "workdb": ("Work data — global conversion rules (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
     "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
     "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }

@@ -1,6 +1,7 @@
 """Entities: the global catalogue of everything a raw or work database may contain (appdata/db/entities.db),
 and the pages where each account chooses which entities are present in its raw and work databases."""
 import io
+import json
 import sqlite3
 
 from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
@@ -359,6 +360,54 @@ def _structure_rows(kind):
             out.append({"column": c["column"], "group": "", "display_name": c["display_name"], "is_entity": False,
                         "present": True, "visible": c["visible"], "editable": c["editable"], "nullable": c["nullable"]})
     return out
+
+
+@entities_bp.route("/structure/work")
+@admin_required
+def work_structure():
+    """Structure of the work data (columns, types, order), the same for all accounts."""
+    from .workstructure import columns
+    present = columns()
+    have = {c["column"] for c in present}
+    conn = _conn()
+    try:
+        entities = _ordered(conn)
+    finally:
+        conn.close()
+    return render_template("work_structure.html", title=KINDS["work"], types=TYPES,
+                           rows=[{k: c[k] for k in ("column", "display_name", "data_type", "visible", "editable", "nullable")} for c in present],
+                           available=[{"entity": e["entity"], "title": e["display_name"], "data_type": e["data_type"]}
+                                      for e in entities if e["entity"] not in have])
+
+
+@entities_bp.route("/structure/work/save", methods=["POST"])
+@admin_required
+def work_structure_save():
+    from .workstructure import save
+    from .workdb import apply_to_user
+    try:
+        removed = save(json.loads(request.form.get("columns", "[]")))
+    except (ValueError, sqlite3.Error) as exc:
+        flash(str(exc))
+        return redirect(url_for("entities.work_structure"))
+    message = "Work db structure saved."
+    apply_to_user()                                    # this account follows the structure now, the others at their next login or refresh
+    cfg = load_logbook_db_config()
+    db = logbook_connect()
+    try:
+        sync_columns(db, "logbook", cfg["database"]["columns"])
+        drop_unused_logbook_columns(db, cfg)
+        db.commit()
+    except sqlite3.OperationalError:
+        db.rollback()
+        message += " The table could not be updated yet; it is updated by the next refresh."
+    finally:
+        db.close()
+    if removed:
+        log_event("data_destroy", target=f"work-structure:{len(removed)}-columns")
+        message += f" {len(removed)} column(s) removed."
+    flash(message)
+    return redirect(url_for("entities.work_structure"))
 
 
 @entities_bp.route("/structure/<kind>")

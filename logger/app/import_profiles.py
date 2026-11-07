@@ -15,6 +15,7 @@ entities that the profile uses: name and order come from the entity list; the ty
 A header of the file that is not listed under "columns" is not imported.
 """
 import re
+import shutil
 from collections import Counter
 from pathlib import Path
 
@@ -39,9 +40,32 @@ def edited_dir():
         return None
 
 
+SEEDED = ".seeded"
+
+
+def _seed():
+    """The first time, the shipped profiles are copied to appdata/importer; from then on the profiles of that folder are the only
+    ones used, so every profile can be edited, renamed or deleted (Data > Import profiles). False when that is not possible."""
+    folder = edited_dir()
+    if folder is None:
+        return False
+    if (folder / SEEDED).exists():
+        return True
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        for path in BUNDLED_DIR.glob("*" + SUFFIX):
+            if not (folder / path.name).exists():
+                shutil.copy2(path, folder / path.name)
+        (folder / SEEDED).write_text("The shipped import profiles were copied here; only the profiles of this folder are used.\n", encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
 def profile_ids():
+    folders = (edited_dir(),) if _seed() else (BUNDLED_DIR, edited_dir())
     ids = set()
-    for folder in (BUNDLED_DIR, edited_dir()):
+    for folder in folders:
         if folder is not None and folder.is_dir():
             ids |= {p.name[:-len(SUFFIX)] for p in folder.glob("*" + SUFFIX)}
     return sorted(i for i in ids if PROFILE_ID.fullmatch(i))

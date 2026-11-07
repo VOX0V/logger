@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.33 — Import and conversion profiles, work db structure
+
+- **Import profiles** (Data > Import profiles, administrators): create, edit, rename, delete and export the profiles. The editor is a grid: header of the file, then the entity chosen in the entity list. The first time, the shipped profiles are copied to `appdata/importer`; from then on only the profiles of that folder are used, so all of them can be edited or deleted. Renaming a profile renames its conversion file too.
+- **Import**: every imported row now gets the name of its import profile in `misc_import_profile` (when that entity exists; the column is created if needed). `crew_operator` is no longer filled by the import.
+- **Work db structure** (Data > Work db structure, administrators, the same for all accounts): the columns of the work data, their order (drag and drop), their type (a list for each column), visible / editable / nullable. The first time it is filled from the edited `work_db.yml` (old format) or from `defaults/work_structure.yml`.
+- **Conversion rules**: `work_db.yml` now only holds the global rules: `skip_rows`, then one key per work column (its name) with its list of rules (the old form `<number>_<name>` with `type` / `rules` is still read; the number and type are no longer used). Each import profile can have its own file `<id>_convert.yml` (Data > Conversion profiles: new, edit, rename, delete, export): its rules are tried before the global ones and its `skip_rows` are added to them. A column can use `w_<column>` only for a column placed before it in the structure.
+- `VERSION` is now 0.3.33.
+
+## 0.3.32 — Clearing the work data
+
+- **Clear work data** now deletes the columns of the work data as well as its rows, like clearing the raw data. The columns are created again from `work_db.yml` at the next refresh or login.
+
 ## 0.3.31 — Structure of the aircraft and location databases
 
 - **Aircraft** and **Locations** (administrators): a *Structure* button opens a page where the order of the columns is changed by drag and drop and where columns are added. An added column is an entity of the entity list (group `aircraft` or `location`, without the entities that describe a flight); the key columns that the application reads cannot be removed. Removing an added column deletes its data.

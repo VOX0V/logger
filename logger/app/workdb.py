@@ -557,90 +557,160 @@ def _coerce(v, data_type):
 
 # ---------------- specification ----------------
 
-def parse_spec(data):
-    """Validate the YAML content (already loaded) and return {"skip": [...], "columns": [...]}; raises SpecError."""
+_BODY_KEYS = {"type", "display_name", "rules"}
+CONVERT_SUFFIX = "_convert.yml"
+PROFILE_ID = re.compile(r"[a-z0-9_-]+")
+
+
+def _rule_blocks(rules, label):
+    if rules is None:
+        return []
+    if not isinstance(rules, list) or not all(isinstance(r, dict) and "value" in r and set(r) <= {"name", "when", "value"} for r in rules):
+        raise SpecError(f"{label}: the rules are a list of blocks with a “value” (and optionally “when”, “name”).")
+    return [{"when": _compile(r["when"], f"{label} rule no.{i}") if "when" in r else None,
+             "value": _compile(r["value"], f"{label} rule no.{i}")} for i, r in enumerate(rules, 1)]
+
+
+def parse_rules(data):
+    """Validate the content (already loaded) of a rules file: the global work_db.yml or the file of one import profile.
+    Returns {"skip": [...], "rules": {column: [rule, ...]}, "meta": [...]}; raises SpecError. A key is the name of a work column
+    followed by its list of rules (the old form <number>_<name> with type / display_name / rules is still read: "meta" then
+    keeps the number, type and display name, which are used once to fill the Work db structure)."""
+    if data is None:
+        data = {}
     if not isinstance(data, dict):
         raise SpecError("The file must start with keys (key: value).")
-    skip, columns, numbers, names = [], [], set(), set()
+    skip, rules, meta, seen = [], {}, [], set()
     for key, body in data.items():
         if key == "skip_rows":
-            if body is None: continue
+            if body is None:
+                continue
             if not isinstance(body, list) or not all(isinstance(r, dict) and "when" in r for r in body):
                 raise SpecError("skip_rows must be a list of blocks that each have a “when”.")
             for i, r in enumerate(body, 1):
                 skip.append({"name": str(r.get("name") or f"skip rule {i}"), "when": _compile(r["when"], f"skip_rows no.{i}")})
             continue
         m = KEY.fullmatch(str(key))
-        if not m:
-            raise SpecError(f"Unknown key “{key}”: a column key looks like 1_year (position, underscore, name).")
-        number, name = int(m.group(1)), re.sub(r"[^a-z0-9]+", "_", m.group(2).lower()).strip("_")
+        number, raw = (int(m.group(1)), m.group(2)) if m else (None, str(key))
+        name = re.sub(r"[^a-z0-9]+", "_", raw.lower()).strip("_")
         if not NAME.fullmatch(name) or name in RESERVED:
             raise SpecError(f"{key}: “{name}” is not a valid column name (letters, digits and underscores; not reserved).")
-        if number in numbers: raise SpecError(f"{key}: position {number} is used twice.")
-        if name in names: raise SpecError(f"{key}: duplicate column “{name}”.")
-        numbers.add(number); names.add(name)
-        if not isinstance(body, dict) or not set(body) <= {"type", "display_name", "rules"}:
-            raise SpecError(f"{key}: expected a block with type, display_name and rules.")
-        data_type = str(body.get("type", "text")).lower()
-        if data_type not in DATA_TYPES:
-            raise SpecError(f"{key}: type must be one of {', '.join(sorted(DATA_TYPES))}.")
-        rules = body.get("rules")
-        if not isinstance(rules, list) or not rules or not all(isinstance(r, dict) and "value" in r and set(r) <= {"name", "when", "value"} for r in rules):
-            raise SpecError(f"{key}: “rules” must be a non-empty list of blocks with a “value” (and optionally “when”, “name”).")
-        compiled = [{"when": _compile(r["when"], f"{key} rule no.{i}") if "when" in r else None,
-                     "value": _compile(r["value"], f"{key} rule no.{i}")} for i, r in enumerate(rules, 1)]
-        columns.append({"number": number, "column": name, "type": data_type,
-                        "display_name": str(body.get("display_name") or name.replace("_", " ")), "rules": compiled})
-    if not columns:
-        raise SpecError("At least one column is required (for example 1_year).")
-    columns.sort(key=lambda c: c["number"])
-    numbers_of = {c["column"]: c["number"] for c in columns}
-    for c in columns:
-        for rule in c["rules"]:
+        if name in seen:
+            raise SpecError(f"{key}: duplicate column “{name}”.")
+        seen.add(name)
+        data_type = display = None
+        if isinstance(body, dict):
+            if not set(body) <= _BODY_KEYS:
+                raise SpecError(f"{key}: expected a list of rules.")
+            data_type = str(body["type"]).lower() if body.get("type") is not None else None
+            if data_type is not None and data_type not in DATA_TYPES:
+                raise SpecError(f"{key}: type must be one of {', '.join(sorted(DATA_TYPES))}.")
+            display = body.get("display_name")
+            body = body.get("rules")
+        rules[name] = _rule_blocks(body, key)
+        meta.append({"number": number, "column": name, "type": data_type or "text", "display_name": str(display or name.replace("_", " "))})
+    meta.sort(key=lambda c: (c["number"] is None, c["number"] or 0))
+    return {"skip": skip, "rules": rules, "meta": meta}
+
+
+parse_spec = parse_rules                                     # former name
+
+
+def _check_references(label, parsed, order):
+    """w_<column> must name a column of the structure that comes before the column using it."""
+    for column, rules in parsed["rules"].items():
+        for rule in rules:
             for tree in (rule["when"], rule["value"]):
                 for node in (ast.walk(tree) if tree is not None else ()):
                     if isinstance(node, ast.Name) and node.id.lower().startswith("w_"):
                         target = node.id.lower()[2:]
-                        if target not in numbers_of:
-                            raise SpecError(f"{c['number']}_{c['column']}: “{node.id}” refers to a work column that does not exist.")
-                        if numbers_of[target] >= c["number"]:
-                            raise SpecError(f"{c['number']}_{c['column']}: “{node.id}” can only use a column with a lower number.")
-    return {"skip": skip, "columns": columns}
+                        if target not in order:
+                            raise SpecError(f"{label}: {column}: “{node.id}” refers to a work column that is not in the Work db structure.")
+                        if column in order and order[target] >= order[column]:
+                            raise SpecError(f"{label}: {column}: “{node.id}” can only use a column placed before it in the Work db structure.")
+
+
+def check_rules_data(data, label="work_db.yml"):
+    """Full check of a rules file (syntax, then the w_ references against the Work db structure); raises SpecError."""
+    from .workstructure import columns as structure_columns
+    parsed = parse_rules(data)
+    _check_references(label, parsed, {c["column"]: i for i, c in enumerate(structure_columns())})
+    return parsed
+
+
+# ---------------- conversion profiles: <import profile>_convert.yml in appdata/workdb ----------------
+
+def convert_dir():
+    edited = edited_path()
+    return edited.parent if edited is not None else None
+
+
+def convert_ids():
+    folder = convert_dir()
+    if folder is None or not folder.is_dir():
+        return []
+    ids = (p.name[:-len(CONVERT_SUFFIX)] for p in folder.glob("*" + CONVERT_SUFFIX))
+    return sorted(i for i in ids if PROFILE_ID.fullmatch(i))
+
+
+def convert_path(profile_id):
+    return convert_dir() / f"{profile_id}{CONVERT_SUFFIX}"
 
 
 def load_spec():
+    """Everything the conversion needs: the structure (Work db structure page), the global rules (work_db.yml) and the rules
+    of each import profile. An invalid file raises here: nothing is touched."""
+    from .workstructure import columns as structure_columns
     reset_cache()                                   # Aircraft / Locations data are read again at each refresh
-    return parse_spec(yaml.safe_load(spec_path().read_text(encoding="utf-8")))
+    glob = parse_rules(yaml.safe_load(spec_path().read_text(encoding="utf-8")))
+    structure = structure_columns()
+    order = {c["column"]: i for i, c in enumerate(structure)}
+    profiles = {}
+    for pid in convert_ids():
+        try:
+            profiles[pid] = parse_rules(yaml.safe_load(convert_path(pid).read_text(encoding="utf-8")))
+        except (OSError, yaml.YAMLError, SpecError) as exc:
+            raise SpecError(f"Conversion profile “{pid}”: {exc}")
+        _check_references(f"{pid}{CONVERT_SUFFIX}", profiles[pid], order)
+    _check_references("work_db.yml", glob, order)
+    return {"skip": glob["skip"],
+            "columns": [{"column": c["column"], "type": c["data_type"], "display_name": c["display_name"], "rules": glob["rules"].get(c["column"], [])}
+                        for c in structure],
+            "profiles": {pid: {"skip": p["skip"], "rules": p["rules"]} for pid, p in profiles.items()}}
 
 
 def config_columns(spec=None):
-    """The columns in the format of the user's work data configuration (<user>_logbook.yml)."""
-    spec = spec or load_spec()
-    return [{"column": c["column"], "display_name": c["display_name"], "position": i, "data_type": c["type"],
-             "nullable": True, "visible": True, "editable": True} for i, c in enumerate(spec["columns"], 1)]
+    """The columns in the format of the user's work data configuration (<user>_logbook.yml): they come from the Work db structure."""
+    from .workstructure import columns as structure_columns
+    return [{"column": c["column"], "display_name": c["display_name"], "position": i, "data_type": c["data_type"],
+             "nullable": c["nullable"], "visible": c["visible"], "editable": c["editable"]} for i, c in enumerate(structure_columns(), 1)]
 
 
 def apply_to_user(username=None):
-    """Make the user's work data configuration follow work_db.yml (the file is the only source of the columns).
-    Returns True when it changed. An invalid file leaves the configuration untouched."""
+    """Make the user's work data configuration follow the Work db structure. Returns True when it changed.
+    An unreadable structure leaves the configuration untouched."""
+    import sqlite3
     from .config import load_logbook_db_config, save_logbook_db_config
     try:
         wanted = config_columns()
-    except (SpecError, OSError, yaml.YAMLError):
+    except (SpecError, OSError, yaml.YAMLError, sqlite3.Error, RuntimeError):
         return False
-    current = [(c["column"], c["display_name"], c["data_type"]) for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
-    if current == [(w["column"], w["display_name"], w["data_type"]) for w in wanted]:
+    current = [(c["column"], c["display_name"], c["data_type"], c.get("nullable", True), c.get("visible", True), c.get("editable", True))
+               for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
+    if current == [(w["column"], w["display_name"], w["data_type"], w["nullable"], w["visible"], w["editable"]) for w in wanted]:
         return False
     save_logbook_db_config({"database": {"columns": wanted}}, username)
     return True
 
 
 def convert_row(spec, source, pilot_name, warn):
-    """Work data values of one raw row: a dict, or None when a skip rule leaves the row out."""
+    """Work data values of one raw row: a dict, or None when a skip rule leaves the row out.
+    The rules of the import profile of the row (column import_profile) are tried before the global ones."""
     env = {str(k).lower(): v for k, v in source.items()}
     env.update(pilot_name=pilot_name, true=True, false=False)
     env.update({"w_" + c["column"]: None for c in spec["columns"]})     # w_<column>: the value computed for an earlier column
-    for rule in spec["skip"]:
+    profile = spec.get("profiles", {}).get(str(source.get("import_profile") or ""), {"skip": [], "rules": {}})
+    for rule in spec["skip"] + profile["skip"]:
         try:
             if _truthy(_eval(rule["when"], env, lambda _m: None)):      # a raw column that does not exist is simply empty here
                 return None
@@ -648,7 +718,7 @@ def convert_row(spec, source, pilot_name, warn):
             warn(f"Skip rule “{rule['name']}”: {exc}")
     out = {}
     for col in spec["columns"]:
-        for rule in col["rules"]:
+        for rule in profile["rules"].get(col["column"], []) + col["rules"]:
             try:
                 if rule["when"] is not None and not _truthy(_eval(rule["when"], env, warn)):
                     continue

@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:12px}</style>
+<div class="page-head"><h2>Import profiles</h2><div class="btns"><a class="btn" href="{{url_for('profiles.import_edit')}}">New profile</a><a class="btn secondary" href="{{url_for('profiles.convert_list')}}">Conversion profiles</a><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+<div class="card"><p class="muted">An import profile says which header of a company file goes to which entity. Changing the identifier in the editor renames the file and its conversion file.</p>
+<table class="stable"><thead><tr><th>Name</th><th>Identifier</th><th>Sheet</th><th class="c">Headers</th><th class="c">Conversion file</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{r.name}}{% if r.error %}<br><span class="muted">⚠ {{r.error}}</span>{% endif %}</td><td>{{r.id}}</td><td>{{ r.sheet or '—' }}</td><td class="c">{{r.count}}</td><td class="c">{{ 'yes' if r.convert else 'no' }}</td>
+<td><div class="row-btns"><a class="btn secondary" href="{{url_for('profiles.import_edit', profile_id=r.id)}}">Edit</a><a class="btn secondary" href="{{url_for('profiles.import_export', profile_id=r.id)}}">Export</a>
+<form method="post" action="{{url_for('profiles.import_delete', profile_id=r.id)}}" data-confirm="Delete the import profile “{{r.name}}” and its conversion file?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Delete</button></form></div></td></tr>
+{% else %}<tr><td colspan="6">No import profile yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}
