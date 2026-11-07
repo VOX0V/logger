@@ -1,4 +1,4 @@
-"""World map: every airport of the work data and the legs flown between them (drawn as great circles in the browser)."""
+"""World map: every location of the work data and the legs flown between them (drawn as great circles in the browser)."""
 from flask import Blueprint, jsonify, render_template
 
 from .auth import login_required
@@ -19,7 +19,7 @@ def index():
 @worldmap_bp.route("/data")
 @login_required
 def data():
-    """Airports {code: name, lat, lon} and legs [from, to, year, count] grouped by pair of airports and year."""
+    """Locations {code: name, lat, lon} and legs [from, to, year, count] grouped by pair of locations and year."""
     conn = logbook_connect()
     try:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(logbook)")}
@@ -38,11 +38,11 @@ def data():
             "GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9").fetchall()
     finally:
         conn.close()
-    airports, legs = {}, []
+    locations, legs = {}, []
     for dc, dn, dla, dlo, ac, an, ala, alo, yr, n in rows:
         try:
-            airports.setdefault(str(dc), {"name": str(dn or ""), "lat": float(dla), "lon": float(dlo)})
-            airports.setdefault(str(ac), {"name": str(an or ""), "lat": float(ala), "lon": float(alo)})
+            locations.setdefault(str(dc), {"name": str(dn or ""), "lat": float(dla), "lon": float(dlo)})
+            locations.setdefault(str(ac), {"name": str(an or ""), "lat": float(ala), "lon": float(alo)})
         except (TypeError, ValueError):
             continue
         try:
@@ -50,4 +50,4 @@ def data():
         except (TypeError, ValueError):
             yr = None
         legs.append([str(dc), str(ac), yr, int(n)])
-    return jsonify(airports=airports, legs=legs)
+    return jsonify(locations=locations, legs=legs)

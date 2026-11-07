@@ -1,4 +1,4 @@
-"""Shared reference databases: airports (airport.db) and aircraft (aircrafts.db)."""
+"""Shared reference databases: locations (location.db) and aircraft (aircrafts.db)."""
 from pathlib import Path
 from flask import current_app
 import io
@@ -7,7 +7,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 import yaml
-from .db import airport_connect, aircrafts_connect
+from .db import location_connect, aircrafts_connect
 from .importer import _read_table, FileImportError
 
 ENGINES = ("single", "multi")      # legacy table "aircrafts" (by registration), no longer used
@@ -104,7 +104,14 @@ def _float(value, label, lo, hi, required=True):
     return number
 
 
-# ---------------- airports ----------------
+# ---------------- locations ----------------
+
+def _save_extras(conn, table, extras, row_id):
+    """The columns added on the structure page (entities) are saved in the same transaction as the key columns."""
+    if extras:
+        sets = ", ".join('"%s"=?' % name for name in extras)
+        conn.execute(f"UPDATE {table} SET {sets} WHERE id=?", (*extras.values(), row_id))
+
 
 def _drop_if_old(conn, table, new_column):
     """Reference tables with the previous layout are rebuilt (their content comes back from the default files)."""
@@ -119,14 +126,14 @@ def _load_default(name, importer):
         importer(name, source.read_bytes())
 
 
-def init_airport_db():
-    conn = airport_connect()
-    _drop_if_old(conn, "airports", "company_code")
-    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='airports'").fetchone()
+def init_location_db():
+    conn = location_connect()
+    _drop_if_old(conn, "locations", "company_code")
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='locations'").fetchone()
     migrate = row is not None and "latitude REAL NOT NULL" in (row[0] or "")
     if migrate:       # older versions required the coordinates: rebuild the table so that they may stay empty
-        conn.execute("ALTER TABLE airports RENAME TO airports_old")
-    conn.execute("""CREATE TABLE IF NOT EXISTS airports (
+        conn.execute("ALTER TABLE locations RENAME TO locations_old")
+    conn.execute("""CREATE TABLE IF NOT EXISTS locations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         display TEXT,
         icao_code TEXT UNIQUE,
@@ -138,48 +145,48 @@ def init_airport_db():
         longitude REAL
     )""")
     if migrate:
-        conn.execute("""INSERT INTO airports (id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude)
-                        SELECT id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude FROM airports_old""")
-        conn.execute("DROP TABLE airports_old")
-    empty = conn.execute("SELECT COUNT(*) FROM airports").fetchone()[0] == 0
+        conn.execute("""INSERT INTO locations (id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude)
+                        SELECT id, display, icao_code, iata_code, company_code, full_name, country, latitude, longitude FROM locations_old""")
+        conn.execute("DROP TABLE locations_old")
+    empty = conn.execute("SELECT COUNT(*) FROM locations").fetchone()[0] == 0
     conn.commit(); conn.close()
     if empty:
-        _load_default("airports.xlsx", import_airports)
+        _load_default("locations.xlsx", import_locations)
 
 
-def airport_display(airport):
+def location_display(location):
     """Name shown in the logbook: the display column, else the ICAO, IATA or company code."""
-    return (airport["display"] or airport["icao_code"] or airport["iata_code"] or airport["company_code"] or "").strip()
+    return (location["display"] or location["icao_code"] or location["iata_code"] or location["company_code"] or "").strip()
 
 
-def find_airport(code):
-    """Look an airport up by IATA code first, then ICAO, then company code. Returns a Row or None."""
+def find_location(code):
+    """Look a location up by IATA code first, then ICAO, then company code. Returns a Row or None."""
     code = (code or "").strip().upper()
     if not code:
         return None
-    conn = airport_connect()
+    conn = location_connect()
     row = None
     for column in ("iata_code", "icao_code", "company_code"):
-        row = conn.execute(f"SELECT * FROM airports WHERE {column}=?", (code,)).fetchone()
+        row = conn.execute(f"SELECT * FROM locations WHERE {column}=?", (code,)).fetchone()
         if row:
             break
     conn.close()
     return row
 
 
-def list_airports():
-    conn = airport_connect()
-    rows = conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, company_code)").fetchall()
+def list_locations():
+    conn = location_connect()
+    rows = conn.execute("SELECT * FROM locations ORDER BY COALESCE(icao_code, iata_code, company_code)").fetchall()
     conn.close(); return rows
 
 
-def get_airport(airport_id):
-    conn = airport_connect()
-    row = conn.execute("SELECT * FROM airports WHERE id=?", (airport_id,)).fetchone()
+def get_location(location_id):
+    conn = location_connect()
+    row = conn.execute("SELECT * FROM locations WHERE id=?", (location_id,)).fetchone()
     conn.close(); return row
 
 
-def save_airport(airport_id, form):
+def save_location(location_id, form):
     icao = (_clean(form.get("icao_code")) or "").upper() or None
     iata = (_clean(form.get("iata_code")) or "").upper() or None
     company = (_clean(form.get("company_code")) or "").upper() or None
@@ -190,12 +197,15 @@ def save_airport(airport_id, form):
     if (lat is None) != (lon is None):
         raise ValueError("Latitude and longitude go together: fill both, or leave both empty.")
     values = (_clean(form.get("display")), icao, iata, company, _clean(form.get("full_name")), _clean(form.get("country")), lat, lon)
-    conn = airport_connect()
+    from .refcolumns import extras_values
+    extras = extras_values("location", form)
+    conn = location_connect()
     try:
-        if airport_id:
-            conn.execute("UPDATE airports SET display=?, icao_code=?, iata_code=?, company_code=?, full_name=?, country=?, latitude=?, longitude=? WHERE id=?", values + (airport_id,))
+        if location_id:
+            conn.execute("UPDATE locations SET display=?, icao_code=?, iata_code=?, company_code=?, full_name=?, country=?, latitude=?, longitude=? WHERE id=?", values + (location_id,))
         else:
-            conn.execute("INSERT INTO airports (display, icao_code, iata_code, company_code, full_name, country, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", values)
+            conn.execute("INSERT INTO locations (display, icao_code, iata_code, company_code, full_name, country, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", values)
+        _save_extras(conn, "locations", extras, location_id or conn.execute("SELECT last_insert_rowid()").fetchone()[0])
         conn.commit()
     except Exception as exc:
         conn.rollback()
@@ -206,15 +216,15 @@ def save_airport(airport_id, form):
         conn.close()
 
 
-def clear_airports():
-    conn = airport_connect()
-    conn.execute("DELETE FROM airports")
+def clear_locations():
+    conn = location_connect()
+    conn.execute("DELETE FROM locations")
     conn.commit(); conn.close()
 
 
-def delete_airport(airport_id):
-    conn = airport_connect()
-    conn.execute("DELETE FROM airports WHERE id=?", (airport_id,))
+def delete_location(location_id):
+    conn = location_connect()
+    conn.execute("DELETE FROM locations WHERE id=?", (location_id,))
     conn.commit(); conn.close()
 
 
@@ -392,6 +402,8 @@ def save_aircraft_type(type_id, form):
     lb, kg = _fill_mtow(_weight(form.get("mtow_lb"), "MTOW (lb)"), _weight(form.get("mtow_kg"), "MTOW (kg)"))
     values = (_clean(form.get("display")) or designator, designator, _clean(form.get("maker")), _clean(form.get("model")),
               category, engines, engine_type, crew, landing_gear, lb, kg)
+    from .refcolumns import extras_values
+    extras = extras_values("aircraft", form)
     conn = aircrafts_connect()
     try:
         if type_id:
@@ -399,6 +411,7 @@ def save_aircraft_type(type_id, form):
                          values + (type_id,))
         else:
             conn.execute("INSERT INTO aircraft_types (display, designator, maker, model, category, engines, engine_type, crew, landing_gear, mtow_lb, mtow_kg) VALUES (?,?,?,?,?,?,?,?,?,?,?)", values)
+        _save_extras(conn, "aircraft_types", extras, type_id or conn.execute("SELECT last_insert_rowid()").fetchone()[0])
         conn.commit()
     except Exception as exc:
         conn.rollback()
@@ -442,24 +455,30 @@ def _xlsx(sheet, headers, rows):
 
 
 def export_aircraft_types_xlsx():
+    from .refcolumns import extras
     opts = {f: dict(option_pairs(f)) for f in OPTION_FIELDS}
+    added = extras("aircraft")
     rows = [(t["display"], t["designator"], t["maker"], t["model"], opts["category"].get(t["category"], ""), opts["engines"].get(t["engines"], ""),
              opts["engine_type"].get(t["engine_type"], ""), opts["crew"].get(t["crew"], ""), opts["landing_gear"].get(t["landing_gear"], ""),
-             t["mtow_lb"], t["mtow_kg"]) for t in list_aircraft_types()]
-    return _xlsx("Aircraft", ["display", "designator", "maker", "model", "Category", "Engines", "Engine type", "crew", "Landing gear", "MTOWlb", "MTOWkg"], rows)
+             t["mtow_lb"], t["mtow_kg"], *[t[c["field"]] for c in added]) for t in list_aircraft_types()]
+    return _xlsx("Aircraft", ["display", "designator", "maker", "model", "Category", "Engines", "Engine type", "crew", "Landing gear", "MTOWlb", "MTOWkg"]
+                 + [c["title"] for c in added], rows)
 
 
-def export_airports_xlsx():
-    conn = airport_connect()
-    rows = [(r["display"], r["icao_code"], r["iata_code"], r["company_code"], r["full_name"], r["country"], r["latitude"], r["longitude"])
-            for r in conn.execute("SELECT * FROM airports ORDER BY COALESCE(icao_code, iata_code, company_code, '')")]
+def export_locations_xlsx():
+    from .refcolumns import extras
+    added = extras("location")
+    conn = location_connect()
+    rows = [(r["display"], r["icao_code"], r["iata_code"], r["company_code"], r["full_name"], r["country"], r["latitude"], r["longitude"],
+             *[r[c["field"]] for c in added])
+            for r in conn.execute("SELECT * FROM locations ORDER BY COALESCE(icao_code, iata_code, company_code, '')")]
     conn.close()
-    return _xlsx("Airports", ["display", "ICAO", "IATA", "company", "name", "country", "latitude", "longitude"], rows)
+    return _xlsx("Locations", ["display", "ICAO", "IATA", "company", "name", "country", "latitude", "longitude"] + [c["title"] for c in added], rows)
 
 
 # ---------------- Excel import ----------------
 
-AIRPORT_COLUMNS = {
+LOCATION_COLUMNS = {
     "display": ("display",), "icao_code": ("icao", "icao_code"), "iata_code": ("iata", "iata_code"),
     "company_code": ("company", "company code", "company_code"), "full_name": ("name", "full_name"),
     "country": ("country", "pays"), "latitude": ("latitude", "lat"), "longitude": ("longitude", "lon", "lng")}
@@ -497,12 +516,12 @@ def _code_for(value, pairs):
     return None
 
 
-def import_airports(filename, data):
-    rows, present = _file_rows(filename, data, AIRPORT_COLUMNS)
+def import_locations(filename, data):
+    rows, present = _file_rows(filename, data, LOCATION_COLUMNS)
     if not ({"icao_code", "iata_code", "company_code"} & present):
         raise FileImportError("ICAO, IATA or company column not found in the file.")
     added = updated = skipped = 0
-    conn = airport_connect()
+    conn = location_connect()
     try:
         for d in rows:
             icao = d.get("icao_code", "").upper() or None
@@ -521,20 +540,20 @@ def import_airports(filename, data):
             new = {"display": display, "icao_code": icao, "iata_code": iata, "company_code": company,
                    "full_name": d.get("full_name"), "country": d.get("country"), "latitude": lat, "longitude": lon}
             hits = [r for r in (
-                conn.execute("SELECT * FROM airports WHERE icao_code=?", (icao,)).fetchone() if icao else None,
-                conn.execute("SELECT * FROM airports WHERE iata_code=?", (iata,)).fetchone() if iata else None,
-                conn.execute("SELECT * FROM airports WHERE company_code=?", (company,)).fetchone() if company else None) if r]
+                conn.execute("SELECT * FROM locations WHERE icao_code=?", (icao,)).fetchone() if icao else None,
+                conn.execute("SELECT * FROM locations WHERE iata_code=?", (iata,)).fetchone() if iata else None,
+                conn.execute("SELECT * FROM locations WHERE company_code=?", (company,)).fetchone() if company else None) if r]
             if len({r["id"] for r in hits}) > 1:
                 skipped += 1; continue
             try:
                 if hits:
                     gaps = {k: v for k, v in new.items() if v is not None and hits[0][k] in (None, "")}
                     if gaps:
-                        conn.execute(f"UPDATE airports SET {', '.join(k + '=?' for k in gaps)} WHERE id=?",
+                        conn.execute(f"UPDATE locations SET {', '.join(k + '=?' for k in gaps)} WHERE id=?",
                                      (*gaps.values(), hits[0]["id"]))
                         updated += 1
                 elif lat is not None and lon is not None:
-                    conn.execute(f"INSERT INTO airports ({', '.join(new)}) VALUES ({','.join('?' * len(new))})", tuple(new.values()))
+                    conn.execute(f"INSERT INTO locations ({', '.join(new)}) VALUES ({','.join('?' * len(new))})", tuple(new.values()))
                     added += 1
                 else:
                     skipped += 1

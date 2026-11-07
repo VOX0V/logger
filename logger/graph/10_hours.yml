@@ -63,7 +63,7 @@ charts:
     group_by: aircraft_type
     measure: total
     limit: 15
-  - name: Hours per airport of departure
+  - name: Hours per location of departure
     type: bar
     horizontal: true
     group_by: departure_code

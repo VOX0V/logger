@@ -231,9 +231,13 @@ def _read_xlsx(stream):
         raise ValueError("The file cannot be read: use an Excel workbook (.xlsx).") from exc
     if not table:
         raise ValueError("The file is empty.")
-    header = [str(h or "").strip().lower().replace(" ", "_") for h in table[0]]
-    if "entity" not in header:
-        raise ValueError("The first row needs an “entity” column (and optionally position, group, name, data type, display name).")
+    def norm(row):
+        return [str(h or "").strip().lower().replace(" ", "_") for h in row]
+
+    start = next((i for i, row in enumerate(table) if "entity" in norm(row)), None)      # the header may be below a title block
+    if start is None:
+        raise ValueError("No header row with an “entity” column was found (other columns: position, group, name, data type, display name).")
+    header = norm(table[start])
     col = {h: i for i, h in enumerate(header) if h}
 
     def cell_of(row, key):
@@ -242,7 +246,7 @@ def _read_xlsx(stream):
         return "" if value is None else str(value).strip()
 
     items, seen = [], set()
-    for n, row in enumerate(table[1:], 2):
+    for n, row in enumerate(table[start + 1:], start + 2):
         if not any(v not in (None, "") for v in row):
             continue
         entity = cell_of(row, "entity")
@@ -292,7 +296,12 @@ def import_xlsx():
         conn.close()
     log_event("data_destroy", target=f"entities:replaced-by-{len(items)}-rows")
     _changed()
-    flash(f"{len(items)} entities imported (the previous list was replaced).")
+    from .import_profiles import broken_profiles
+    message = f"{len(items)} entities imported (the previous list was replaced)."
+    bad = broken_profiles()
+    if bad:
+        message += f" Warning: {len(bad)} import profile(s) no longer work ({', '.join(p for p, _ in bad)}). First error: {bad[0][1]}"
+    flash(message)
     return redirect(url_for("entities.index"))
 
 
@@ -384,7 +393,7 @@ def structure_save(kind):
     entity_names = {e["entity"] for e in entities}
     for e in entities:                      # the entities first, in the order of the entity list
         if e["entity"] in wanted:
-            new.append(build(e["entity"], e["display_name"], (existing.get(e["entity"]) or {}).get("data_type") or e["data_type"]))
+            new.append(build(e["entity"], e["display_name"], (existing.get(e["entity"]) or {}).get("data_type") or ("text" if kind == "raw" else e["data_type"])))
     for c in old:                           # then the columns that are not entities
         if c["column"] not in entity_names and c["column"] in wanted:
             new.append(build(c["column"], c["display_name"], c["data_type"]))

@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.add-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.add-bar{margin-bottom:10px}</style>
+<div class="page-head"><h2>{{title}} structure</h2><div class="btns"><a class="btn secondary" href="{{back_url}}">{{title}}</a></div></div>
+<form id="structure-form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="order" id="order">
+<div class="card"><p class="muted">Drag a row by its handle to change the order of the columns. The key columns are used by the application and cannot be removed. The other columns are entities of the Entities page (group “{{ 'location' if title == 'Locations' else 'aircraft' }}”): create the entity there first, then add it here. Removing an added column deletes its data.</p>
+<div class="add-bar"><select id="add-entity"></select><button type="button" class="btn secondary" id="add-btn">Add column</button></div>
+<div id="grid"></div>
+<p style="margin-top:12px"><button class="btn">Save</button> <a class="btn secondary" href="{{back_url}}">Cancel</a></p></div></form>
+<link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='refstructure.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+initRefStructure({rows: {{ rows|tojson }}, available: {{ available|tojson }}});
+</script>
+{% endblock %}

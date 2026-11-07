@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">New rule</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Airports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Types d'appareils</a>{% endif %}</div></div>
+<div class="page-head"><h2>Convertisseur</h2><div>{% if g.role=='admin' %}<a class="btn" href="{{url_for('converter.rule_new')}}">New rule</a> <a class="btn secondary" href="{{url_for('converter.locations')}}">Locations</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Types d'appareils</a>{% endif %}</div></div>
 <p class="muted">Rules that turn user.db into logbook.db. Tick the ones you want to apply, then click Refresh in logbook.db. For a given logbook.db column, the first ticked rule that gives a value wins.</p>
 <form method="post" action="{{url_for('converter.select')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if rules %}

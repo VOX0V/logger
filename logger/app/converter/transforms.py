@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import ephem
 
-from ..refdata import find_airport, find_aircraft_type, airport_display
+from ..refdata import find_location, find_aircraft_type, location_display
 
 ENGINE_CHOICES = [("any", "All aircraft"), ("single", "Single-engine only"), ("multi", "Multi-engine only")]
 ROUNDING_CHOICES = [("tc", "Transport Canada rounding"), ("none", "No rounding (hours + minutes/60)")]
@@ -45,7 +45,7 @@ TRANSFORMS = {
         "label": "Block time into day or night",
         "inputs": [("time", "Block time column (A)", True),
                    ("utc_ms", "UTC arrival time column (A)", True),
-                   ("airport", "Arrival airport column (A)", True),
+                   ("location", "Arrival location column (A)", True),
                    ("date", "Date column (A), when the UTC arrival is a time of day only (hh:mm)", False),
                    ("start", "UTC departure time column (A), to pass midnight", False),
                    ("type", "Aircraft type column (A) — engine filter (default: “type” column)", False)],
@@ -65,8 +65,8 @@ TRANSFORMS = {
         "params": [],
     },
     "icao_code": {
-        "label": "Airport as ICAO code",
-        "inputs": [("source", "Airport column (A), IATA or ICAO", True)],
+        "label": "Location as ICAO code",
+        "inputs": [("source", "Location column (A), IATA or ICAO", True)],
         "outputs": [("target", "Column of B", True)],
         "params": [],
     },
@@ -268,21 +268,21 @@ def day_night(row, rule, settings):
     value = block_to_decimal(parse_block(row.get(i["time"])), p.get("rounding", "tc"), settings["tc_rounding"]["rules"])
     if value is None:
         return {}
-    code = str(row.get(i["airport"]) or "").strip()
-    airport = find_airport(code)
-    if airport is None:
-        raise Problem(f"Unknown airport: {code or '(empty)'}")
+    code = str(row.get(i["location"]) or "").strip()
+    location = find_location(code)
+    if location is None:
+        raise Problem(f"Unknown location: {code or '(empty)'}")
     arr_utc = parse_utc(row.get(i["utc_ms"]))
     if arr_utc is None and i.get("date"):       # time of day only: combine it with the date column
         arr_utc = utc_from_date_time(row.get(i["date"]), row.get(i["utc_ms"]), row.get(i.get("start") or ""))
     if arr_utc is None:
         raise Problem("UTC arrival time missing or unreadable")
-    night = is_night(arr_utc, airport["latitude"], airport["longitude"],
+    night = is_night(arr_utc, location["latitude"], location["longitude"],
                      settings["night"]["after_sunset_minutes"], settings["night"]["before_sunrise_minutes"])
     return {o["day"]: None if night else value, o["night"]: value if night else None}
 
 
-# ---------------- aircraft / airports / crew / remarks ----------------
+# ---------------- aircraft / locations / crew / remarks ----------------
 
 def format_registration(row, rule, settings):
     raw = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
@@ -304,8 +304,8 @@ def to_icao(row, rule, settings):
     code = str(row.get(rule["inputs"]["source"]) or "").strip().upper()
     if not code:
         return {rule["outputs"]["target"]: None}
-    airport = find_airport(code)
-    shown = airport_display(airport) if airport is not None else code
+    location = find_location(code)
+    shown = location_display(location) if location is not None else code
     return {rule["outputs"]["target"]: shown or code}
 
 

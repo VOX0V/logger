@@ -1,7 +1,7 @@
 """Low-level storage helpers: paths, SQLite connections, identifier safety.
 
 Layout on disk:
-    appdata/db/users.db, airport.db, aircrafts.db   (shared by every account)
+    appdata/db/users.db, location.db, aircrafts.db   (shared by every account)
     appdata/converter/                              (shared converter rules + settings)
     users/<username>/                               (each account's own data)
 
@@ -74,12 +74,12 @@ def _open(path):
 
 
 def accounts_db_path(): return db_dir() / "users.db"
-def airport_db_path(): return db_dir() / "airport.db"
+def location_db_path(): return db_dir() / "location.db"
 def aircrafts_db_path(): return db_dir() / "aircrafts.db"
 
 
 def accounts_connect(): return _open(accounts_db_path())
-def airport_connect(): return _open(airport_db_path())
+def location_connect(): return _open(location_db_path())
 def aircrafts_connect(): return _open(aircrafts_db_path())
 
 

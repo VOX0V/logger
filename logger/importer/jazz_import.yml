@@ -1,4 +1,4 @@
-# Import profile "Jazz Aviation": one line per header of the file, written  header: entity  (entities: see entities.yml).
+# Import profile "Jazz Aviation": one line per header of the file, written  header: entity  (entities: see Data > Entities).
 # A header that is not listed here is not imported. The columns of the raw database are created by the import.
 # Editable from Data > Import data > Edit import rules.
 name: Jazz Aviation
@@ -10,7 +10,7 @@ columns:
   dep_datetime_utc: location_departure_time_utc
   arr_airport: location_arrival_code
   arr_datetime_utc: location_arrival_time_utc
-  block: leg_time
+  block: time_flight_hhmm
   nautical_miles: leg_length
 
 # Headers of the file that are deliberately not imported.

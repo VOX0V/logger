@@ -42,7 +42,7 @@ def export():
         ("Work data (backup)", "Backup of the work data (logbook.db).", "main.export_logbook_data", False),
         ("User folder backup", "Download a copy of your user folder.", "main.export_user_data", False),
         ("Aircraft types (Excel)", "List of aircraft types in Excel format (administrators).", "converter.aircrafts_export", True),
-        ("Airports (Excel)", "List of airports in Excel format (administrators).", "converter.airports_export", True)]))
+        ("Locations (Excel)", "List of locations in Excel format (administrators).", "converter.locations_export", True)]))
 
 
 @hubs_bp.route("/pdf")

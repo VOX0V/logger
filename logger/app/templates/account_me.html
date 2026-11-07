@@ -28,5 +28,5 @@
 </div><button class="btn">Save</button></form></div>
 <div class="card"><h3>Sessions</h3><form method="post" action="{{url_for('accounts.revoke_my_sessions')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" data-confirm="Sign out all your sessions, including this one?">Sign out all my sessions</button></form></div>
 {% if g.role=='admin' %}<div class="card"><h3>Administration</h3>
-<p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Manage accounts</a> <a class="btn secondary" href="{{url_for('converter.airports')}}">Airports</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
+<p><a class="btn secondary" href="{{url_for('accounts.list_view')}}">Manage accounts</a> <a class="btn secondary" href="{{url_for('converter.locations')}}">Locations</a> <a class="btn secondary" href="{{url_for('converter.aircrafts')}}">Avions</a></p></div>{% endif %}
 {% endblock %}

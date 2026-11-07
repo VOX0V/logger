@@ -109,7 +109,7 @@ def create_app(test_config=None, *, require_admin=True):
     from .converter.views import converter_bp
     from .yamledit import yaml_bp
     from .converter.catalog import ensure_defaults
-    from .refdata import init_airport_db, init_aircrafts_db
+    from .refdata import init_location_db, init_aircrafts_db
     from .db import startup_lock
     from .main import main_bp
     from .audit import audit_bp
@@ -135,7 +135,7 @@ def create_app(test_config=None, *, require_admin=True):
         else:
             app.config["SECRET_KEY"] = _load_or_create_secret_key()
         init_accounts_db()
-        init_airport_db()
+        init_location_db()
         init_aircrafts_db()
         ensure_defaults()
         if require_admin and count_accounts() == 0:

@@ -371,7 +371,7 @@ def import_files():
         profile_id=request.form.get("profile","").strip()
         if not profile_id: flash("Select an import profile."); return _back("main.import_files")
         try:
-            profile=load_profile(profile_id); added=ensure_profile_columns(config,profile,extra=("crew_company",))
+            profile=load_profile(profile_id); added=ensure_profile_columns(config,profile,extra=("crew_operator",))
         except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
         if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
         total=0
@@ -380,7 +380,7 @@ def import_files():
                 data=file.read(); rows,matched=importable_rows(file.filename,data,profile=profile)
                 company="undefined" if profile["id"]=="default" else profile["name"]        # an empty company gets the profile name
                 for r in rows:
-                    if not r.get("crew_company"): r["crew_company"]=company
+                    if not r.get("crew_operator"): r["crew_operator"]=company
                 stats=import_rows(file.filename,rows,config,profile=profile["id"]); total+=len(rows)
                 flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
                 if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))

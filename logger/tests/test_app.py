@@ -141,15 +141,15 @@ def _import_flight(client, **cols):
 
 
 def test_appdata_structure_and_reference_data(client, app):
-    from app.refdata import find_airport
+    from app.refdata import find_location
     root = Path(app.config["APPDATA_DIR"])
-    for name in ("db/users.db", "db/airport.db", "db/aircrafts.db", "converter/rules.yml", "converter/settings.yml"):
+    for name in ("db/users.db", "db/location.db", "db/aircrafts.db", "converter/rules.yml", "converter/settings.yml"):
         assert (root / name).exists(), name
     with app.app_context():
-        assert find_airport("YUL")["icao_code"] == "CYUL"
-        assert find_airport("cyul")["iata_code"] == "YUL"      # ICAO et minuscules acceptés
-        assert find_airport("CMH4")["icao_code"] == "KCMH"     # fichier importé tel quel
-        assert find_airport("ZZZ") is None
+        assert find_location("YUL")["icao_code"] == "CYUL"
+        assert find_location("cyul")["iata_code"] == "YUL"      # ICAO et minuscules acceptés
+        assert find_location("CMH4")["icao_code"] == "KCMH"     # fichier importé tel quel
+        assert find_location("ZZZ") is None
 
 
 def test_day_night_computation_at_yul():
@@ -206,7 +206,7 @@ def test_refresh_with_day_night_rule(client, app):
 
 
 @PENDING
-def test_refresh_warns_on_unknown_airport_and_aircraft(client, app):
+def test_refresh_warns_on_unknown_location_and_aircraft(client, app):
     import html
     login(client)
     _aircraft_type(app, 'TST1', 'single')
@@ -215,7 +215,7 @@ def test_refresh_warns_on_unknown_airport_and_aircraft(client, app):
     use_rules(client.application, ['daynight_single_pic'])
     page = html.unescape(client.post('/logbook/refresh', follow_redirects=True).get_data(as_text=True))
     assert "Unknown aircraft type: ZZ99" in page
-    assert 'Unknown airport: ZZZ' in page
+    assert 'Unknown location: ZZZ' in page
 
 
 @PENDING
@@ -282,7 +282,7 @@ def test_admin_creates_edits_deletes_rule(client, app):
 
 def test_admin_settings_and_reference_pages(client, app):
     login(client)
-    for url in ('/converter/airports', '/converter/aircrafts', '/converter/airports/new', '/converter/aircrafts/new', '/converter/rule/new'):
+    for url in ('/converter/locations', '/converter/aircrafts', '/converter/locations/new', '/converter/aircrafts/new', '/converter/rule/new'):
         assert client.get(url).status_code == 200
     r = client.post('/converter/aircrafts/new', data={'designator': 'zz99', 'category': 'airplane', 'engines': 'single'}, follow_redirects=True)
     rows = client.get('/converter/aircrafts/rows').get_json()['data']

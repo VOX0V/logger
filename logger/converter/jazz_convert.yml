@@ -1,6 +1,6 @@
 # Conversion profile: Jazz Aviation (raw database A -> logbook database B), pairs with importer/import.yml.
 # Rebuilt from the rules that used to be the software's default conversion: UTC times in milliseconds,
-# day/night split from the sun (ephem) at the arrival airport, crew list, ICAO codes, flight number in the remarks.
+# day/night split from the sun (ephem) at the arrival location, crew list, ICAO codes, flight number in the remarks.
 name: Jazz Aviation
 rules:
 - {id: skip_zero_block, name: 'Skip flights with 0:00 block time (not operated)', transform: zero_block, inputs: {time: block_time}}
@@ -39,6 +39,6 @@ rules:
 - {id: copy_instruction_day, name: Copy instruction_day → instruction_day, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}}
 - {id: copy_instruction_night, name: Copy instruction_night → instruction_night, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}}
 - {id: ifr_block_time, name: Block time → ifr, transform: tc_round, inputs: {time: block_time}, outputs: {target: ifr}, params: {rounding: tc}}
-- {id: daynight_multi_copi, name: Block time day/night — multi-engine copilot, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
-- {id: daynight_xc_pic, name: Block time day/night — cross-country PIC, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
+- {id: daynight_multi_copi, name: Block time day/night — multi-engine copilot, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, location: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
+- {id: daynight_xc_pic, name: Block time day/night — cross-country PIC, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, location: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
 - {id: employer, name: Employer, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

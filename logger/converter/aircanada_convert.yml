@@ -39,6 +39,6 @@ rules:
 - {id: copy_instruction_day, name: Copy instruction day, transform: copy, inputs: {source: instruction_day}, outputs: {target: instruction_day}, params: {}}
 - {id: copy_instruction_night, name: Copy instruction night, transform: copy, inputs: {source: instruction_night}, outputs: {target: instruction_night}, params: {}}
 - {id: ifr_block_time, name: IFR = block time (TC rounding), transform: tc_round, inputs: {time: block_time}, outputs: {target: ifr}, params: {rounding: tc}}
-- {id: daynight_multi_copi, name: Multi-engine copilot day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
-- {id: daynight_xc_pic, name: Cross-country PIC day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, airport: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
+- {id: daynight_multi_copi, name: Multi-engine copilot day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, location: arrival}, outputs: {day: multi_engine_copi_day, night: multi_engine_copi_night}, params: {engine: any, rounding: tc}}
+- {id: daynight_xc_pic, name: Cross-country PIC day/night, transform: day_night, inputs: {time: block_time, utc_ms: arrival_millis_utc, location: arrival}, outputs: {day: cross_country_pic_day, night: cross_country_pic_night}, params: {engine: any, rounding: tc}}
 - {id: employer, name: Employer, transform: copy, inputs: {source: employer}, outputs: {target: employer}}

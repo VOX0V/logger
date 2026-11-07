@@ -1,9 +1,9 @@
 """Import profiles: one file per employer, <id>_import.yml, in <app root>/importer/ (shipped) and appdata/importer/
 (copy edited in the web interface, which wins). Shared by all accounts.
 
-A profile only says which header of an airline file goes to which ENTITY (see entities.yml). Values are imported
+A profile only says which header of an airline file goes to which ENTITY (see Data > Entities). Values are imported
 untouched (the raw database holds raw data). The columns of the raw database are created by the import, from the
-entities that the profile uses: name, type and order come from entities.yml.
+entities that the profile uses: name and order come from the entity list; the type is always text (the work data converts to the right type).
 
     name: Jazz Aviation          # shown in the import menu
     sheet: raw                   # optional: sheet to read (default: "raw", else the active sheet)
@@ -122,7 +122,7 @@ def parse_spec(data):
         if not str(header).strip():
             raise FileImportError("A header of “columns” is empty.")
         if not isinstance(entity, str) or entity not in entities:
-            raise FileImportError(f"Header “{header}”: unknown entity “{entity}” (see entities.yml).")
+            raise FileImportError(f"Header “{header}”: unknown entity “{entity}” (see Data > Entities).")
     ignored = data.get("ignored")
     if ignored is not None and not (isinstance(ignored, list) and all(isinstance(h, str) for h in ignored)):
         raise FileImportError("“ignored” must be a list of headers.")
@@ -155,6 +155,17 @@ def list_profiles(include_default=False):
     return sorted(found, key=lambda p: p["name"].lower())
 
 
+def broken_profiles():
+    """[(file, reason)] of the import profiles that cannot be used (unknown entity, syntax...)."""
+    found = []
+    for profile_id in profile_ids():
+        try:
+            _read(profile_id)
+        except FileImportError as exc:
+            found.append((profile_id, str(exc)))
+    return found
+
+
 def load_profile(profile_id):
     if not PROFILE_ID.fullmatch(profile_id or "") or profile_id not in profile_ids():
         raise FileImportError("Unknown import profile.")
@@ -168,7 +179,7 @@ def load_profile(profile_id):
 
 def ensure_profile_columns(config, profile, extra=()):
     """Create in the raw database the columns that the profile needs (plus the entities in `extra`) and that do not
-    exist yet: name, type and order come from entities.yml. The display name and the order of all the columns follow
+    exist yet: name and order come from the entity list; the type is always text (the work data converts to the right type). The display name and the order of all the columns follow
     entities.yml at every import (the type of an existing column does not change). Returns the names of the columns created."""
     columns = config["database"]["columns"]
     known = {c["column"] for c in columns}
@@ -178,7 +189,7 @@ def ensure_profile_columns(config, profile, extra=()):
         if column in known:
             continue
         columns.append({"column": column, "display_name": entities[column]["display_name"], "position": 0,
-                        "data_type": entities[column]["data_type"], "nullable": True, "visible": True, "editable": True})
+                        "data_type": "text", "nullable": True, "visible": True, "editable": True})
         known.add(column)
         added.append(column)
     changed = bool(added)

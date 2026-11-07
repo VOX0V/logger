@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.31 — Structure of the aircraft and location databases
+
+- **Aircraft** and **Locations** (administrators): a *Structure* button opens a page where the order of the columns is changed by drag and drop and where columns are added. An added column is an entity of the entity list (group `aircraft` or `location`, without the entities that describe a flight); the key columns that the application reads cannot be removed. Removing an added column deletes its data.
+- The added columns appear in the grid, in the add panel, in the edit form and in the Excel export; they are read by `aircraft(type, field)` and `location(code, field)` with the entity name without its group (`timezone` for `location_timezone`). The Excel import still fills the key columns only.
+
+## 0.3.30 — Locations, import fixes, raw data in text
+
+- **Airports renamed Locations**: the database (`location.db`, created from `defaults/locations.xlsx`), the Data > Locations page and the `/locations` URLs, the work data function `location(code, field)` (`airport()` still works), the audit table (`known_location`) and the world map. `airport.db` is no longer used and can be deleted.
+- **Entities import (Excel)**: the header row is found by itself (a title block or empty rows above it are fine) and, after an import, the import profiles that no longer work (unknown entity) are listed.
+- **Raw data**: the columns created by the imports and by Raw db structure are always text; the work data converts to the right type.
+- **Work data functions**: `date_of(x)` and month names in dates (“Sep 11 2026”, “11 September 2026”), `time_24h(x)` (“5:10AM” -> 05:10), `strip_chars(text, chars)` (“# 0767” -> 0767).
+- **Entity model**: the shipped entity list is now your model (crew_pilot_name, crew_copilot_name, crew_operator, time_flight_hhmm, ...); the shipped import profiles and work_db.yml use these names, as do the employer fill of the import and the merge.
+
 ## 0.3.29 — Entities page, raw and work db structure
 
 - **Entities** (Data > Entities, administrators): the list now lives in `appdata/db/entities.db` instead of `entities.yml` (first use: filled from the former `entities.yml`). Columns position, group, name, entity, data type, display name. Cells are editable, rows can be added and deleted, and a row dragged by its handle takes the number of the place where it is dropped while the following ones move down. Excel import (replaces the whole list) and export. The import profiles and the work data definition read this list.

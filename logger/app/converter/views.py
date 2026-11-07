@@ -1,17 +1,21 @@
 """The "Converter" tab: rule catalog (admins edit, everyone ticks their own
-rules), converter settings, and the shared airport / aircraft reference data."""
+rules), converter settings, and the shared location / aircraft reference data."""
+import json
+import sqlite3
+
 from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
 
 from ..auth import login_required, admin_required, fresh_login_required, clear_confirmed
 from ..seclog import log_event
 from ..gridview import grid_data
-from ..db import airport_connect, aircrafts_connect
+from ..db import location_connect, aircrafts_connect
 from ..config import load_config, load_logbook_db_config, configurable_columns
-from ..refdata import (list_airports, get_airport, save_airport, delete_airport,
-                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, option_pairs, OPTION_FIELDS, export_aircraft_types_xlsx, export_airports_xlsx,
-    import_airports, import_aircraft_types, clear_airports, clear_aircraft_types)
+from ..refdata import (list_locations, get_location, save_location, delete_location,
+                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, option_pairs, OPTION_FIELDS, export_aircraft_types_xlsx, export_locations_xlsx,
+    import_locations, import_aircraft_types, clear_locations, clear_aircraft_types)
 from ..importer import FileImportError
 from . import catalog
+from .. import refcolumns
 from .transforms import TRANSFORMS
 
 converter_bp = Blueprint("converter", __name__, url_prefix="/converter")
@@ -122,10 +126,10 @@ def rule_delete(rule_id):
     return redirect(url_for("converter.index"))
 
 
-# ---------------- airports (admin) ----------------
+# ---------------- locations (admin) ----------------
 
-AIRPORT_FIELDS = ("display", "icao_code", "iata_code", "company_code", "full_name", "country", "latitude", "longitude")
-AIRPORT_COLUMNS = [
+LOCATION_FIELDS = ("display", "icao_code", "iata_code", "company_code", "full_name", "country", "latitude", "longitude")
+LOCATION_COLUMNS = [
     {"field": "display", "title": "Display"}, {"field": "icao_code", "title": "ICAO"},
     {"field": "iata_code", "title": "IATA"}, {"field": "company_code", "title": "Company code"},
     {"field": "full_name", "title": "Name"}, {"field": "country", "title": "Country"},
@@ -146,6 +150,29 @@ def aircraft_columns():
         {"field": "maker", "title": "Maker"}, {"field": "model", "title": "Model"},
         *[_lookup(f, t, option_pairs(f)) for f, t in OPTION_FIELDS.items()],
         {"field": "mtow_lb", "title": "MTOW (lb)", "sorter": "number"}, {"field": "mtow_kg", "title": "MTOW (kg)", "sorter": "number"}]
+
+
+def _grid_columns(kind, core_specs):
+    """The columns of the grid in the order chosen on the structure page; the added entities are plain columns."""
+    by_field = {c["field"]: c for c in core_specs}
+    out = []
+    for c in refcolumns.columns(kind):
+        if c["core"]:
+            out.append(by_field.get(c["field"]) or {"field": c["field"], "title": c["title"]})
+        else:
+            item = {"field": c["field"], "title": c["title"]}
+            if c["data_type"] in ("integer", "decimal"):
+                item["sorter"] = "number"
+            out.append(item)
+    return out
+
+
+def _cols(kind):
+    return _grid_columns(kind, LOCATION_COLUMNS if kind == "location" else aircraft_columns())
+
+
+def _fields_of(kind):
+    return [c["field"] for c in _cols(kind)]
 
 
 def _ids():
@@ -205,68 +232,102 @@ def _fields(columns):
     return out
 
 
-@converter_bp.route("/airports")
+@converter_bp.route("/locations")
 @admin_required
-def airports():
-    return render_template("refdata_grid.html", title="Airports", columns=AIRPORT_COLUMNS, add_fields=_fields(AIRPORT_COLUMNS),
+def locations():
+    return render_template("refdata_grid.html", title="Locations", columns=_cols("location"), add_fields=_fields(_cols("location")), structure_url=url_for("converter.location_structure"),
                            note="A code is looked up in IATA first, then ICAO, then company code. The logbook shows the display name, or the ICAO code when it is empty.",
-                           rows_url=url_for("converter.airports_rows"), cell_url=url_for("converter.airports_cell"),
-                           add_url=url_for("converter.airports_add"), delete_url=url_for("converter.airports_delete"),
-                           export_url=url_for("converter.airports_export"))
+                           rows_url=url_for("converter.locations_rows"), cell_url=url_for("converter.locations_cell"),
+                           add_url=url_for("converter.locations_add"), delete_url=url_for("converter.locations_delete"),
+                           export_url=url_for("converter.locations_export"))
 
 
-@converter_bp.route("/airports/rows")
+@converter_bp.route("/locations/rows")
 @admin_required
-def airports_rows():
-    conn = airport_connect()
+def locations_rows():
+    conn = location_connect()
     try:
-        return grid_data(conn, "airports", list(AIRPORT_FIELDS))
+        return grid_data(conn, "locations", _fields_of("location"))
     finally:
         conn.close()
 
 
-@converter_bp.route("/airports/cell", methods=["POST"])
+@converter_bp.route("/locations/cell", methods=["POST"])
 @admin_required
-def airports_cell():
-    return _cell_update(get_airport, save_airport, AIRPORT_FIELDS)
+def locations_cell():
+    return _cell_update(get_location, save_location, _fields_of("location"))
 
 
-@converter_bp.route("/airports/add", methods=["POST"])
+@converter_bp.route("/locations/add", methods=["POST"])
 @admin_required
-def airports_add():
-    return _add_update(save_airport)
+def locations_add():
+    return _add_update(save_location)
 
 
-@converter_bp.route("/airports/delete", methods=["POST"])
+@converter_bp.route("/locations/delete", methods=["POST"])
 @admin_required
-def airports_delete():
-    return _delete(delete_airport, "airports")
+def locations_delete():
+    return _delete(delete_location, "locations")
 
 
-@converter_bp.route("/airports/new", methods=["GET", "POST"])
-@converter_bp.route("/airports/<int:airport_id>/edit", methods=["GET", "POST"])
+@converter_bp.route("/locations/new", methods=["GET", "POST"])
+@converter_bp.route("/locations/<int:location_id>/edit", methods=["GET", "POST"])
 @admin_required
-def airport_form(airport_id=None):
-    airport = get_airport(airport_id) if airport_id else None
-    if airport_id and not airport:
-        flash("Airport not found."); return redirect(url_for("converter.airports"))
+def location_form(location_id=None):
+    location = get_location(location_id) if location_id else None
+    if location_id and not location:
+        flash("Location not found."); return redirect(url_for("converter.locations"))
     if request.method == "POST":
         try:
-            save_airport(airport_id, request.form)
-            flash("Airport saved.")
-            return redirect(url_for("converter.airports"))
+            save_location(location_id, request.form)
+            flash("Location saved.")
+            return redirect(url_for("converter.locations"))
         except ValueError as exc:
             flash(str(exc))
-    return render_template("airport_form.html", airport=airport, form=request.form if request.method == "POST" else None)
+    return render_template("location_form.html", location=location, form=request.form if request.method == "POST" else None,
+                           extras=refcolumns.extras("location"))
 
 
-@converter_bp.route("/airports/<int:airport_id>/delete", methods=["POST"])
+@converter_bp.route("/locations/<int:location_id>/delete", methods=["POST"])
 @admin_required
-def airport_delete(airport_id):
-    delete_airport(airport_id)
-    log_event("data_destroy", target=f"airport:{airport_id}")
-    flash("Airport deleted.")
-    return redirect(url_for("converter.airports"))
+def location_delete(location_id):
+    delete_location(location_id)
+    log_event("data_destroy", target=f"location:{location_id}")
+    flash("Location deleted.")
+    return redirect(url_for("converter.locations"))
+
+
+def _structure_view(kind, endpoint, back_endpoint, title):
+    if request.method == "POST":
+        try:
+            order = json.loads(request.form.get("order", "[]"))
+            if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
+                raise ValueError("Invalid order.")
+            removed = refcolumns.save_structure(kind, order)
+        except (ValueError, sqlite3.Error) as exc:
+            flash(str(exc))
+        else:
+            if removed:
+                log_event("data_destroy", target=f"{kind}-structure:{len(removed)}-columns")
+            flash(f"{title} structure saved." + (f" {len(removed)} column(s) removed." if removed else ""))
+        return redirect(url_for(endpoint))
+    columns = refcolumns.columns(kind)
+    present = {c["entity"] for c in columns}
+    return render_template("refstructure.html", title=title, back_url=url_for(back_endpoint),
+                           rows=[{"entity": c["entity"], "title": c["title"], "core": c["core"]} for c in columns],
+                           available=[{"entity": e, "title": v["display_name"]} for e, v in refcolumns.eligible(kind).items() if e not in present])
+
+
+@converter_bp.route("/locations/structure", methods=["GET", "POST"])
+@admin_required
+def location_structure():
+    return _structure_view("location", "converter.location_structure", "converter.locations", "Locations")
+
+
+@converter_bp.route("/aircrafts/structure", methods=["GET", "POST"])
+@admin_required
+def aircraft_structure():
+    return _structure_view("aircraft", "converter.aircraft_structure", "converter.aircrafts", "Aircraft")
 
 
 # ---------------- aircraft (admin) ----------------
@@ -274,7 +335,7 @@ def airport_delete(airport_id):
 @converter_bp.route("/aircrafts")
 @admin_required
 def aircrafts():
-    return render_template("refdata_grid.html", title="Aircraft", columns=aircraft_columns(), add_fields=_fields(aircraft_columns()), edit_lists_url=url_for("yamledit.editor", file="aircraft_options"),
+    return render_template("refdata_grid.html", title="Aircraft", columns=_cols("aircraft"), add_fields=_fields(_cols("aircraft")), structure_url=url_for("converter.aircraft_structure"), edit_lists_url=url_for("yamledit.editor", file="aircraft_options"),
                            note="The flight is linked to its type by the designator (DH1, CR9...); the logbook shows the display name (DHC8, CRJ...), "
                                 "which several designators can share. Both MTOW values are official data, entered by hand. "
                                 "The number of engines is used by the day/night rules, and the audit checks the types against this table.",
@@ -288,7 +349,7 @@ def aircrafts():
 def aircrafts_rows():
     conn = aircrafts_connect()
     try:
-        return grid_data(conn, "aircraft_types", list(AIRCRAFT_FIELDS))
+        return grid_data(conn, "aircraft_types", _fields_of("aircraft"))
     finally:
         conn.close()
 
@@ -296,7 +357,7 @@ def aircrafts_rows():
 @converter_bp.route("/aircrafts/cell", methods=["POST"])
 @admin_required
 def aircrafts_cell():
-    return _cell_update(get_aircraft_type, save_aircraft_type, AIRCRAFT_FIELDS)
+    return _cell_update(get_aircraft_type, save_aircraft_type, _fields_of("aircraft"))
 
 
 @converter_bp.route("/aircrafts/add", methods=["POST"])
@@ -326,7 +387,7 @@ def aircraft_form(aircraft_id=None):
         except ValueError as exc:
             flash(str(exc))
     return render_template("aircraft_form.html", aircraft=aircraft, options={f: (t, option_pairs(f)) for f, t in OPTION_FIELDS.items()},
-                           form=request.form if request.method == "POST" else None)
+                           form=request.form if request.method == "POST" else None, extras=refcolumns.extras("aircraft"))
 
 
 @converter_bp.route("/aircrafts/<int:aircraft_id>/delete", methods=["POST"])
@@ -348,11 +409,11 @@ def aircrafts_export():
                     headers={"Content-Disposition": 'attachment; filename="aircraft_types.xlsx"'})
 
 
-@converter_bp.route("/airports/export")
+@converter_bp.route("/locations/export")
 @admin_required
-def airports_export():
-    return Response(export_airports_xlsx(), mimetype=XLSX,
-                    headers={"Content-Disposition": 'attachment; filename="airports.xlsx"'})
+def locations_export():
+    return Response(export_locations_xlsx(), mimetype=XLSX,
+                    headers={"Content-Disposition": 'attachment; filename="locations.xlsx"'})
 
 
 def _do_import(importer, back):
@@ -368,14 +429,14 @@ def _do_import(importer, back):
     return redirect(url_for("hubs.data") if request.form.get("back") == "hub" else url_for(back))
 
 
-@converter_bp.route("/airports/clear", methods=["POST"])
+@converter_bp.route("/locations/clear", methods=["POST"])
 @admin_required
 @fresh_login_required
-def airports_clear():
+def locations_clear():
     if not clear_confirmed():
         flash("Nothing was deleted: type CLEAR to confirm.")
     else:
-        clear_airports(); log_event("data_destroy", target="airports:all-rows"); flash("All airports were deleted.")
+        clear_locations(); log_event("data_destroy", target="locations:all-rows"); flash("All locations were deleted.")
     return redirect(url_for("hubs.data"))
 
 
@@ -390,10 +451,10 @@ def aircrafts_clear():
     return redirect(url_for("hubs.data"))
 
 
-@converter_bp.route("/airports/import", methods=["POST"])
+@converter_bp.route("/locations/import", methods=["POST"])
 @admin_required
-def airports_import():
-    return _do_import(import_airports, "converter.airports")
+def locations_import():
+    return _do_import(import_locations, "converter.locations")
 
 
 @converter_bp.route("/aircrafts/import", methods=["POST"])

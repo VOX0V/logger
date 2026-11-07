@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>{{title}}</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button><a class="btn secondary" href="{{export_url}}">Export data</a>{% if edit_lists_url %}<a class="btn secondary" href="{{edit_lists_url}}">Edit lists</a>{% endif %}<a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+<div class="page-head"><h2>{{title}}</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button>{% if structure_url %}<a class="btn secondary" href="{{structure_url}}">Structure</a>{% endif %}<a class="btn secondary" href="{{export_url}}">Export data</a>{% if edit_lists_url %}<a class="btn secondary" href="{{edit_lists_url}}">Edit lists</a>{% endif %}<a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
 {% include "_grid_add.html" %}
 <div class="card grid-card"><p class="muted">{{note}}</p><div id="grid"></div></div>
 <link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">

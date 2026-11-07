@@ -322,7 +322,7 @@ rules:
   inputs:
     time: block_time
     utc_ms: on_block_millis_utc
-    airport: arrival
+    location: arrival
     registration: registration
   outputs:
     day: single_engine_pic_day
@@ -337,7 +337,7 @@ rules:
   inputs:
     time: block_time
     utc_ms: on_block_millis_utc
-    airport: arrival
+    location: arrival
     registration: registration
   outputs:
     day: multi_engine_pic_day
@@ -362,7 +362,7 @@ rules:
   inputs: &id001
     time: block_time
     utc_ms: arrival_millis_utc
-    airport: arrival
+    location: arrival
   outputs:
     day: multi_engine_copi_day
     night: multi_engine_copi_night

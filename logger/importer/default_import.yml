@@ -1,4 +1,4 @@
-# Import profile "Default": one line per header of the file, written  header: entity  (entities: see entities.yml).
+# Import profile "Default": one line per header of the file, written  header: entity  (entities: see Data > Entities).
 # A header that is not listed here is not imported. The columns of the raw database are created by the import.
 # Editable from Data > Import data > Edit import rules.
 name: Default
@@ -9,8 +9,8 @@ columns:
   date: date_date
   type: aircraft_type
   reg: aircraft_registration
-  pic_name: crew_pilot
-  copi_name: crew_copilot
+  pic_name: crew_pilot_name
+  copi_name: crew_copilot_name
   dep_code: location_departure_code
   arr_code: location_arrival_code
   remarks: misc_remarks

@@ -51,6 +51,9 @@ def _blank(v):
 
 _ISO = re.compile(r"\s*(\d{4})-(\d{1,2})-(\d{1,2})")
 _DMY = re.compile(r"\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)")
+_MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+_MDY = re.compile(r"\s*([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)")
+_D_MONTH_Y = re.compile(r"\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})(?!\d)")
 
 
 def _ymd(v):
@@ -61,17 +64,61 @@ def _ymd(v):
         y, mo, d = int(m[1]), int(m[2]), int(m[3])
     else:
         m = _DMY.match(text)
-        if not m:
-            return None
-        d, mo, y = int(m[1]), int(m[2]), int(m[3])
-        if len(m[3]) == 2:
-            y += 2000 if y < 70 else 1900
+        if m:
+            d, mo, y = int(m[1]), int(m[2]), int(m[3])
+            if len(m[3]) == 2:
+                y += 2000 if y < 70 else 1900
+        else:
+            named = _MDY.match(text)
+            if named:
+                mo, d, y = _MONTHS.get(named[1][:3].lower()), int(named[2]), int(named[3])
+            else:
+                named = _D_MONTH_Y.match(text)
+                if not named:
+                    return None
+                d, mo, y = int(named[1]), _MONTHS.get(named[2][:3].lower()), int(named[3])
+            if mo is None:
+                return None
     return (y, mo, d) if 1 <= mo <= 12 and 1 <= d <= 31 else None
 
 
 def _date_part(v, index):
     parts = _ymd(v)
     return None if parts is None else parts[index - 1]
+
+
+def _date_of(v):
+    """YYYY-MM-DD of a date written 2026-09-27, 27/09/2026, Sep 11 2026 or 11 September 2026 (empty when it is not a date)."""
+    parts = _ymd(v)
+    if parts is None:
+        return None
+    try:
+        return datetime.date(*parts).isoformat()
+    except ValueError:
+        return None
+
+
+def _time_24h(v):
+    """HH:MM (24 h) of 5:10AM, 5:10 PM, 17:10 or 17:10:00 (empty when there is no time)."""
+    m = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*([AaPp])\.?[Mm]\.?)?", "" if v is None else str(v))
+    if not m:
+        return None
+    h, mi, ampm = int(m[1]), int(m[2]), m[3]
+    if mi > 59 or h > 23:
+        return None
+    if ampm:
+        if not 1 <= h <= 12:
+            return None
+        h = h % 12 + (12 if ampm.lower() == "p" else 0)
+    return f"{h:02d}:{mi:02d}"
+
+
+def _strip_chars(v, chars):
+    """The text without the given characters at both ends: strip_chars("# 0767", "# ") -> 0767."""
+    if _blank(v):
+        return None
+    text = str(v).strip().strip("" if chars is None else str(chars)).strip()
+    return text or None
 
 
 def _to_float(v):
@@ -269,11 +316,11 @@ def _crew_copilot(crew, pilot):
     return None
 
 
-# ---- reference tables (Aircraft and Airports); the cache is emptied each time work_db.yml is loaded
+# ---- reference tables (Aircraft and Locations); the cache is emptied each time work_db.yml is loaded
 _cache = {}
 AIRCRAFT_FIELDS = {"display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "landing_gear", "mtow_lb", "mtow_kg"}
-AIRPORT_FIELDS = {"display", "icao", "iata", "company", "name", "country", "latitude", "longitude"}
-_AIRPORT_COLUMN = {"icao": "icao_code", "iata": "iata_code", "company": "company_code", "name": "full_name"}
+LOCATION_FIELDS = {"display", "icao", "iata", "company", "name", "country", "latitude", "longitude"}
+_LOCATION_COLUMN = {"icao": "icao_code", "iata": "iata_code", "company": "company_code", "name": "full_name"}
 
 
 def reset_cache():
@@ -303,17 +350,18 @@ def _aircraft(code, field):
         return None
     if field == "display":
         return row.get("display") or row.get("designator")
-    return row.get(field)
+    return row.get(field) if field in row.keys() else row.get(f"aircraft_{field}")
 
 
-def _airport(code, field):
-    from .refdata import find_airport
-    row = _cached("airport", code, find_airport)
+def _location(code, field):
+    from .refdata import find_location
+    row = _cached("location", code, find_location)
     if row is None:
         return None
     if field == "display":
         return row.get("display") or row.get("icao_code") or row.get("iata_code") or row.get("company_code")
-    return row.get(_AIRPORT_COLUMN.get(field, field))
+    column = _LOCATION_COLUMN.get(field, field)
+    return row.get(column) if column in row.keys() else row.get(f"location_{field}")
 
 
 FUNCS = {
@@ -338,11 +386,16 @@ FUNCS = {
     "crew_copilot": _crew_copilot,
     "registration_format": _registration_format,
     "aircraft": _aircraft,
-    "airport": _airport,
+    "location": _location,
+    "airport": _location,       # former name of location(), kept so that edited work_db.yml files keep working
+    "date_of": _date_of,
+    "time_24h": _time_24h,
+    "strip_chars": _strip_chars,
 }
 _ARITY = {"is_blank": 1, "year_of": 1, "month_of": 1, "day_of": 1, "is_zero_time": 1, "has_word": 2, "time_of": 1,
           "minutes_between": 2, "hhmm": 1, "minutes": 1, "distance_nm": 4, "round": 2, "tc_hours": 1, "utc_datetime": 5, "sun_angle": 3, "is_pilot_format": 1,
-          "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "airport": 2, "registration_format": 1}
+          "pilot_format": 1, "crew_captain": 1, "crew_copilot": 2, "aircraft": 2, "location": 2, "registration_format": 1,
+          "airport": 2, "date_of": 1, "time_24h": 1, "strip_chars": 2}
 _CMP = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
 _ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 
@@ -369,8 +422,8 @@ def _check(node, where):
         if len(node.args) != _ARITY[name]:
             raise SpecError(f"{where}: {name}() takes {_ARITY[name]} argument(s).")
         for a in node.args: _check(a, where)
-        if name in ("aircraft", "airport") and isinstance(node.args[1], ast.Constant):
-            allowed = AIRCRAFT_FIELDS if name == "aircraft" else AIRPORT_FIELDS
+        if name in ("aircraft", "location") and isinstance(node.args[1], ast.Constant):
+            allowed = AIRCRAFT_FIELDS if name == "aircraft" else LOCATION_FIELDS
             if node.args[1].value not in allowed:
                 raise SpecError(f"{where}: {name}() has no field “{node.args[1].value}” (available: {', '.join(sorted(allowed))}).")
     else:
@@ -556,7 +609,7 @@ def parse_spec(data):
 
 
 def load_spec():
-    reset_cache()                                   # Aircraft / Airports data are read again at each refresh
+    reset_cache()                                   # Aircraft / Locations data are read again at each refresh
     return parse_spec(yaml.safe_load(spec_path().read_text(encoding="utf-8")))
 
 

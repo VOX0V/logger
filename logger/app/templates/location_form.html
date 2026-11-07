@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block content %}
-{% set v = form if form else airport %}
-<h2>{{'Edit' if airport else 'New'}} airport</h2>
+{% set v = form if form else location %}
+<h2>{{'Edit' if location else 'New'}} location</h2>
 <form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="grid">
 <div class="field"><label>Display (shown in the logbook; ICAO when empty)</label><input name="display" value="{{v.display if v and v.display is not none else ''}}"></div>
 <div class="field"><label>ICAO code</label><input name="icao_code" value="{{v.icao_code if v and v.icao_code is not none else ''}}"></div>
@@ -10,5 +10,7 @@
 <div class="field"><label>Country</label><input name="country" value="{{v.country if v and v.country is not none else ''}}"></div>
 <div class="field"><label>Latitude (decimal degrees; empty if unknown)</label><input name="latitude" value="{{v.latitude if v and v.latitude is not none else ''}}"></div>
 <div class="field"><label>Longitude (decimal degrees; empty if unknown)</label><input name="longitude" value="{{v.longitude if v and v.longitude is not none else ''}}"></div>
+{% for x in extras %}<div class="field"><label>{{x.title}}</label><input name="{{x.field}}" value="{{ v[x.field] if v and v[x.field] is not none else '' }}"></div>
+{% endfor %}
 </div>
-<p><button class="btn">Save</button> <a class="btn secondary" href="{{url_for('converter.airports')}}">Cancel</a></p></form>{% endblock %}
+<p><button class="btn">Save</button> <a class="btn secondary" href="{{url_for('converter.locations')}}">Cancel</a></p></form>{% endblock %}

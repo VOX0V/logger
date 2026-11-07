@@ -9,26 +9,30 @@
 #   - w_<column>: the value already computed for a work column with a lower number (w_leg_time, ...)
 #   - numbers, "text", true / false, and / or / not, comparisons (== != < <= > >=), + - * /
 #   - dates:    year_of(x), month_of(x), day_of(x)   (x = 2026-09-27, 27/09/2026 or 27/10/23; two digits: 00-69 = 2000s, 70-99 = 1900s)
+#               also "Sep 11 2026" and "11 September 2026"; date_of(x) = YYYY-MM-DD of any of these formats
 #   - times:    time_of(x) = HH:MM of a datetime, minutes_between(a, b) (datetimes or epoch milliseconds),
 #               hhmm(minutes), minutes("HH:MM"), is_zero_time(x)
+#               time_24h(x) = HH:MM (24 h) of "5:10AM", "5:10 PM" or "17:10"
 #   - numbers:  round(x, digits), distance_nm(lat1, lon1, lat2, lon2) (great circle, nautical miles)
 #   - flight time: tc_hours(x) = decimal hours; H:MM is converted with the Transport Canada table (1:35 -> 1.6), a number is kept
 #   - sun:      utc_datetime(year, month, day, time_utc, earlier_time) = YYYY-MM-DDTHH:MM (next day if time_utc < earlier_time),
 #               sun_angle(lat, lon, datetime_utc) = angle of the sun above the horizon in degrees (0 = horizon, -6 = end of civil twilight)
 #   - people:   is_pilot_format(x), pilot_format(x) (-> P.Name), crew_captain(crew_list), crew_copilot(crew_list, pilot_name)
 #   - tables:   aircraft(type, field)  fields: display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg
-#               airport(code, field)   fields: display, icao, iata, company, name, country, latitude, longitude
-#   - other:    is_blank(x), has_word(text, word), registration_format(x) (CGABC -> C-GABC)
+#               location(code, field)   fields: display, icao, iata, company, name, country, latitude, longitude
+#               a column added on the Aircraft / Locations structure page is read with its entity name without the group (timezone for location_timezone)
+#   - other:    is_blank(x), has_word(text, word), registration_format(x) (CGABC -> C-GABC),
+#               strip_chars(text, chars): strip_chars("# 0767", "# ") -> 0767
 # "type" is one of: integer, decimal, boolean, date, datetime, text (default: text).
 #
-# Raw column names are the entities of importer/entities.yml (crew_pilot, crew_copilot, location_departure_code, location_arrival_code,
-# location_departure_time_utc, location_arrival_time_utc, leg_time, time_se_*, time_me_*, time_cc_*, time_ifr, time_hood, time_ftd,
-# count_ifr_approach, count_landing_day, ...). A raw column exists only when an import profile has created it.
+# Raw column names are the entities of Data > Entities (crew_pilot_name, crew_copilot_name, crew_operator, location_departure_code,
+# location_arrival_code, location_departure_time_utc, location_arrival_time_utc, time_flight_hhmm, time_se_*, time_me_*, time_cc_*,
+# time_ifr, time_hood, time_ftd, count_ifr_approach, count_landing_day, ...). A raw column exists only when an import profile has created it.
 
 # Raw rows matching one of these rules are left out of the work data.
 skip_rows:
   - name: Flights with a 0:00 block time (not operated)
-    when: is_zero_time(leg_time)
+    when: is_zero_time(time_flight_hhmm)
   - name: Flights where I am not in the crew list
     when: not is_blank(crew_list) and not has_word(crew_list, pilot_name)
 
@@ -91,45 +95,45 @@ skip_rows:
 10_pilot:
   type: text
   rules:
-    - when: is_pilot_format(crew_pilot)
-      value: crew_pilot
-    - value: pilot_format(crew_pilot)
+    - when: is_pilot_format(crew_pilot_name)
+      value: crew_pilot_name
+    - value: pilot_format(crew_pilot_name)
     - value: crew_captain(crew_list)
 
 11_copilot:
   type: text
   rules:
-    - when: is_pilot_format(crew_copilot)
-      value: crew_copilot
-    - value: pilot_format(crew_copilot)
+    - when: is_pilot_format(crew_copilot_name)
+      value: crew_copilot_name
+    - value: pilot_format(crew_copilot_name)
     - value: crew_copilot(crew_list, pilot_name)
 
 12_employer:
   type: text
   rules:
-    - value: crew_company
+    - value: crew_operator
 
-############### AIRPORTS ###############
+############### LOCATIONS ###############
 13_departure_code:
   type: text
   rules:
-    - value: airport(location_departure_code, "display")
+    - value: location(location_departure_code, "display")
     - value: location_departure_code
 
 14_departure_name:
   type: text
   rules:
-    - value: airport(location_departure_code, "name")
+    - value: location(location_departure_code, "name")
 
 15_departure_latitude:
   type: decimal
   rules:
-    - value: airport(location_departure_code, "latitude")
+    - value: location(location_departure_code, "latitude")
 
 16_departure_longitude:
   type: decimal
   rules:
-    - value: airport(location_departure_code, "longitude")
+    - value: location(location_departure_code, "longitude")
 
 17_departure_time_utc:
   type: text
@@ -139,23 +143,23 @@ skip_rows:
 18_arrival_code:
   type: text
   rules:
-    - value: airport(location_arrival_code, "display")
+    - value: location(location_arrival_code, "display")
     - value: location_arrival_code
 
 19_arrival_name:
   type: text
   rules:
-    - value: airport(location_arrival_code, "name")
+    - value: location(location_arrival_code, "name")
 
 20_arrival_latitude:
   type: decimal
   rules:
-    - value: airport(location_arrival_code, "latitude")
+    - value: location(location_arrival_code, "latitude")
 
 21_arrival_longitude:
   type: decimal
   rules:
-    - value: airport(location_arrival_code, "longitude")
+    - value: location(location_arrival_code, "longitude")
 
 22_arrival_time_utc:
   type: text
@@ -229,7 +233,7 @@ skip_rows:
     - value: tc_hours(time_me_dual_night)
     - value: tc_hours(time_me_pic_night)
     - value: tc_hours(time_me_copi_night)
-    - value: tc_hours(leg_time)
+    - value: tc_hours(time_flight_hhmm)
 
 # Each column first takes its own raw value (se_*, me_*). Only when a flight has none of these raw values (airline
 # files without role columns), the flight time is copied into every column of the right category (single or multi engine,

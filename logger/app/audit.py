@@ -10,7 +10,7 @@ All files are merged in file name order. See the comments at the top of the ship
   rules:        - {name, severity, when, message, each, skipped_rows}
   group_rules:  - {name, severity, kind: one_to_many | spellings, ...}   (rules over several rows)
 Expressions are those of work_db.yml (columns by name, and/or/not, comparisons, + - * /, functions), plus
-valid_date, future_date, num, matches, length, has_stray_spaces, exercise_issues, known_airport, known_aircraft."""
+valid_date, future_date, num, matches, length, has_stray_spaces, exercise_issues, known_location, known_aircraft."""
 import re
 import sqlite3
 import unicodedata
@@ -31,7 +31,7 @@ SEVERITY_ORDER = {"ERROR": 0, "ANOMALY": 1, "INFO": 2}
 MAX_SHOWN = 200
 FILE_ID = re.compile(r"[a-z0-9_-]+")
 BUNDLED_DIR = Path(__file__).resolve().parent.parent / "audit"
-_STATE = {"today": None, "airports": None, "aircraft": None}
+_STATE = {"today": None, "locations": None, "aircraft": None}
 
 
 def text(v):
@@ -109,17 +109,17 @@ def _known(table, x):
 
 workdb.FUNCS.update({"valid_date": _valid_date, "future_date": _future_date, "num": _num, "matches": _matches,
                      "length": _length, "has_stray_spaces": _has_stray_spaces, "exercise_issues": _exercise_issues,
-                     "known_airport": lambda x: _known("airports", x), "known_aircraft": lambda x: _known("aircraft", x),
+                     "known_location": lambda x: _known("locations", x), "known_airport": lambda x: _known("locations", x), "known_aircraft": lambda x: _known("aircraft", x),
                      "iif": lambda cond, a, b: a if _truthy(cond) else b})
 workdb._ARITY.update({"valid_date": 3, "future_date": 3, "num": 1, "matches": 2, "length": 1, "has_stray_spaces": 1,
-                      "exercise_issues": 1, "known_airport": 1, "known_aircraft": 1, "iif": 3})
+                      "exercise_issues": 1, "known_location": 1, "known_airport": 1, "known_aircraft": 1, "iif": 3})
 
 
-def airport_codes():
-    """Every code of the Airports table (ICAO, IATA, company code, display); None when the table is not available."""
+def location_codes():
+    """Every code of the Locations table (ICAO, IATA, company code, display); None when the table is not available."""
     try:
-        from .refdata import list_airports
-        return {text(a[c]).strip().upper() for a in list_airports() for c in ("icao_code", "iata_code", "company_code", "display") if a[c]}
+        from .refdata import list_locations
+        return {text(a[c]).strip().upper() for a in list_locations() for c in ("icao_code", "iata_code", "company_code", "display") if a[c]}
     except Exception:
         return None
 
@@ -291,7 +291,7 @@ def row_date(r):
 
 
 def run_checks(rows, today=None):
-    _STATE.update(today=today or date.today(), airports=airport_codes(), aircraft=aircraft_codes())
+    _STATE.update(today=today or date.today(), locations=location_codes(), aircraft=aircraft_codes())
     spec, problems = load_rules()
     findings = [{"sev": "ERROR", "cat": "Audit rule problem", "date": "", "label": "audit/", "msg": p} for p in problems]
     unknown, failed = set(), set()
