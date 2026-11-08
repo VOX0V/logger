@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
-from .auth import login_required, admin_required
+from .auth import login_required, admin_required, fresh_login_required, clear_confirmed
 from .config import (load_config, save_config, load_logbook_db_config, save_logbook_db_config,
                      is_system, technical_name)
 from .db import db_dir, connect, logbook_connect, _open
@@ -304,6 +304,25 @@ def import_xlsx():
         message += f" Warning: {len(bad)} import profile(s) no longer work ({', '.join(p for p, _ in bad)}). First error: {bad[0][1]}"
     flash(message)
     return redirect(url_for("entities.index"))
+
+
+@entities_bp.route("/clear", methods=["POST"])
+@admin_required
+@fresh_login_required
+def clear():
+    if not clear_confirmed():
+        flash("Nothing was deleted: type CLEAR to confirm.")
+        return redirect(url_for("hubs.data"))
+    conn = _conn()
+    try:
+        conn.execute("DELETE FROM entities")
+        conn.commit()
+    finally:
+        conn.close()
+    log_event("data_destroy", target="entities:all-rows")
+    _changed()
+    flash("All entities were deleted.")
+    return redirect(url_for("hubs.data"))
 
 
 @entities_bp.route("/export")

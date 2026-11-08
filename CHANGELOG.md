@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.34 — Data page reorganised
+
+- **Data page** (hub/data): sections reorganised: User data (Import data with Import profiles; Raw data; Convert data; Work data), Logbook, Breakdown, Databases (Entities, Raw DB, Work DB) and App Data (Locations, Aircrafts).
+- **Convert Data**: the former "Actualise data" button is renamed and shown in green.
+- **Clear entities**: new button (administrators) that deletes all the entities, after typing CLEAR.
+- The "Edit import rules" and "Edit conversion rules" buttons (old system) are removed from the page.
+- `VERSION` is now 0.3.34.
+
 ## 0.3.33 — Import and conversion profiles, work db structure
 
 - **Import profiles** (Data > Import profiles, administrators): create, edit, rename, delete and export the profiles. The editor is a grid: header of the file, then the entity chosen in the entity list. The first time, the shipped profiles are copied to `appdata/importer`; from then on only the profiles of that folder are used, so all of them can be edited or deleted. Renaming a profile renames its conversion file too.
