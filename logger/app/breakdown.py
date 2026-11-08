@@ -13,11 +13,9 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import Paragraph, Table, TableStyle
 
-from . import cssafe
 from .auth import login_required
 from .config import load_breakdown, load_logbook_layout, save_breakdown
 from .db import logbook_connect
-from .errors import safe_message
 from .seclog import log_event
 
 breakdown_bp = Blueprint("breakdown", __name__, url_prefix="/breakdown")
@@ -37,7 +35,6 @@ COLS = (
 )
 SECTIONS = list(dict.fromkeys(c[0] for c in COLS))
 AIRCRAFT_COLS = [c[3] for c in COLS if c[0] in ("SINGLE-ENGINE", "MULTI-ENGINE")]   # TOTAL = single + multi engine hours
-CATEGORY_ORDER = {"helicopter": 0, "airplane": 1, "simulator": 2}
 TURBINE_TYPES = {"turbine", "turbofan", "turboprop", "turboshaft"}
 
 TITLE = "FLIGHT TIME BREAKDOWN"
@@ -137,10 +134,6 @@ def header_rows():
         else:
             r2.append((c[2], 1, 2, (c[0], "")))
     return r1, [x[:3] for x in r2], r3
-
-
-def column_labels():
-    return [("Type", "type"), ("TOTAL", "total")] + [(" ".join(x for x in (c[0].title(), c[1], c[2]) if x), c[3]) for c in COLS]
 
 
 def row_colors(n, lb_styles):

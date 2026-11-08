@@ -1,130 +1,21 @@
-"""The "Converter" tab: rule catalog (admins edit, everyone ticks their own
-rules), converter settings, and the shared location / aircraft reference data."""
+"""The shared location / aircraft reference data (grids, import, export, clear)."""
 import json
 import sqlite3
 
-from flask import Blueprint, Response, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
-from ..auth import login_required, admin_required, fresh_login_required, clear_confirmed
+from ..auth import admin_required, fresh_login_required, clear_confirmed
 from ..seclog import log_event
 from ..gridview import grid_data
 from ..db import location_connect, aircrafts_connect
-from ..config import load_config, load_logbook_db_config, configurable_columns
-from ..refdata import (list_locations, get_location, save_location, delete_location,
-                       list_aircraft_types, get_aircraft_type, save_aircraft_type, delete_aircraft_type, option_pairs, OPTION_FIELDS, export_aircraft_types_xlsx, export_locations_xlsx,
-    import_locations, import_aircraft_types, clear_locations, clear_aircraft_types)
+from ..refdata import get_location, save_location, delete_location, get_aircraft_type, save_aircraft_type, delete_aircraft_type, option_pairs, OPTION_FIELDS, export_aircraft_types_xlsx, export_locations_xlsx, import_locations, import_aircraft_types, clear_locations, clear_aircraft_types
 from ..importer import FileImportError
-from . import catalog
 from .. import refcolumns
-from .transforms import TRANSFORMS
 
 converter_bp = Blueprint("converter", __name__, url_prefix="/converter")
 
 
-def _user_columns():
-    a = [c["column"] for c in configurable_columns(load_config())]
-    b = [c["column"] for c in load_logbook_db_config()["database"]["columns"] if not c.get("system")]
-    return a, b
-
-
-def _summary(rule):
-    left = " + ".join(rule["inputs"].values())
-    right = ", ".join(rule["outputs"].values())
-    extra = ", ".join(f"{k}={v}" for k, v in rule["params"].items() if v not in ("any",))
-    return f"{left} → {right}" + (f"  ({extra})" if extra else "")
-
-
-@converter_bp.route("")
-@login_required
-def index():
-    a, b = _user_columns()
-    selected = set(catalog.load_selection())
-    rules = []
-    for rule in catalog.load_rules():
-        rules.append({
-            "rule": rule, "checked": rule["id"] in selected,
-            "missing": catalog.rule_missing_columns(rule, a, b), "summary": _summary(rule),
-            "label": TRANSFORMS.get(rule["transform"], {}).get("label", rule["transform"])})
-    settings = catalog.load_settings()
-    return render_template("converter.html", rules=rules, settings=settings,
-                           rounding_text=catalog.rounding_to_text(settings["tc_rounding"]["rules"]))
-
-
-@converter_bp.route("/select", methods=["POST"])
-@login_required
-def select():
-    catalog.save_selection(request.form.getlist("enabled"))
-    flash("Rule selection saved. Click Refresh in logbook.db to apply it.")
-    return redirect(url_for("converter.index"))
-
-
 # ---------------- rules (admin) ----------------
-
-def _rule_values(rule):
-    values = {"name": rule["name"], "default": "1" if rule["default"] else ""}
-    values.update({f"in_{k}": v for k, v in rule["inputs"].items()})
-    values.update({f"out_{k}": v for k, v in rule["outputs"].items()})
-    values.update({f"param_{k}": v for k, v in rule["params"].items()})
-    return values
-
-
-def _render_rule_form(rule, transform, values, action):
-    a, b = _user_columns()
-    return render_template("rule_form.html", rule=rule, transform=transform, spec=TRANSFORMS[transform],
-                           transforms=TRANSFORMS, values=values, a_columns=a, b_columns=b,
-                           action=action)
-
-
-@converter_bp.route("/rule/new", methods=["GET", "POST"])
-@admin_required
-def rule_new():
-    transform = request.values.get("transform", "copy")
-    if transform not in TRANSFORMS:
-        transform = "copy"
-    if request.method == "POST" and request.form.get("save") == "1":
-        try:
-            rules = catalog.load_rules()
-            rule_id = catalog.rule_id_from_name(request.form.get("name", ""), {r["id"] for r in rules})
-            rules.append(catalog.build_rule(request.form, transform, rule_id))
-            catalog.save_rules(rules)
-            log_event("config_change", target=f"converter:regle-ajoutee:{rule_id}")
-            flash("Rule added to the catalog.")
-            return redirect(url_for("converter.index"))
-        except ValueError as exc:
-            flash(str(exc))
-    return _render_rule_form(None, transform, request.form if request.method == "POST" else {}, url_for("converter.rule_new"))
-
-
-@converter_bp.route("/rule/<rule_id>/edit", methods=["GET", "POST"])
-@admin_required
-def rule_edit(rule_id):
-    rules = catalog.load_rules()
-    rule = next((r for r in rules if r["id"] == rule_id), None)
-    if not rule:
-        flash("Rule not found."); return redirect(url_for("converter.index"))
-    if request.method == "POST":
-        try:
-            updated = catalog.build_rule(request.form, rule["transform"], rule_id)
-            catalog.save_rules([updated if r["id"] == rule_id else r for r in rules])
-            log_event("config_change", target=f"converter:regle-modifiee:{rule_id}")
-            flash("Rule updated.")
-            return redirect(url_for("converter.index"))
-        except ValueError as exc:
-            flash(str(exc))
-    return _render_rule_form(rule, rule["transform"], request.form if request.method == "POST" else _rule_values(rule),
-                             url_for("converter.rule_edit", rule_id=rule_id))
-
-
-@converter_bp.route("/rule/<rule_id>/delete", methods=["POST"])
-@admin_required
-@fresh_login_required
-def rule_delete(rule_id):
-    rules = catalog.load_rules()
-    catalog.save_rules([r for r in rules if r["id"] != rule_id])
-    log_event("data_destroy", target=f"converter:regle-supprimee:{rule_id}")
-    flash("Rule deleted from the catalog (it is also unticked for all accounts).")
-    return redirect(url_for("converter.index"))
-
 
 # ---------------- locations (admin) ----------------
 
@@ -370,33 +261,6 @@ def aircrafts_add():
 @admin_required
 def aircrafts_delete():
     return _delete(delete_aircraft_type, "aircraft-types")
-
-
-@converter_bp.route("/aircrafts/new", methods=["GET", "POST"])
-@converter_bp.route("/aircrafts/<int:aircraft_id>/edit", methods=["GET", "POST"])
-@admin_required
-def aircraft_form(aircraft_id=None):
-    aircraft = get_aircraft_type(aircraft_id) if aircraft_id else None
-    if aircraft_id and not aircraft:
-        flash("Type not found."); return redirect(url_for("converter.aircrafts"))
-    if request.method == "POST":
-        try:
-            save_aircraft_type(aircraft_id, request.form)
-            flash("Type saved.")
-            return redirect(url_for("converter.aircrafts"))
-        except ValueError as exc:
-            flash(str(exc))
-    return render_template("aircraft_form.html", aircraft=aircraft, options={f: (t, option_pairs(f)) for f, t in OPTION_FIELDS.items()},
-                           form=request.form if request.method == "POST" else None, extras=refcolumns.extras("aircraft"))
-
-
-@converter_bp.route("/aircrafts/<int:aircraft_id>/delete", methods=["POST"])
-@admin_required
-def aircraft_delete(aircraft_id):
-    delete_aircraft_type(aircraft_id)
-    log_event("data_destroy", target=f"aircraft:{aircraft_id}")
-    flash("Type deleted.")
-    return redirect(url_for("converter.aircrafts"))
 
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

@@ -2,14 +2,12 @@
 per-user selection of rules (users/<username>/<username>_converter.yml)."""
 import re
 import shutil
-import unicodedata
 from pathlib import Path
 
 import yaml
 from flask import current_app
 
-from ..db import converter_dir, user_file, current_username, safe_identifier
-from .transforms import TRANSFORMS
+from ..db import converter_dir, user_file, current_username
 
 DEFAULT_SETTINGS = {
     "night": {"after_sunset_minutes": 30, "before_sunrise_minutes": 30},
@@ -120,59 +118,6 @@ def save_rules(rules):
     rules_path().write_text(yaml.safe_dump({"rules": rules}, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
-def get_rule(rule_id):
-    return next((r for r in load_rules() if r["id"] == rule_id), None)
-
-
-def rule_id_from_name(name, existing):
-    ascii_name = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii")
-    base = re.sub(r"[^a-z0-9]+", "_", ascii_name.lower()).strip("_")[:40] or "regle"
-    candidate, n = base, 2
-    while candidate in existing:
-        candidate = f"{base}_{n}"; n += 1
-    return candidate
-
-
-def build_rule(form, transform, rule_id):
-    """Build and validate a rule from the admin form. Raises ValueError."""
-    spec = TRANSFORMS.get(transform)
-    if not spec:
-        raise ValueError("Unknown transform type.")
-    name = form.get("name", "").strip()
-    if not name:
-        raise ValueError("The rule name is required.")
-    params = {}
-    for key, _label, choices in spec["params"]:
-        value = form.get(f"param_{key}", choices[0][0])
-        if value not in {c[0] for c in choices}:
-            raise ValueError("Invalid parameter.")
-        params[key] = value
-    inputs, outputs = {}, {}
-    for slot, label, required in spec["inputs"]:
-        value = form.get(f"in_{slot}", "").strip()
-        if slot == "registration":
-            required = params.get("engine", "any") != "any"
-        if not value:
-            if required:
-                raise ValueError(f"“{label} ” is required.")
-            continue
-        inputs[slot] = safe_identifier(value)
-    for slot, label, _required in spec["outputs"]:
-        value = form.get(f"out_{slot}", "").strip()
-        if not value:
-            raise ValueError(f"“{label} ” is required.")
-        outputs[slot] = safe_identifier(value)
-    return {"id": rule_id, "name": name, "transform": transform,
-            "inputs": inputs, "outputs": outputs, "params": params, "default": form.get("default") == "1"}
-
-
-def rule_missing_columns(rule, a_columns, b_columns):
-    """Columns used by the rule that do not exist in this user's structures."""
-    missing = [f"A.{c}" for c in rule["inputs"].values() if c not in a_columns]
-    missing += [f"B.{c}" for c in rule["outputs"].values() if c not in b_columns]
-    return missing
-
-
 # ---------------- settings ----------------
 
 def load_settings():
@@ -183,10 +128,6 @@ def load_settings():
             "tc_rounding": data.get("tc_rounding") or DEFAULT_SETTINGS["tc_rounding"],
             "airline_prefix": str(data.get("airline_prefix", DEFAULT_SETTINGS["airline_prefix"])).strip(),
             "aircraft_types": data.get("aircraft_types") or DEFAULT_SETTINGS["aircraft_types"]}
-
-
-def save_settings(settings):
-    settings_path().write_text(yaml.safe_dump(settings, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def rounding_to_text(rules):
@@ -251,13 +192,6 @@ def _write_selection(data, username=None):
     selection_path(username).write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
-def save_selection(ids, username=None):
-    known = {r["id"] for r in load_rules()}
-    data = _selection_data(username)
-    data["enabled"] = [i for i in ids if i in known]
-    _write_selection(data, username)
-
-
 def pilot_name(username=None):
     """The user's family name, used to find them in the crew list (stored with their rule selection)."""
     ensure_user_selection(username or current_username())
@@ -300,14 +234,3 @@ def save_qualifications(items, username=None):
     _write_selection(data, username)
 
 
-def save_pilot_name(name, username=None):
-    ensure_user_selection(username or current_username())
-    data = _selection_data(username)
-    data["pilot_name"] = str(name).strip()[:60]
-    _write_selection(data, username)
-
-
-def active_rules(username=None):
-    """The user's ticked rules, in catalog order."""
-    enabled = set(load_selection(username))
-    return [r for r in load_rules() if r["id"] in enabled]

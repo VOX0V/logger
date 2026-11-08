@@ -713,7 +713,11 @@ def ensure_globals():
     if folder is None:
         return None
     folder.mkdir(parents=True, exist_ok=True)
+    marker = folder / ".globals_ready"              # once made, a profile that the administrator deletes stays deleted
+    if marker.exists():
+        return folder
     if any(folder.glob("*" + GLOBAL_SUFFIX)):
+        marker.write_text("1", encoding="utf-8")
         return folder
     legacy = folder / "work_db.yml"
     if legacy.is_file():
@@ -724,6 +728,7 @@ def ensure_globals():
     else:
         for path in SHIPPED_GLOBAL.glob("*.yml"):
             (folder / f"{path.stem}{GLOBAL_SUFFIX}").write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    marker.write_text("1", encoding="utf-8")
     return folder
 
 

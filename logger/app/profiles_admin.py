@@ -10,7 +10,7 @@ import yaml
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
 from . import import_profiles as ip
-from . import workdb
+from . import workdb, yamledit
 from .auth import admin_required
 from .importer import FileImportError
 from .seclog import log_event
@@ -267,91 +267,101 @@ def convert_export(profile_id):
     return _attachment(path.read_text(encoding="utf-8"), path.name)
 
 
-# ---------------- global profiles (General, Dates, Aircraft, Crew, Routes, Times) ----------------
+# ---------------- global profiles: files <id>_global.yml (create, import, edit, export, delete) ----------------
 
-def _gpath(gid):
+GLOBAL_SKELETON = """# Global profile “__ID__”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Rules of the conversion profile
+# of the company are tried first; then the rules of all the global profiles, in the order of the list.
+#
+# aircraft_type:                # the name of a work column, then its rules
+#   - when: not is_blank(aircraft_type)
+#     value: aircraft(aircraft_type, "display")
+"""
+
+
+def _gpath(gid, must_exist=True):
     path = workdb.global_path(gid)
-    if path is None or not workdb.PROFILE_ID.fullmatch(gid or "") or not path.is_file():
+    if path is None or not workdb.PROFILE_ID.fullmatch(gid or "") or (must_exist and not path.is_file()):
         abort(404)
     return path
 
 
-def _gdata(path):
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _column_of(key):
-    """Normalised column name of a key (the old form <number>_<name> is still read)."""
-    m = workdb.KEY.fullmatch(str(key))
-    return re.sub(r"[^a-z0-9]+", "_", (m.group(2) if m else str(key)).lower()).strip("_")
-
-
-def _key_for(data, column):
-    return next((k for k in data if k == column or (k != "skip_rows" and _column_of(k) == column)), column)
-
-
-def _blocks(data, key, create=False):
-    """The list of rules of a key (a reference into data)."""
-    body = data.get(key)
-    if isinstance(body, dict):
-        if create and not isinstance(body.get("rules"), list):
-            body["rules"] = []
-        return body.get("rules") if isinstance(body.get("rules"), list) else []
-    if isinstance(body, list):
-        return body
-    if create:
-        data[key] = []
-        return data[key]
-    return []
-
-
-def _gentries(data):
-    out = []
-    for key in data:
-        for i, rule in enumerate(_blocks(data, key)):
-            if isinstance(rule, dict):
-                out.append({"key": key, "column": "skip_rows" if key == "skip_rows" else _column_of(key), "index": i,
-                            "name": str(rule.get("name") or ""), "when": str(rule.get("when") or ""), "value": str(rule.get("value") or "")})
-    return out
-
-
-def _gwrite(gid, path, data):
-    """Validate the whole profile, then save it (the comment header is kept; the comments inside the rules are not)."""
+def _check_global(gid, content):
+    """Validate the text of a global profile; raises yamledit.Problem or workdb.SpecError (messages meant for the page)."""
+    if all(not line.strip() or line.lstrip().startswith("#") for line in content.splitlines()):
+        if len(content.encode("utf-8")) > yamledit.MAX_BYTES:
+            raise yamledit.Problem("File too large (256 KB maximum).")
+        data = {}
+    else:
+        data = yamledit.parse(content)
     workdb.check_rules_data(data, f"{gid}{workdb.GLOBAL_SUFFIX}")
-    header, _ = workdb.split_text(path.read_text(encoding="utf-8"))
-    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=1000) if data else ""
-    _write(path, (header.rstrip("\n") + "\n\n" if header.strip() else "") + body)
-
-
-def _gtitle(gid):
-    return workdb.GLOBAL_TITLES.get(gid, gid)
-
-
-def _work_columns():
-    from .workstructure import columns
-    try:
-        return [c["column"] for c in columns()]
-    except Exception:
-        return []
 
 
 def global_rows():
-    rows = []
-    for gid, path in workdb.global_files():
-        data = _gdata(path)
-        rows.append({"id": gid, "title": _gtitle(gid), "count": len(_gentries(data)), "file": path.name})
-    return rows
+    return [{"id": gid, "title": workdb.GLOBAL_TITLES.get(gid, gid), "file": path.name} for gid, path in workdb.global_files()]
 
 
-@profiles_bp.route("/global/<gid>")
+@profiles_bp.route("/global/new", methods=["GET", "POST"])
+@profiles_bp.route("/global/<gid>/edit", methods=["GET", "POST"])
 @admin_required
-def global_view(gid):
-    path = _gpath(gid)
-    return render_template("global_profile.html", gid=gid, title=_gtitle(gid), entries=_gentries(_gdata(path)), file=path.name)
+def global_edit(gid=None):
+    creating = gid is None
+    if creating:
+        new_id = request.form.get("new_id", "").strip().lower() if request.method == "POST" else ""
+        content = request.form.get("content", "") if request.method == "POST" else GLOBAL_SKELETON.replace("__ID__", "name")
+        path = None
+    else:
+        path = _gpath(gid)
+        new_id = gid
+        content = request.form.get("content", "") if request.method == "POST" else path.read_text(encoding="utf-8")
+    if request.method == "POST":
+        try:
+            if creating:
+                if not workdb.PROFILE_ID.fullmatch(new_id):
+                    raise workdb.SpecError("The identifier is required and only uses lowercase letters, digits, - and _.")
+                path = _gpath(new_id, must_exist=False)
+                if path.exists():
+                    raise workdb.SpecError(f"“{new_id}” already exists.")
+            _check_global(new_id, content)
+        except (yamledit.Problem, workdb.SpecError) as exc:
+            flash(str(exc))
+        else:
+            _write(path, content if content.endswith("\n") else content + "\n")
+            flash(f"Global profile “{new_id}” saved.")
+            return redirect(url_for("profiles.convert_list"))
+    return render_template("global_edit.html", gid=gid, new_id=new_id, content=content, creating=creating)
+
+
+@profiles_bp.route("/global/import", methods=["POST"])
+@admin_required
+def global_import():
+    file = request.files.get("file")
+    name = (file.filename or "") if file else ""
+    stem, dot, ext = name.rpartition(".")
+    if not file or not dot or ext.lower() not in ("yml", "yaml"):
+        flash("Choose a .yml file.")
+        return redirect(url_for("profiles.convert_list"))
+    gid = re.sub(r"[^a-z0-9_-]+", "-", stem.lower()).strip("-")
+    if gid.endswith("_global"):
+        gid = gid[:-len("_global")]
+    try:
+        if not workdb.PROFILE_ID.fullmatch(gid):
+            raise workdb.SpecError("The file name must give an identifier (letters, digits, - and _).")
+        raw = file.read(yamledit.MAX_BYTES + 1)
+        try:
+            content = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise workdb.SpecError("The file must be UTF-8 text.")
+        path = _gpath(gid, must_exist=False)
+        if path.exists():
+            raise workdb.SpecError(f"A global profile “{gid}” already exists: delete it first, or rename the file.")
+        _check_global(gid, content)
+    except (yamledit.Problem, workdb.SpecError) as exc:
+        flash(f"Import refused: {exc}")
+    else:
+        _write(path, content if content.endswith("\n") else content + "\n")
+        flash(f"Global profile “{gid}” imported.")
+    return redirect(url_for("profiles.convert_list"))
 
 
 @profiles_bp.route("/global/<gid>/export")
@@ -361,78 +371,10 @@ def global_export(gid):
     return _attachment(path.read_text(encoding="utf-8"), path.name)
 
 
-@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/export")
+@profiles_bp.route("/global/<gid>/delete", methods=["POST"])
 @admin_required
-def global_rule_export(gid, key, index):
-    data = _gdata(_gpath(gid))
-    blocks = _blocks(data, key)
-    if key not in data or index >= len(blocks):
-        abort(404)
-    return _attachment(yaml.safe_dump({key: [blocks[index]]}, sort_keys=False, allow_unicode=True, width=1000), f"{gid}_{key}_{index + 1}.yml")
-
-
-@profiles_bp.route("/global/<gid>/rule/new", methods=["GET", "POST"])
-@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/edit", methods=["GET", "POST"])
-@admin_required
-def global_rule_edit(gid, key=None, index=None):
-    path = _gpath(gid)
-    data = _gdata(path)
-    creating = key is None
-    if not creating:
-        blocks = _blocks(data, key)
-        if key not in data or index >= len(blocks) or not isinstance(blocks[index], dict):
-            abort(404)
-        old = blocks[index]
-        state = {"column": "skip_rows" if key == "skip_rows" else _column_of(key), "name": str(old.get("name") or ""),
-                 "when": str(old.get("when") or ""), "value": str(old.get("value") or "")}
-    else:
-        state = {"column": "skip_rows" if gid == "general" else "", "name": "", "when": "", "value": ""}
-    if request.method == "POST":
-        state = {k: request.form.get(k, "").strip() for k in ("column", "name", "when", "value")}
-        column = state["column"]
-        try:
-            if not column:
-                raise workdb.SpecError("The column is required (a work column, or skip_rows).")
-            if column == "skip_rows" and not state["when"]:
-                raise workdb.SpecError("A skip rule needs a condition (when).")
-            if column != "skip_rows" and not state["value"]:
-                raise workdb.SpecError("A rule needs a value.")
-            rule = {k: state[k] for k in (("name", "when") if column == "skip_rows" else ("name", "when", "value")) if state[k]}
-            target = "skip_rows" if column == "skip_rows" else _key_for(data, column)
-            if creating:
-                _blocks(data, target, create=True).append(rule)
-            elif target == key:
-                blocks[index] = rule
-            else:
-                del blocks[index]
-                if not blocks and isinstance(data.get(key), list):
-                    data.pop(key)
-                _blocks(data, target, create=True).append(rule)
-            _gwrite(gid, path, data)
-        except workdb.SpecError as exc:
-            flash(str(exc))
-        else:
-            flash("Rule saved.")
-            return redirect(url_for("profiles.global_view", gid=gid))
-    return render_template("global_rule_form.html", gid=gid, title=_gtitle(gid), state=state, creating=creating, columns=_work_columns())
-
-
-@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/delete", methods=["POST"])
-@admin_required
-def global_rule_delete(gid, key, index):
-    path = _gpath(gid)
-    data = _gdata(path)
-    blocks = _blocks(data, key)
-    if key not in data or index >= len(blocks):
-        abort(404)
-    del blocks[index]
-    if not blocks and isinstance(data.get(key), list):
-        data.pop(key)
-    try:
-        _gwrite(gid, path, data)
-    except workdb.SpecError as exc:
-        flash(str(exc))
-    else:
-        log_event("data_destroy", target=f"global-rule:{gid}:{key}")
-        flash("Rule deleted.")
-    return redirect(url_for("profiles.global_view", gid=gid))
+def global_delete(gid):
+    _gpath(gid).unlink()
+    log_event("data_destroy", target=f"global-profile:{gid}")
+    flash(f"Global profile “{gid}” deleted.")
+    return redirect(url_for("profiles.convert_list"))

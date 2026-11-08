@@ -10,12 +10,6 @@ def _url(endpoint):
     return url_for(endpoint[0], **endpoint[1]) if isinstance(endpoint, tuple) else url_for(endpoint)
 
 
-def _links(rows):
-    """Build (label, url) entries; admin-only rows are hidden from other roles."""
-    return [{"label": label, "url": _url(endpoint)} for label, endpoint, admin_only in rows
-            if not admin_only or g.role == "admin"]
-
-
 def _items(rows):
     return [{"label": label, "text": text, "url": _url(endpoint)} for label, text, endpoint, admin in rows
             if not admin or g.role == "admin"]

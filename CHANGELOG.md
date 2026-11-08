@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.36 — Global profiles as YAML files, cleanup
+
+- **Global profiles** (Data > Conversion profiles): each global profile is a YAML file `<id>_global.yml`. **Create** opens the YAML text editor, **Import** accepts a `.yml` file only (the identifier comes from the file name; refused if it already exists or is invalid), and each file has **Edit**, **Export** and **Delete**. The rule-by-rule screens of 0.3.35 are removed. A deleted profile stays deleted (marker `.globals_ready`).
+- **Cleanup**: removed the old Converter page (`/converter`, rule selection, rule editor), the aircraft form (`/converter/aircrafts/new`, `/edit`, `/delete`), their templates and tests, and the functions that became unused (`get_rule`, `rule_id_from_name`, `build_rule`, `rule_missing_columns`, `save_selection`, `save_logbook_layout`, `backup_sqlite`) with their imports. Kept because tests use them: `rounding_to_text`, `rounding_from_text`, `load_selection`, `save_aircraft`.
+- `VERSION` is now 0.3.36.
+
 ## 0.3.35 — Global profiles, Work DB settings
 
 - **Global profiles**: `work_db.yml` is gone. Its rules are split into six global profiles, one file each in `appdata/workdb/<id>_global.yml` (shipped in `defaults/global`): General (skip_rows and the list of expressions), Dates, Aircraft, Crew, Routes, Times. The first time, an edited `work_db.yml` of the account folder is split the same way and kept as `work_db.yml.old`. A column that appears in several profiles gets the rules of all of them, in that order.
@@ -7,6 +13,7 @@
 - **Renamed**: "Work db structure" is now **Work DB settings**, "Raw db structure" is **Raw DB settings**.
 - **Raw DB settings** now has the look of the Work DB settings page (grid with ✓ / ✗ cells, filter).
 - `VERSION` is now 0.3.35.
+- **Cleanup**: removed the templates `import_done.html`, `import_form.html`, `locations.html`, the functions and constants that nothing called (`CATEGORY_ORDER`, `column_labels`, `system_columns`, `_links`, `_reposition`, `list_users`, `check_entities`, `save_settings`, `save_pilot_name`, `active_rules`, `find_aircraft`, `list_aircrafts`, `get_aircraft`, `delete_aircraft`) and the unused imports. Kept on purpose: the old Converter page and the aircraft form, which the tests still use.
 
 ## 0.3.34 — Data page reorganised
 

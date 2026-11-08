@@ -208,10 +208,6 @@ def load_logbook_layout(username=None):
     return sanitize_layout(copy.deepcopy(cfg))      # valeurs CSS/numériques invalides -> valeurs par défaut
 
 
-def save_logbook_layout(data, username=None):
-    _atomic_write(logbook_layout_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
-
-
 def configurable_columns(config): return [c for c in config["database"]["columns"] if not is_system(c)]
 
 
@@ -233,9 +229,6 @@ def load_logbook_view(username=None):
         columns.append(c)
     return _view(columns)
 def logbook_columns(config, username=None): return [c for c in load_logbook_db_config(username)["database"]["columns"] if not is_system(c)]
-def system_columns(config): return [c for c in config["database"]["columns"] if is_system(c)]
-
-
 def load_breakdown(username=None):
     """Mise en page du rapport Flight time breakdown (breakdown.yml de l'utilisateur) ; valeurs invalides -> valeurs par défaut."""
     from .cssafe import sanitize_breakdown

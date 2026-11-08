@@ -6,17 +6,14 @@ from flask import Blueprint, flash, g, jsonify, redirect, render_template, reque
 from .auth import login_required, fresh_login_required, clear_confirmed
 from .importer import importable_rows
 from .import_profiles import list_profiles, load_profile, ensure_profile_columns, detect_profile, load_entities
-from .db import safe_identifier, connect, logbook_connect, user_root, current_username, backup_sqlite, db_path as user_db_path
-from .config import (load_config, save_config, configurable_columns, load_logbook_db_config,
-                      load_logbook_layout, save_logbook_layout,
-                      logbook_columns, technical_name, load_data_view, load_logbook_view)
+from .db import safe_identifier, connect, logbook_connect, user_root, current_username
+from .config import load_config, save_config, configurable_columns, load_logbook_layout, logbook_columns, load_data_view, load_logbook_view
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
 from .models import import_rows, drop_unused_columns
 from .gridview import grid_data, grid_export
 from .logbook_pdf import build_logbook_pdf
 from .errors import safe_message
 from .seclog import log_event
-from . import cssafe
 
 main_bp = Blueprint("main", __name__)
 
@@ -25,9 +22,6 @@ def _columns(config): return configurable_columns(config)
 def _back(default):
     """Redirect to the Data page when the form comes from there (back=hub), otherwise to the page's own default."""
     return redirect(url_for("hubs.data") if request.form.get("back")=="hub" else url_for(default))
-
-def _reposition(items):
-    for i,c in enumerate(items,1): c["position"] = i
 
 def _read_logbook_value(row, col):
     part = col.get("date_part")

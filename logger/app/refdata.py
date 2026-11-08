@@ -3,7 +3,7 @@ from pathlib import Path
 from flask import current_app
 import io
 import re, sqlite3, unicodedata
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 import yaml
@@ -270,27 +270,6 @@ def init_aircrafts_db():
         _load_default("aircrafts.xlsx", import_aircraft_types)
 
 
-def find_aircraft(registration):
-    registration = (registration or "").strip().upper()
-    if not registration:
-        return None
-    conn = aircrafts_connect()
-    row = conn.execute("SELECT * FROM aircrafts WHERE registration=?", (registration,)).fetchone()
-    conn.close(); return row
-
-
-def list_aircrafts():
-    conn = aircrafts_connect()
-    rows = conn.execute("SELECT * FROM aircrafts ORDER BY registration").fetchall()
-    conn.close(); return rows
-
-
-def get_aircraft(aircraft_id):
-    conn = aircrafts_connect()
-    row = conn.execute("SELECT * FROM aircrafts WHERE id=?", (aircraft_id,)).fetchone()
-    conn.close(); return row
-
-
 def save_aircraft(aircraft_id, form):
     registration = (_clean(form.get("registration")) or "").upper()
     if not registration:
@@ -313,12 +292,6 @@ def save_aircraft(aircraft_id, form):
         raise
     finally:
         conn.close()
-
-
-def delete_aircraft(aircraft_id):
-    conn = aircrafts_connect()
-    conn.execute("DELETE FROM aircrafts WHERE id=?", (aircraft_id,))
-    conn.commit(); conn.close()
 
 
 # ---------------- aircraft types (global: one row per type, never per registration) ----------------

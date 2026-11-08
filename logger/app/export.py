@@ -6,7 +6,7 @@ import re
 import secrets
 import sqlite3
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 

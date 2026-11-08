@@ -184,13 +184,6 @@ def _converter_settings_path(_username):
     return catalog.settings_path()
 
 
-def check_entities(data):
-    try:
-        import_profiles.parse_entities(data)
-    except FileImportError as exc:
-        raise Problem(str(exc))
-
-
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
     "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),

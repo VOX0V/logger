@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}</style>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-head"><h2>Global profile — {{ 'new' if creating else gid }}</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('profiles.convert_list')}}">Cancel</a></div></div>
+<div class="card">{% if creating %}<div class="field"><label>Identifier (lowercase letters, digits, - and _; the file is &lt;identifier&gt;_global.yml)</label><input name="new_id" value="{{new_id}}" required></div>{% else %}<p class="muted">File {{gid}}_global.yml.</p>{% endif %}
+<textarea name="content" rows="32" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px">{{content}}</textarea></div></form>
+{% endblock %}

@@ -65,16 +65,6 @@ def import_rows(source, rows, config, username=None, profile=None):
     return stats
 
 
-def list_users(config, username=None):
-    conn = connect(username)
-    visible = [c for c in configurable_columns(config) if c.get("visible", True)]
-    cols = [c["column"] for c in sorted(visible, key=lambda c: int(c["position"]))]
-    select = ",".join(["id"] + [f'"{safe_identifier(c)}"' for c in cols])
-    rows = conn.execute(f"SELECT {select} FROM users ORDER BY id").fetchall()
-    conn.close()
-    return cols, rows
-
-
 def init_user_db(username):
     """Create (or bring up to date) the two SQLite databases, the YAML config
     files and the converter rule selection for a given user. Called when an

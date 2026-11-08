@@ -2,12 +2,10 @@
 An import never replaces or deletes anything: a row that matches a flight already in the database
 only fills that flight's EMPTY fields; a row with no matching flight is added as a new flight.
 Importing the same file twice therefore changes nothing."""
-import io
 import re
 from collections import Counter
 from datetime import date
 
-from openpyxl import load_workbook
 
 FLIGHT_NUM_RE = re.compile(r"([A-Z]{2,3}\d{2,5})")
 SE_ME_COLUMNS = ["time_se_dual_day", "time_se_pic_day", "time_se_dual_night", "time_se_pic_night", "time_me_dual_day", "time_me_pic_day",

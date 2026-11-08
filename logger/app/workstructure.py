@@ -1,7 +1,6 @@
 """Structure of the work data, the same for all accounts: which columns exist, their type, their order and whether they are
 visible / editable / nullable. It is edited on the Data > Work DB settings page; the conversion rules (the global profiles and the
 files of the import profiles) only say how each column gets its value."""
-import re
 from pathlib import Path
 
 import yaml
