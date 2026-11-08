@@ -1,7 +1,7 @@
 """Conversion of database A (users table) into database B (logbook table).
 
 Since 0.3.18 the columns of B and the way each value is obtained are defined by one YAML file,
-work_db.yml (see app/workdb.py): nothing about the columns is written in the code any more."""
+the global profiles and the conversion profiles (see app/workdb.py): nothing about the columns is written in the code any more."""
 from collections import Counter
 
 from ..db import connect, logbook_connect, safe_identifier
@@ -13,7 +13,7 @@ from .profiles import profile_rules  # noqa: F401  (no longer used here; the tes
 
 
 def refresh_logbook(config, username=None):
-    """Rebuild the logbook table from work_db.yml. Returns {"rows": int, "warnings": [str]}."""
+    """Rebuild the logbook table from the conversion rules. Returns {"rows": int, "warnings": [str]}."""
     spec = workdb.load_spec()                      # an invalid file raises here: nothing is touched
     workdb.apply_to_user(username)                 # the configured columns follow the file
     b_columns = [c["column"] for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
@@ -58,7 +58,7 @@ def refresh_logbook(config, username=None):
         uc.close(); conn.close()
 
     if ignored:
-        warnings["Rows skipped (skip_rows in work_db.yml)"] += ignored
+        warnings["Rows skipped (skip_rows of the profiles)"] += ignored
     messages = [f"{msg} — {count} row(s)" for msg, count in sorted(warnings.items())]
     return {"rows": len(rows) - ignored, "warnings": messages}
 

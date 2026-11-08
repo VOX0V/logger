@@ -83,7 +83,7 @@ def init_user_db(username):
     from .converter.catalog import ensure_user_selection  # lazy: avoids a circular import
     user_root(username)  # ensures the folder exists
     ensure_configs(username)
-    apply_to_user(username)               # work data columns = work_db.yml
+    apply_to_user(username)               # work data columns = Work DB settings
     ensure_user_selection(username)
     config = load_config(username)
     conn = connect(username)

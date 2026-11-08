@@ -1,0 +1,23 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+crew:
+  - value: aircraft(aircraft_type, "crew")
+
+############### CREW ###############
+pilot:
+  - when: is_pilot_format(crew_pilot_name)
+    value: crew_pilot_name
+  - value: pilot_format(crew_pilot_name)
+  - value: crew_captain(crew_list)
+
+copilot:
+  - when: is_pilot_format(crew_copilot_name)
+    value: crew_copilot_name
+  - value: pilot_format(crew_copilot_name)
+  - value: crew_copilot(crew_list, pilot_name)
+
+employer:
+  - value: crew_operator
+

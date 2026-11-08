@@ -1,0 +1,24 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+############### DATE ###############
+# date (YYYY-MM-DD) is built from the raw year, month and day.
+date:
+  - value: utc_datetime(date_year, date_month, date_day, "00:00", "")
+
+year:
+  - value: date_year
+  - value: year_of(date_date)
+  - value: year_of(location_departure_time_utc)
+
+month:
+  - value: date_month
+  - value: month_of(date_date)
+  - value: month_of(location_departure_time_utc)
+
+day:
+  - value: date_day
+  - value: day_of(date_date)
+  - value: day_of(location_departure_time_utc)
+

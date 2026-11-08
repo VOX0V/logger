@@ -1,9 +1,9 @@
-"""Definition of the work data (logbook table) from one YAML file: defaults/work_db.yml.
+"""Conversion rules of the work data (logbook table), written in YAML.
 
-Each key "<position>_<name>" is a column; its "rules" are tried in order and the first one that gives a
-non-empty value wins. Expressions are evaluated by a small whitelisted interpreter (no eval): the YAML
-file can hold conditions and formulas without any code change. A copy edited in the web interface lives
-in appdata/workdb/work_db.yml and wins over the file shipped with the app."""
+The rules are held by the global profiles (one file per theme: general, dates, aircraft, crew, routes, times; shipped in
+defaults/global, copied to appdata/workdb/<id>_global.yml the first time) and by the conversion profiles (<id>_convert.yml). Each key
+is the name of a work column followed by its "rules", tried in order: the first one that gives a non-empty value wins. Expressions
+are evaluated by a small whitelisted interpreter (no eval): the YAML files can hold conditions and formulas without any code change."""
 import ast
 import datetime
 import math
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-BUNDLED = Path(__file__).resolve().parent.parent / "defaults" / "work_db.yml"
+SHIPPED_GLOBAL = Path(__file__).resolve().parent.parent / "defaults" / "global"
 DATA_TYPES = {"integer", "decimal", "boolean", "date", "datetime", "text"}
 RESERVED = {"id", "created_at", "updated_at", "import_source", "import_profile"}
 KEY = re.compile(r"(\d+)_(.+)")
@@ -30,17 +30,13 @@ class ExprError(Exception):
 # ---------------- file location ----------------
 
 def edited_path():
-    """Writable copy edited in the web interface (appdata/workdb/work_db.yml); None outside the app."""
+    """appdata/workdb/work_db.yml: the single rules file of the former versions (split into the global profiles by ensure_globals);
+    None outside the app. Its folder also holds the profile files."""
     try:
         from .db import appdata_root
         return appdata_root() / "workdb" / "work_db.yml"
     except RuntimeError:
         return None
-
-
-def spec_path():
-    edited = edited_path()
-    return edited if edited is not None and edited.is_file() else BUNDLED
 
 
 # ---------------- expressions ----------------
@@ -316,7 +312,7 @@ def _crew_copilot(crew, pilot):
     return None
 
 
-# ---- reference tables (Aircraft and Locations); the cache is emptied each time work_db.yml is loaded
+# ---- reference tables (Aircraft and Locations); the cache is emptied each time the rules are loaded
 _cache = {}
 AIRCRAFT_FIELDS = {"display", "designator", "maker", "model", "category", "engines", "engine_type", "crew", "landing_gear", "mtow_lb", "mtow_kg"}
 LOCATION_FIELDS = {"display", "icao", "iata", "company", "name", "country", "latitude", "longitude"}
@@ -387,7 +383,7 @@ FUNCS = {
     "registration_format": _registration_format,
     "aircraft": _aircraft,
     "location": _location,
-    "airport": _location,       # former name of location(), kept so that edited work_db.yml files keep working
+    "airport": _location,       # former name of location(), kept so that edited rule files keep working
     "date_of": _date_of,
     "time_24h": _time_24h,
     "strip_chars": _strip_chars,
@@ -488,7 +484,7 @@ def _eval(node, env, warn):
         key = node.id.lower()
         if key not in env:
             if key not in _entity_names():
-                warn(f"Unknown name “{node.id}” in work_db.yml (not a raw data column)")
+                warn(f"Unknown name “{node.id}” in the conversion rules (not a raw data column)")
             return None
         return env[key]
     if isinstance(node, ast.BoolOp):
@@ -572,10 +568,10 @@ def _rule_blocks(rules, label):
 
 
 def parse_rules(data):
-    """Validate the content (already loaded) of a rules file: the global work_db.yml or the file of one import profile.
+    """Validate the content (already loaded) of a rules file: a global profile or the conversion file of one import profile.
     Returns {"skip": [...], "rules": {column: [rule, ...]}, "meta": [...]}; raises SpecError. A key is the name of a work column
     followed by its list of rules (the old form <number>_<name> with type / display_name / rules is still read: "meta" then
-    keeps the number, type and display name, which are used once to fill the Work db structure)."""
+    keeps the number, type and display name, which are used once to fill the Work DB settings)."""
     if data is None:
         data = {}
     if not isinstance(data, dict):
@@ -625,13 +621,13 @@ def _check_references(label, parsed, order):
                     if isinstance(node, ast.Name) and node.id.lower().startswith("w_"):
                         target = node.id.lower()[2:]
                         if target not in order:
-                            raise SpecError(f"{label}: {column}: “{node.id}” refers to a work column that is not in the Work db structure.")
+                            raise SpecError(f"{label}: {column}: “{node.id}” refers to a work column that is not in the Work DB settings.")
                         if column in order and order[target] >= order[column]:
-                            raise SpecError(f"{label}: {column}: “{node.id}” can only use a column placed before it in the Work db structure.")
+                            raise SpecError(f"{label}: {column}: “{node.id}” can only use a column placed before it in the Work DB settings.")
 
 
-def check_rules_data(data, label="work_db.yml"):
-    """Full check of a rules file (syntax, then the w_ references against the Work db structure); raises SpecError."""
+def check_rules_data(data, label="global profile"):
+    """Full check of a rules file (syntax, then the w_ references against the Work DB settings); raises SpecError."""
     from .workstructure import columns as structure_columns
     parsed = parse_rules(data)
     _check_references(label, parsed, {c["column"]: i for i, c in enumerate(structure_columns())})
@@ -657,14 +653,114 @@ def convert_path(profile_id):
     return convert_dir() / f"{profile_id}{CONVERT_SUFFIX}"
 
 
+# ---------------- global profiles: <theme>_global.yml in appdata/workdb ----------------
+
+GLOBAL_SUFFIX = "_global.yml"
+GLOBAL_TITLES = {"general": "General", "dates": "Dates", "aircraft": "Aircraft", "crew": "Crew", "routes": "Routes", "times": "Times"}
+_GROUPS = {"dates": {"date", "year", "month", "day"}, "aircraft": {"aircraft_type", "category", "registration", "engines"},
+           "crew": {"crew", "pilot", "copilot", "employer"}, "routes": {"remarks"}}
+_TOPKEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:")
+GLOBAL_HEADER = ("# Global profile “{title}”: conversion rules, raw data to work data. Every key is the name of a work column followed by\n"
+                 "# its list of rules (the expressions that can be used are listed in the General profile). Managed from\n"
+                 "# Data > Conversion profiles.\n\n")
+
+
+def group_of(key):
+    """The global profile that holds a key of the former work_db.yml."""
+    if key == "skip_rows":
+        return "general"
+    m = KEY.fullmatch(str(key))
+    name = re.sub(r"[^a-z0-9]+", "_", (m.group(2) if m else str(key)).lower()).strip("_")
+    for group, names in _GROUPS.items():
+        if name in names:
+            return group
+    return "routes" if name.startswith(("departure_", "arrival_")) else "times"
+
+
+def split_text(text):
+    """Cut the text of a former work_db.yml by top-level key (the comment lines just above a key go with it).
+    Returns (header, {group: [block, ...]})."""
+    lines = text.splitlines(keepends=True)
+    keys = [i for i, line in enumerate(lines) if _TOPKEY.match(line)]
+    starts = []
+    for k in keys:
+        s = k
+        while s > 0 and lines[s - 1].startswith("#"):
+            s -= 1
+        starts.append(s)
+    header = "".join(lines[:starts[0]]) if starts else text
+    parts = {}
+    for n, k in enumerate(keys):
+        end = starts[n + 1] if n + 1 < len(keys) else len(lines)
+        block = "".join(lines[starts[n]:end])
+        parts.setdefault(group_of(lines[k].split(":", 1)[0]), []).append(block if block.endswith("\n") else block + "\n")
+    return header, parts
+
+
+def _global_texts(header, parts):
+    out = {}
+    for gid, title in GLOBAL_TITLES.items():
+        body = "".join(parts.get(gid, []))
+        top = (header.rstrip("\n") + "\n\n") if gid == "general" and header.strip() else GLOBAL_HEADER.format(title=title)
+        out[gid] = top + body
+    return out
+
+
+def ensure_globals():
+    """The first time: the global profiles are made from the former work_db.yml of the account folder (kept as work_db.yml.old)
+    or, without one, copied from the shipped files. Returns the folder, or None outside the app."""
+    folder = convert_dir()
+    if folder is None:
+        return None
+    folder.mkdir(parents=True, exist_ok=True)
+    if any(folder.glob("*" + GLOBAL_SUFFIX)):
+        return folder
+    legacy = folder / "work_db.yml"
+    if legacy.is_file():
+        texts = _global_texts(*split_text(legacy.read_text(encoding="utf-8")))
+        for gid, text in texts.items():
+            (folder / f"{gid}{GLOBAL_SUFFIX}").write_text(text, encoding="utf-8")
+        legacy.replace(legacy.with_name("work_db.yml.old"))
+    else:
+        for path in SHIPPED_GLOBAL.glob("*.yml"):
+            (folder / f"{path.stem}{GLOBAL_SUFFIX}").write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    return folder
+
+
+def global_files():
+    """[(id, path)] of the global profiles, in the order general, dates, aircraft, crew, routes, times, then the others."""
+    folder = ensure_globals()
+    if folder is None:
+        found = {p.stem: p for p in SHIPPED_GLOBAL.glob("*.yml")}
+    else:
+        found = {p.name[:-len(GLOBAL_SUFFIX)]: p for p in folder.glob("*" + GLOBAL_SUFFIX)}
+    order = list(GLOBAL_TITLES)
+    return sorted(((i, p) for i, p in found.items() if PROFILE_ID.fullmatch(i)),
+                  key=lambda t: (order.index(t[0]) if t[0] in order else len(order), t[0]))
+
+
+def global_path(profile_id):
+    folder = ensure_globals()
+    return None if folder is None else folder / f"{profile_id}{GLOBAL_SUFFIX}"
+
+
 def load_spec():
-    """Everything the conversion needs: the structure (Work db structure page), the global rules (work_db.yml) and the rules
+    """Everything the conversion needs: the structure (Work DB settings page), the rules of the global profiles and the rules
     of each import profile. An invalid file raises here: nothing is touched."""
     from .workstructure import columns as structure_columns
     reset_cache()                                   # Aircraft / Locations data are read again at each refresh
-    glob = parse_rules(yaml.safe_load(spec_path().read_text(encoding="utf-8")))
     structure = structure_columns()
     order = {c["column"]: i for i, c in enumerate(structure)}
+    skip, rules = [], {}
+    for gid, path in global_files():
+        try:
+            parsed = parse_rules(yaml.safe_load(path.read_text(encoding="utf-8")))
+        except (OSError, yaml.YAMLError, SpecError) as exc:
+            raise SpecError(f"Global profile “{gid}”: {exc}")
+        _check_references(f"{gid}{GLOBAL_SUFFIX}", parsed, order)
+        skip += parsed["skip"]
+        for column, blocks in parsed["rules"].items():
+            rules.setdefault(column, []).extend(blocks)
     profiles = {}
     for pid in convert_ids():
         try:
@@ -672,22 +768,21 @@ def load_spec():
         except (OSError, yaml.YAMLError, SpecError) as exc:
             raise SpecError(f"Conversion profile “{pid}”: {exc}")
         _check_references(f"{pid}{CONVERT_SUFFIX}", profiles[pid], order)
-    _check_references("work_db.yml", glob, order)
-    return {"skip": glob["skip"],
-            "columns": [{"column": c["column"], "type": c["data_type"], "display_name": c["display_name"], "rules": glob["rules"].get(c["column"], [])}
+    return {"skip": skip,
+            "columns": [{"column": c["column"], "type": c["data_type"], "display_name": c["display_name"], "rules": rules.get(c["column"], [])}
                         for c in structure],
             "profiles": {pid: {"skip": p["skip"], "rules": p["rules"]} for pid, p in profiles.items()}}
 
 
 def config_columns(spec=None):
-    """The columns in the format of the user's work data configuration (<user>_logbook.yml): they come from the Work db structure."""
+    """The columns in the format of the user's work data configuration (<user>_logbook.yml): they come from the Work DB settings."""
     from .workstructure import columns as structure_columns
     return [{"column": c["column"], "display_name": c["display_name"], "position": i, "data_type": c["data_type"],
              "nullable": c["nullable"], "visible": c["visible"], "editable": c["editable"]} for i, c in enumerate(structure_columns(), 1)]
 
 
 def apply_to_user(username=None):
-    """Make the user's work data configuration follow the Work db structure. Returns True when it changed.
+    """Make the user's work data configuration follow the Work DB settings. Returns True when it changed.
     An unreadable structure leaves the configuration untouched."""
     import sqlite3
     from .config import load_logbook_db_config, save_logbook_db_config

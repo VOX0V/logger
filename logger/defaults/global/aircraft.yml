@@ -1,0 +1,18 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+############### AIRCRAFT ###############
+aircraft_type:
+  - value: aircraft(aircraft_type, "display")
+  - value: aircraft_type
+
+category:
+  - value: aircraft(aircraft_type, "category")
+
+registration:
+  - value: registration_format(aircraft_registration)
+
+engines:
+  - value: aircraft(aircraft_type, "engines")
+

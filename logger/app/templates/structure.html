@@ -1,21 +1,11 @@
 {% extends "base.html" %}{% block content %}
-<style>[hidden]{display:none!important}.page-head .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:4px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left}.stable .c{text-align:center;width:90px}.stable-wrap{max-height:70vh;overflow:auto}</style>
-<form method="post" action="{{url_for('entities.structure_save', kind=kind)}}" id="structure-form">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}</style>
+<form method="post" action="{{url_for('entities.structure_save', kind=kind)}}" id="structure-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="page-head"><h2>{{title}}</h2><div class="btns"><input type="search" id="s-filter" placeholder="Filter…"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
-<div class="card"><p class="muted">Tick the entities that are present in your {{ 'raw' if kind == 'raw' else 'work' }} database, and which of them are visible, editable and nullable. Unticking a present entity removes its column from the database together with its data. Columns that are not entities are listed after them.</p>
-<div class="stable-wrap"><table class="stable"><thead><tr>
-<th class="c">Present<br><input type="checkbox" data-all="present" title="All"></th><th>Group</th><th>Entity</th><th>Display name</th>
-<th class="c">Visible<br><input type="checkbox" data-all="visible" title="All"></th><th class="c">Editable<br><input type="checkbox" data-all="editable" title="All"></th><th class="c">Nullable<br><input type="checkbox" data-all="nullable" title="All"></th>
-</tr></thead><tbody>
-{% for r in rows %}<tr data-was="{{ 1 if r.present else 0 }}">
-<td class="c"><input type="checkbox" name="present" value="{{r.column}}"{{ ' checked' if r.present }}></td>
-<td>{{ r.group if r.is_entity else '—' }}</td><td{% if not r.is_entity %} title="Not in the entity list"{% endif %}>{{r.column}}</td><td>{{r.display_name}}</td>
-<td class="c"><input type="checkbox" name="visible" value="{{r.column}}"{{ ' checked' if r.visible }}></td>
-<td class="c"><input type="checkbox" name="editable" value="{{r.column}}"{{ ' checked' if r.editable }}></td>
-<td class="c"><input type="checkbox" name="nullable" value="{{r.column}}"{{ ' checked' if r.nullable }}></td>
-</tr>{% endfor %}
-</tbody></table></div></div>
-</form>
-<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='structure.js') }}"></script>
+<div class="card"><p class="muted">Columns of your {{ 'raw' if kind == 'raw' else 'work' }} database. Click ✓ / ✗ to change which entities are present and which of them are visible, editable and nullable (a click on a column title changes all the rows shown). Removing a present entity deletes its column together with its data. Columns that are not entities are listed after them.</p>
+<div id="grid"></div></div></form>
+<link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='raw_structure.js') }}"></script>
+<script nonce="{{ csp_nonce }}">initRawStructure({rows: {{ rows|tojson }}});</script>
 {% endblock %}

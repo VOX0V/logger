@@ -1,4 +1,4 @@
-// Work db structure: reorder the columns by drag and drop, choose the type of each one, add entities, remove columns.
+// Work DB settings: reorder the columns by drag and drop, choose the type of each one, add entities, remove columns.
 (function () {
   window.initWorkStructure = function (cfg) {
     const available = cfg.available.slice();

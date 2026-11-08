@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:12px}</style>
-<div class="page-head"><h2>Conversion profiles</h2><div class="btns"><a class="btn secondary" href="{{url_for('profiles.import_list')}}">Import profiles</a><a class="btn secondary" href="{{url_for('yamledit.editor', file='workdb')}}">Global rules (work_db.yml)</a><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+<div class="page-head"><h2>Conversion profiles</h2><div class="btns"><a class="btn secondary" href="{{url_for('profiles.import_list')}}">Import profiles</a></div></div>
 <div class="card"><p class="muted">A conversion profile holds the rules, raw data to work data, of the rows imported with one import profile. They are tried before the global rules; a profile without a file simply uses the global rules.</p>
 <table class="stable"><thead><tr><th>Import profile</th><th>Identifier</th><th class="c">Conversion file</th><th></th></tr></thead><tbody>
 {% for r in rows %}<tr><td>{{ r.name or '(no import profile with this identifier)' }}</td><td>{{r.id}}</td><td class="c">{{ 'yes' if r.exists else 'no' }}</td>
@@ -10,4 +10,10 @@
 <form method="post" action="{{url_for('profiles.convert_delete', profile_id=r.id)}}" data-confirm="Delete the conversion file of “{{r.id}}”?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Delete</button></form>{% endif %}</div></td></tr>
 {% else %}<tr><td colspan="4">No import profile yet.</td></tr>{% endfor %}
 </tbody></table></div>
+<div class="page-head" style="margin-top:28px"><h2>Global profiles</h2></div>
+<div class="card"><p class="muted">The global profiles hold the rules that apply to every row, after the rules of the conversion profile of the company. Each one handles one theme of the work data.</p>
+<table class="stable"><thead><tr><th>Profile</th><th class="c">Rules</th><th></th></tr></thead><tbody>
+{% for g in global_profiles %}<tr><td>{{g.title}}</td><td class="c">{{g.count}}</td>
+<td><div class="row-btns"><a class="btn secondary" href="{{url_for('profiles.global_view', gid=g.id)}}">Rules</a><a class="btn secondary" href="{{url_for('profiles.global_rule_edit', gid=g.id)}}">Add rule</a><a class="btn secondary" href="{{url_for('profiles.global_export', gid=g.id)}}">Export</a></div></td></tr>
+{% endfor %}</tbody></table></div>
 {% endblock %}

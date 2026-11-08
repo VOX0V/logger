@@ -25,7 +25,7 @@ def data():
         cols = {r[1] for r in conn.execute("PRAGMA table_info(logbook)")}
         missing = [c for c in NEEDED if c not in cols]
         if missing:
-            return jsonify(error="The work data has no column: " + ", ".join(missing) + " (see work_db.yml).")
+            return jsonify(error="The work data has no column: " + ", ".join(missing) + " (see the global profiles).")
         year = "year" if "year" in cols else "NULL"
         dname = "departure_name" if "departure_name" in cols else "''"
         aname = "arrival_name" if "arrival_name" in cols else "''"

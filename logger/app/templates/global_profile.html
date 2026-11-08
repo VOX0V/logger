@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.stable code{white-space:pre-wrap;word-break:break-word}</style>
+<div class="page-head"><h2>Global profile — {{title}}</h2><div class="btns"><a class="btn" href="{{url_for('profiles.global_rule_edit', gid=gid)}}">Add rule</a><a class="btn secondary" href="{{url_for('profiles.global_export', gid=gid)}}">Export profile</a><a class="btn secondary" href="{{url_for('profiles.convert_list')}}">Conversion profiles</a></div></div>
+<div class="card"><p class="muted">File {{file}}. For a work column, the first rule whose condition is true and whose value is not empty gives the value; the rules of the conversion profile of the company are tried first. Rules of skip_rows leave the raw rows out. Saving a rule keeps the comment header of the file but not the comments written between the rules.</p>
+<table class="stable"><thead><tr><th>Column</th><th>Name</th><th>When</th><th>Value</th><th></th></tr></thead><tbody>
+{% for e in entries %}<tr><td>{{e.column}}</td><td>{{e.name}}</td><td><code>{{e.when}}</code></td><td><code>{{e.value}}</code></td>
+<td><div class="row-btns"><a class="btn secondary" href="{{url_for('profiles.global_rule_edit', gid=gid, key=e.key, index=e.index)}}">Edit rule</a><a class="btn secondary" href="{{url_for('profiles.global_rule_export', gid=gid, key=e.key, index=e.index)}}">Export rule</a>
+<form method="post" action="{{url_for('profiles.global_rule_delete', gid=gid, key=e.key, index=e.index)}}" data-confirm="Delete this rule?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Delete rule</button></form></div></td></tr>
+{% else %}<tr><td colspan="5">No rule in this profile.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

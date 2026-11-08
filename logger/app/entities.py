@@ -23,7 +23,7 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 HEADERS = ["position", "group", "name", "entity", "data type", "display name"]
 FIELDS = {"group": "group_name", "name": "name", "entity": "entity", "data_type": "data_type", "display_name": "display_name"}
 TYPES = [t for t in ("text", "integer", "decimal", "boolean", "date", "datetime") if t in DATA_TYPES]
-KINDS = {"raw": "Raw db structure", "work": "Work db structure"}
+KINDS = {"raw": "Raw DB settings", "work": "Work DB settings"}
 
 
 # ---------------- storage ----------------
@@ -51,8 +51,10 @@ def _conn():
         id INTEGER PRIMARY KEY AUTOINCREMENT, position INTEGER NOT NULL,
         group_name TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '',
         entity TEXT NOT NULL UNIQUE, data_type TEXT NOT NULL DEFAULT 'text', display_name TEXT NOT NULL DEFAULT '')""")
-    if conn.execute("SELECT COUNT(*) FROM entities").fetchone()[0] == 0:
-        _seed(conn)
+    if conn.execute("PRAGMA user_version").fetchone()[0] == 0:       # the list is filled from the former file only once
+        if conn.execute("SELECT COUNT(*) FROM entities").fetchone()[0] == 0:
+            _seed(conn)
+        conn.execute("PRAGMA user_version=1")
     conn.commit()
     return conn
 
@@ -409,7 +411,7 @@ def work_structure_save():
     except (ValueError, sqlite3.Error) as exc:
         flash(str(exc))
         return redirect(url_for("entities.work_structure"))
-    message = "Work db structure saved."
+    message = "Work DB settings saved."
     apply_to_user()                                    # this account follows the structure now, the others at their next login or refresh
     cfg = load_logbook_db_config()
     db = logbook_connect()

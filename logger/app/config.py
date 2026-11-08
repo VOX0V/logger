@@ -150,7 +150,7 @@ def ensure_configs(username=None):
         _atomic_write(config_path(username), yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     if not logbook_db_config_path(username).exists():
         try:
-            from .workdb import config_columns           # the work data columns come from work_db.yml
+            from .workdb import config_columns           # the work data columns come from the Work DB settings
             work_columns = config_columns()
         except Exception:
             work_columns = DEFAULT_LOGBOOK_DB_COLUMNS

@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.stable code{white-space:pre-wrap;word-break:break-word}</style>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-head"><h2>{{ 'Add rule' if creating else 'Edit rule' }} — {{title}}</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('profiles.global_view', gid=gid)}}">Cancel</a></div></div>
+<div class="card">
+<div class="field"><label>Column (a work column, or skip_rows to leave raw rows out)</label><input name="column" list="work-columns" value="{{state.column}}" required><datalist id="work-columns"><option value="skip_rows">{% for c in columns %}<option value="{{c}}">{% endfor %}</datalist></div>
+<div class="field"><label>Name (optional)</label><input name="name" value="{{state.name}}"></div>
+<div class="field"><label>When (condition; empty: always applies)</label><textarea name="when" rows="3" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px">{{state.when}}</textarea></div>
+<div class="field"><label>Value (expression; not used for skip_rows)</label><textarea name="value" rows="4" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px">{{state.value}}</textarea></div>
+</div></form>
+{% endblock %}

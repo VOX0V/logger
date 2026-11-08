@@ -1,0 +1,60 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+############### LOCATIONS ###############
+departure_code:
+  - value: location(location_departure_code, "display")
+  - value: location_departure_code
+
+departure_name:
+  - value: location(location_departure_code, "name")
+
+departure_latitude:
+  - value: location(location_departure_code, "latitude")
+
+departure_longitude:
+  - value: location(location_departure_code, "longitude")
+
+departure_time_utc:
+  - value: time_of(location_departure_time_utc)
+
+arrival_code:
+  - value: location(location_arrival_code, "display")
+  - value: location_arrival_code
+
+arrival_name:
+  - value: location(location_arrival_code, "name")
+
+arrival_latitude:
+  - value: location(location_arrival_code, "latitude")
+
+arrival_longitude:
+  - value: location(location_arrival_code, "longitude")
+
+arrival_time_utc:
+  - value: time_of(location_arrival_time_utc)
+
+############### SUN AND DAY / NIGHT ###############
+departure_sun:
+  - value: round(sun_angle(w_departure_latitude, w_departure_longitude, utc_datetime(w_year, w_month, w_day, w_departure_time_utc, "")), 1)
+
+departure_day_night:
+  - when: not is_blank(w_departure_sun) and w_departure_sun > -6
+    value: '"day"'
+  - when: not is_blank(w_departure_sun)
+    value: '"night"'
+
+arrival_sun:
+  - value: round(sun_angle(w_arrival_latitude, w_arrival_longitude, utc_datetime(w_year, w_month, w_day, w_arrival_time_utc, w_departure_time_utc)), 1)
+
+arrival_day_night:
+  - when: not is_blank(w_arrival_sun) and w_arrival_sun > -6
+    value: '"day"'
+  - when: not is_blank(w_arrival_sun)
+    value: '"night"'
+
+############### REMARKS ###############
+remarks:
+  - value: misc_remarks
+

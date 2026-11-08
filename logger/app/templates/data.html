@@ -17,7 +17,7 @@
 <div class="page-head" style="margin-top:28px"><h2>Databases</h2></div>
 {% if is_admin %}<div class="drow"><span class="dlabel">Entities</span><a class="btn secondary" href="{{url_for('entities.index')}}">Edit entities</a><a class="btn secondary" href="{{url_for('entities.export')}}">Export entities</a>{{ clear_form(url_for('entities.clear'), 'entities', tok, note='') }}</div>{% endif %}
 <div class="drow"><span class="dlabel">Raw DB</span><a class="btn secondary" style="width:auto;padding:0 14px" href="{{url_for('entities.structure', kind='raw')}}">Raw DB settings</a></div>
-{% if is_admin %}<div class="drow"><span class="dlabel">Work DB</span><a class="btn secondary" style="width:auto;padding:0 14px" href="{{url_for('entities.structure', kind='work')}}">Work DB structure</a></div>
+{% if is_admin %}<div class="drow"><span class="dlabel">Work DB</span><a class="btn secondary" style="width:auto;padding:0 14px" href="{{url_for('entities.structure', kind='work')}}">Work DB settings</a></div>
 <div class="page-head" style="margin-top:28px"><h2>App Data</h2></div>
 <div class="drow"><span class="dlabel">Locations</span><button type="button" class="btn secondary" data-toggle="imp-locations">Import data</button><a class="btn secondary" href="{{url_for('converter.locations')}}">Edit data</a><a class="btn secondary" href="{{url_for('converter.locations_export')}}">Export data</a>{{ clear_form(url_for('converter.locations_clear'), 'locations', tok) }}</div>
 {{ import_panel('imp-locations', url_for('converter.locations_import'), tok) }}

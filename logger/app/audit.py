@@ -9,7 +9,7 @@ All files are merged in file name order. See the comments at the top of the ship
   skip_rows:    [expression]                        "empty lines": only rules with skipped_rows: true see them
   rules:        - {name, severity, when, message, each, skipped_rows}
   group_rules:  - {name, severity, kind: one_to_many | spellings, ...}   (rules over several rows)
-Expressions are those of work_db.yml (columns by name, and/or/not, comparisons, + - * /, functions), plus
+Expressions are those of the global profiles (columns by name, and/or/not, comparisons, + - * /, functions), plus
 valid_date, future_date, num, matches, length, has_stray_spaces, exercise_issues, known_location, known_aircraft."""
 import re
 import sqlite3

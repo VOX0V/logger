@@ -1,5 +1,5 @@
 """Structure of the work data, the same for all accounts: which columns exist, their type, their order and whether they are
-visible / editable / nullable. It is edited on the Data > Work db structure page; the conversion rules (work_db.yml and the
+visible / editable / nullable. It is edited on the Data > Work DB settings page; the conversion rules (the global profiles and the
 files of the import profiles) only say how each column gets its value."""
 import re
 from pathlib import Path
@@ -20,17 +20,18 @@ def _conn():
 
 
 def _seed_items():
-    """[(name, type, display_name)] of the first structure: the edited work_db.yml when it still has the old format (it keeps what the
+    """[(name, type, display_name)] of the first structure: the former work_db.yml of the account folder when it still has the old format (it keeps what the
     administrator had), otherwise the shipped defaults/work_structure.yml."""
     from . import workdb
-    edited = workdb.edited_path()
-    try:
-        if edited is not None and edited.is_file():
-            meta = workdb.parse_rules(yaml.safe_load(edited.read_text(encoding="utf-8")))["meta"]
-            if any(c["number"] is not None for c in meta):
-                return [(c["column"], c["type"], c["display_name"]) for c in meta]
-    except (OSError, yaml.YAMLError, workdb.SpecError):
-        pass
+    legacy = workdb.edited_path()
+    for path in (() if legacy is None else (legacy, legacy.with_name(legacy.name + ".old"))):
+        try:
+            if path.is_file():
+                meta = workdb.parse_rules(yaml.safe_load(path.read_text(encoding="utf-8")))["meta"]
+                if any(c["number"] is not None for c in meta):
+                    return [(c["column"], c["type"], c["display_name"]) for c in meta]
+        except (OSError, yaml.YAMLError, workdb.SpecError):
+            pass
     data = yaml.safe_load(SEED.read_text(encoding="utf-8")) or {}
     return [(c["column"], c.get("type", "text"), c.get("display_name") or c["column"].replace("_", " ")) for c in data.get("columns", [])]
 

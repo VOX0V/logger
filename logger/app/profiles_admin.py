@@ -2,7 +2,7 @@
 
 An import profile is a file <id>_import.yml (appdata/importer): which header of a company file goes to which entity.
 A conversion profile is a file <id>_convert.yml (appdata/workdb): the conversion rules, raw data to work data, of the rows
-imported with the import profile <id>; they are tried before the global rules (work_db.yml)."""
+imported with the import profile <id>; they are tried before the global profiles."""
 import json
 import re
 
@@ -20,9 +20,9 @@ profiles_bp = Blueprint("profiles", __name__, url_prefix="/profiles")
 IMPORT_HEADER = ("# Import profile: one line per header of the file, written  header: entity  (entities: see Data > Entities).\n"
                  "# A header that is not listed here is not imported. Managed from Data > Import profiles.\n")
 SKELETON = """# Conversion rules for the import profile “__NAME__” (__ID__).
-# They are tried before the global rules of work_db.yml: for a work column, the first rule here whose "when" is true and
+# They are tried before the rules of the global profiles: for a work column, the first rule here whose "when" is true and
 # whose "value" is not empty gives the value; if there is none, the global rules apply. The columns, their types and
-# their order are set on the Data > Work db structure page.
+# their order are set on the Data > Work DB settings page.
 #
 # skip_rows:                    # rows of this profile to leave out (added to the global ones)
 #   - name: Not operated
@@ -201,7 +201,7 @@ def convert_list():
     existing = set(workdb.convert_ids())
     rows = [{"id": pid, "name": names.get(pid, ""), "exists": pid in existing, "orphan": pid not in names}
             for pid in sorted(set(names) | existing)]
-    return render_template("conversion_profiles.html", rows=rows)
+    return render_template("conversion_profiles.html", rows=rows, global_profiles=global_rows())
 
 
 def _convert_file(profile_id, must_exist=True):
@@ -265,3 +265,174 @@ def convert_delete(profile_id):
 def convert_export(profile_id):
     path = _convert_file(profile_id)
     return _attachment(path.read_text(encoding="utf-8"), path.name)
+
+
+# ---------------- global profiles (General, Dates, Aircraft, Crew, Routes, Times) ----------------
+
+def _gpath(gid):
+    path = workdb.global_path(gid)
+    if path is None or not workdb.PROFILE_ID.fullmatch(gid or "") or not path.is_file():
+        abort(404)
+    return path
+
+
+def _gdata(path):
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _column_of(key):
+    """Normalised column name of a key (the old form <number>_<name> is still read)."""
+    m = workdb.KEY.fullmatch(str(key))
+    return re.sub(r"[^a-z0-9]+", "_", (m.group(2) if m else str(key)).lower()).strip("_")
+
+
+def _key_for(data, column):
+    return next((k for k in data if k == column or (k != "skip_rows" and _column_of(k) == column)), column)
+
+
+def _blocks(data, key, create=False):
+    """The list of rules of a key (a reference into data)."""
+    body = data.get(key)
+    if isinstance(body, dict):
+        if create and not isinstance(body.get("rules"), list):
+            body["rules"] = []
+        return body.get("rules") if isinstance(body.get("rules"), list) else []
+    if isinstance(body, list):
+        return body
+    if create:
+        data[key] = []
+        return data[key]
+    return []
+
+
+def _gentries(data):
+    out = []
+    for key in data:
+        for i, rule in enumerate(_blocks(data, key)):
+            if isinstance(rule, dict):
+                out.append({"key": key, "column": "skip_rows" if key == "skip_rows" else _column_of(key), "index": i,
+                            "name": str(rule.get("name") or ""), "when": str(rule.get("when") or ""), "value": str(rule.get("value") or "")})
+    return out
+
+
+def _gwrite(gid, path, data):
+    """Validate the whole profile, then save it (the comment header is kept; the comments inside the rules are not)."""
+    workdb.check_rules_data(data, f"{gid}{workdb.GLOBAL_SUFFIX}")
+    header, _ = workdb.split_text(path.read_text(encoding="utf-8"))
+    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=1000) if data else ""
+    _write(path, (header.rstrip("\n") + "\n\n" if header.strip() else "") + body)
+
+
+def _gtitle(gid):
+    return workdb.GLOBAL_TITLES.get(gid, gid)
+
+
+def _work_columns():
+    from .workstructure import columns
+    try:
+        return [c["column"] for c in columns()]
+    except Exception:
+        return []
+
+
+def global_rows():
+    rows = []
+    for gid, path in workdb.global_files():
+        data = _gdata(path)
+        rows.append({"id": gid, "title": _gtitle(gid), "count": len(_gentries(data)), "file": path.name})
+    return rows
+
+
+@profiles_bp.route("/global/<gid>")
+@admin_required
+def global_view(gid):
+    path = _gpath(gid)
+    return render_template("global_profile.html", gid=gid, title=_gtitle(gid), entries=_gentries(_gdata(path)), file=path.name)
+
+
+@profiles_bp.route("/global/<gid>/export")
+@admin_required
+def global_export(gid):
+    path = _gpath(gid)
+    return _attachment(path.read_text(encoding="utf-8"), path.name)
+
+
+@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/export")
+@admin_required
+def global_rule_export(gid, key, index):
+    data = _gdata(_gpath(gid))
+    blocks = _blocks(data, key)
+    if key not in data or index >= len(blocks):
+        abort(404)
+    return _attachment(yaml.safe_dump({key: [blocks[index]]}, sort_keys=False, allow_unicode=True, width=1000), f"{gid}_{key}_{index + 1}.yml")
+
+
+@profiles_bp.route("/global/<gid>/rule/new", methods=["GET", "POST"])
+@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/edit", methods=["GET", "POST"])
+@admin_required
+def global_rule_edit(gid, key=None, index=None):
+    path = _gpath(gid)
+    data = _gdata(path)
+    creating = key is None
+    if not creating:
+        blocks = _blocks(data, key)
+        if key not in data or index >= len(blocks) or not isinstance(blocks[index], dict):
+            abort(404)
+        old = blocks[index]
+        state = {"column": "skip_rows" if key == "skip_rows" else _column_of(key), "name": str(old.get("name") or ""),
+                 "when": str(old.get("when") or ""), "value": str(old.get("value") or "")}
+    else:
+        state = {"column": "skip_rows" if gid == "general" else "", "name": "", "when": "", "value": ""}
+    if request.method == "POST":
+        state = {k: request.form.get(k, "").strip() for k in ("column", "name", "when", "value")}
+        column = state["column"]
+        try:
+            if not column:
+                raise workdb.SpecError("The column is required (a work column, or skip_rows).")
+            if column == "skip_rows" and not state["when"]:
+                raise workdb.SpecError("A skip rule needs a condition (when).")
+            if column != "skip_rows" and not state["value"]:
+                raise workdb.SpecError("A rule needs a value.")
+            rule = {k: state[k] for k in (("name", "when") if column == "skip_rows" else ("name", "when", "value")) if state[k]}
+            target = "skip_rows" if column == "skip_rows" else _key_for(data, column)
+            if creating:
+                _blocks(data, target, create=True).append(rule)
+            elif target == key:
+                blocks[index] = rule
+            else:
+                del blocks[index]
+                if not blocks and isinstance(data.get(key), list):
+                    data.pop(key)
+                _blocks(data, target, create=True).append(rule)
+            _gwrite(gid, path, data)
+        except workdb.SpecError as exc:
+            flash(str(exc))
+        else:
+            flash("Rule saved.")
+            return redirect(url_for("profiles.global_view", gid=gid))
+    return render_template("global_rule_form.html", gid=gid, title=_gtitle(gid), state=state, creating=creating, columns=_work_columns())
+
+
+@profiles_bp.route("/global/<gid>/rule/<key>/<int:index>/delete", methods=["POST"])
+@admin_required
+def global_rule_delete(gid, key, index):
+    path = _gpath(gid)
+    data = _gdata(path)
+    blocks = _blocks(data, key)
+    if key not in data or index >= len(blocks):
+        abort(404)
+    del blocks[index]
+    if not blocks and isinstance(data.get(key), list):
+        data.pop(key)
+    try:
+        _gwrite(gid, path, data)
+    except workdb.SpecError as exc:
+        flash(str(exc))
+    else:
+        log_event("data_destroy", target=f"global-rule:{gid}:{key}")
+        flash("Rule deleted.")
+    return redirect(url_for("profiles.global_view", gid=gid))

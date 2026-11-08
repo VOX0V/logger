@@ -1,5 +1,5 @@
 """Graph page: charts of the work data defined in YAML files (<app root>/graph/*.yml, edited copies in appdata/graph/).
-The format is described at the top of the shipped file graph/10_hours.yml. Expressions are those of work_db.yml."""
+The format is described at the top of the shipped file graph/10_hours.yml. Expressions are those of the global profiles."""
 import re
 import sqlite3
 from collections import defaultdict

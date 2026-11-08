@@ -1,0 +1,40 @@
+# Global profile “General”: conversion rules, raw data to work data. The columns of the work data, their types and their order
+# are set on the Data > Work DB settings page; the global profiles (General, Dates, Aircraft, Crew, Routes, Times) only say how
+# each column gets its value. The expressions listed below can be used in all of them.
+#
+# Every key is the name of a work column, followed by its list of rules. The rules of the file of the import profile
+# (Data > Conversion profiles) are tried first, then these ones: the first rule whose "when" is true (a rule without
+# "when" always applies) and whose "value" is not empty gives the value of the column. A column can use w_<column>
+# only for a column that comes before it in the Work DB settings.
+#
+# Expressions ("when" and "value") can use:
+#   - the columns of the raw data by their entity name (date_year, aircraft_type, location_departure_code, time_se_pic_day, ...) and pilot_name
+#   - w_<column>: the value already computed for a work column placed before it in the structure (w_leg_time, ...)
+#   - numbers, "text", true / false, and / or / not, comparisons (== != < <= > >=), + - * /
+#   - dates:    year_of(x), month_of(x), day_of(x)   (x = 2026-09-27, 27/09/2026 or 27/10/23; two digits: 00-69 = 2000s, 70-99 = 1900s)
+#               also "Sep 11 2026" and "11 September 2026"; date_of(x) = YYYY-MM-DD of any of these formats
+#   - times:    time_of(x) = HH:MM of a datetime, minutes_between(a, b) (datetimes or epoch milliseconds),
+#               hhmm(minutes), minutes("HH:MM"), is_zero_time(x)
+#               time_24h(x) = HH:MM (24 h) of "5:10AM", "5:10 PM" or "17:10"
+#   - numbers:  round(x, digits), distance_nm(lat1, lon1, lat2, lon2) (great circle, nautical miles)
+#   - flight time: tc_hours(x) = decimal hours; H:MM is converted with the Transport Canada table (1:35 -> 1.6), a number is kept
+#   - sun:      utc_datetime(year, month, day, time_utc, earlier_time) = YYYY-MM-DDTHH:MM (next day if time_utc < earlier_time),
+#               sun_angle(lat, lon, datetime_utc) = angle of the sun above the horizon in degrees (0 = horizon, -6 = end of civil twilight)
+#   - people:   is_pilot_format(x), pilot_format(x) (-> P.Name), crew_captain(crew_list), crew_copilot(crew_list, pilot_name)
+#   - tables:   aircraft(type, field)  fields: display, designator, maker, model, category, engines, engine_type, crew, mtow_lb, mtow_kg
+#               location(code, field)   fields: display, icao, iata, company, name, country, latitude, longitude
+#               a column added on the Aircraft / Locations structure page is read with its entity name without the group (timezone for location_timezone)
+#   - other:    is_blank(x), has_word(text, word), registration_format(x) (CGABC -> C-GABC),
+#               strip_chars(text, chars): strip_chars("# 0767", "# ") -> 0767
+#
+# Raw column names are the entities of Data > Entities (crew_pilot_name, crew_copilot_name, crew_operator, location_departure_code,
+# location_arrival_code, location_departure_time_utc, location_arrival_time_utc, time_flight_hhmm, time_se_*, time_me_*, time_cc_*,
+# time_ifr, time_hood, time_ftd, count_ifr_approach, count_landing_day, ...). A raw column exists only when an import profile has created it.
+
+# Raw rows matching one of these rules are left out of the work data.
+skip_rows:
+  - name: Flights with a 0:00 block time (not operated)
+    when: is_zero_time(time_flight_hhmm)
+  - name: Flights where I am not in the crew list
+    when: not is_blank(crew_list) and not has_word(crew_list, pilot_name)
+

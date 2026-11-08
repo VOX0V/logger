@@ -1,10 +1,18 @@
 # Changelog
 
+## 0.3.35 — Global profiles, Work DB settings
+
+- **Global profiles**: `work_db.yml` is gone. Its rules are split into six global profiles, one file each in `appdata/workdb/<id>_global.yml` (shipped in `defaults/global`): General (skip_rows and the list of expressions), Dates, Aircraft, Crew, Routes, Times. The first time, an edited `work_db.yml` of the account folder is split the same way and kept as `work_db.yml.old`. A column that appears in several profiles gets the rules of all of them, in that order.
+- **Conversion profiles** page: the global profiles are listed under the profiles of the companies; each one opens a page with **Add rule**, **Edit rule**, **Export rule**, **Delete rule** and **Export profile**. Saving a rule keeps the comment header of the file, not the comments written between the rules. The "Global rules (work_db.yml)" and "Data" buttons and the editor entry `workdb` are removed.
+- **Renamed**: "Work db structure" is now **Work DB settings**, "Raw db structure" is **Raw DB settings**.
+- **Raw DB settings** now has the look of the Work DB settings page (grid with ✓ / ✗ cells, filter).
+- `VERSION` is now 0.3.35.
+
 ## 0.3.34 — Data page reorganised
 
 - **Data page** (hub/data): sections reorganised: User data (Import data with Import profiles; Raw data; Convert data; Work data), Logbook, Breakdown, Databases (Entities, Raw DB, Work DB) and App Data (Locations, Aircrafts).
 - **Convert Data**: the former "Actualise data" button is renamed and shown in green.
-- **Clear entities**: new button (administrators) that deletes all the entities, after typing CLEAR.
+- **Clear entities**: new button (administrators) that deletes all the entities, after typing CLEAR. The entities list is now filled from the former file only once (first use), so after clearing it stays empty.
 - The "Edit import rules" and "Edit conversion rules" buttons (old system) are removed from the page.
 - `VERSION` is now 0.3.34.
 

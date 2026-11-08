@@ -139,13 +139,6 @@ def check_convert(data):
             raise Problem(f"{r['id']} : unknown transform “{r['transform']}”.")
 
 
-def check_workdb(data):
-    try:
-        workdb.check_rules_data(data)
-    except workdb.SpecError as exc:
-        raise Problem(str(exc))
-
-
 def check_importer(data):
     try:
         import_profiles.parse_spec(data)
@@ -200,7 +193,6 @@ def check_entities(data):
 
 # Files shared by all accounts, editable by administrators only.
 ADMIN_FILES = {
-    "workdb": ("Work data — global conversion rules (work_db.yml)", lambda _u: workdb.spec_path(), check_workdb),
     "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
     "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
 }
@@ -283,10 +275,6 @@ def _registry():
 
 def _write_target(key, path):
     """Where a save goes: converter profiles are saved to a writable copy in appdata (the shipped file stays untouched)."""
-    if key == "workdb":
-        folder = workdb.edited_path().parent
-        folder.mkdir(parents=True, exist_ok=True)
-        return folder / "work_db.yml"
     if key == "aircraft_options":
         return refdata.edited_options_path()
     if key == "entities":
@@ -368,7 +356,7 @@ def editor():
                 tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(posted, encoding="utf-8")
                 os.replace(tmp, target)
-                if key in ("logbook", "workdb"):
+                if key == "logbook":
                     init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
                 log_event("config_change", target=f"yaml:{key}")
                 flash("File saved. The previous version is kept (“Restore” button).")

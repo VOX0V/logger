@@ -340,7 +340,7 @@ def clear_logbook_data():
     save_logbook_db_config({"database": {"columns": []}})        # only the technical columns remain configured
     conn=logbook_connect(); conn.execute("DELETE FROM logbook"); drop_unused_logbook_columns(conn,{}); conn.commit(); conn.close()
     log_event("data_destroy", target="work-data:all-rows-and-columns")
-    flash("The work data and its columns were deleted. The YAML files are kept; the columns are created again from work_db.yml at the next refresh or login.")
+    flash("The work data and its columns were deleted. The YAML files are kept; the columns are created again from the Work DB settings at the next refresh or login.")
     return redirect(url_for("hubs.data"))
 
 @main_bp.route("/logbook/cell",methods=["POST"])
