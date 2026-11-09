@@ -4,20 +4,20 @@
 
 ############### DATE ###############
 # date (YYYY-MM-DD) is built from the raw year, month and day.
-date:
+date_date:
   - value: utc_datetime(date_year, date_month, date_day, "00:00", "")
 
-year:
+date_year:
   - value: date_year
   - value: year_of(date_date)
   - value: year_of(location_departure_time_utc)
 
-month:
+date_month:
   - value: date_month
   - value: month_of(date_date)
   - value: month_of(location_departure_time_utc)
 
-day:
+date_day:
   - value: date_day
   - value: day_of(date_date)
   - value: day_of(location_departure_time_utc)

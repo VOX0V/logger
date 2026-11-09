@@ -9,7 +9,7 @@
 #
 # Expressions ("when" and "value") can use:
 #   - the columns of the raw data by their entity name (date_year, aircraft_type, location_departure_code, time_se_pic_day, ...) and pilot_name
-#   - w_<column>: the value already computed for a work column placed before it in the structure (w_leg_time, ...)
+#   - w_<column>: the value already computed for a work column placed before it in the structure (w_time_flight_hhmm, ...)
 #   - numbers, "text", true / false, and / or / not, comparisons (== != < <= > >=), + - * /
 #   - dates:    year_of(x), month_of(x), day_of(x)   (x = 2026-09-27, 27/09/2026 or 27/10/23; two digits: 00-69 = 2000s, 70-99 = 1900s)
 #               also "Sep 11 2026" and "11 September 2026"; date_of(x) = YYYY-MM-DD of any of these formats

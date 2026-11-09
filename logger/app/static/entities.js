@@ -25,7 +25,7 @@
         {formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 40, resizable: false,
          cellClick: function (e, cell) { cell.getRow().toggleSelect(); }},
         {title: "position", field: "position", headerSort: false, width: 90},
-        edit("group", "group"), edit("name", "name"), edit("entity", "entity"), type, edit("display_name", "display name")
+        edit("group", "group"), edit("name", "name"), edit("entity", "field"), type, edit("display_name", "label")
       ]
     });
     table.on("rowMoved", function (row) {

@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block content %}
+<style>.page-head .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left}</style>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-head"><h2>Roles</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+<div class="card"><p class="muted">The program reads the data through roles, names that it knows. Each role is bound to one field of the entities. Renaming a field in Entities updates its role by itself; bind a role to another field here if it does not read the field you expect.</p>
+<datalist id="fields">{% for e in entities %}<option value="{{e.entity}}">{{e.display_name}}</option>{% endfor %}</datalist>
+<table class="stable"><thead><tr><th>Role</th><th>Field</th></tr></thead><tbody>
+{% for role, field in roles.items() %}<tr><td>{{role}}</td><td><input name="f_{{role}}" list="fields" value="{{field}}" size="38"></td></tr>
+{% endfor %}</tbody></table></div></form>
+{% endblock %}

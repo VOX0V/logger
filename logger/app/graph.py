@@ -9,6 +9,7 @@ import yaml
 from flask import Blueprint, g, jsonify, render_template, request
 
 from . import audit, workdb          # audit adds num(), iif()... to the expression language
+from . import fields as efields
 from .auth import login_required
 from .db import logbook_connect
 
@@ -167,7 +168,7 @@ def _rows():
         conn = logbook_connect()
         conn.row_factory = sqlite3.Row
         try:
-            return [dict(r) for r in conn.execute("SELECT * FROM logbook")]
+            return efields.work_rows(conn, "SELECT * FROM logbook")
         finally:
             conn.close()
     except sqlite3.Error:

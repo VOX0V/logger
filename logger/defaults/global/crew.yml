@@ -2,22 +2,22 @@
 # its list of rules (the expressions that can be used are listed in the General profile). Managed from
 # Data > Conversion profiles.
 
-crew:
+aircraft_crew:
   - value: aircraft(aircraft_type, "crew")
 
 ############### CREW ###############
-pilot:
+crew_pilot_name:
   - when: is_pilot_format(crew_pilot_name)
     value: crew_pilot_name
   - value: pilot_format(crew_pilot_name)
   - value: crew_captain(crew_list)
 
-copilot:
+crew_copilot_name:
   - when: is_pilot_format(crew_copilot_name)
     value: crew_copilot_name
   - value: pilot_format(crew_copilot_name)
   - value: crew_copilot(crew_list, pilot_name)
 
-employer:
+crew_operator:
   - value: crew_operator
 

@@ -1,7 +1,6 @@
-"""Entities: the global catalogue of everything a raw or work database may contain (appdata/db/entities.db),
-and the pages where each account chooses which entities are present in its raw and work databases."""
+"""Entities: the global catalogue of every field (appdata/db/entities.db) and the only source of the columns of the four databases
+(raw, work, location, aircraft): see fields.py. A field has a unique technical name (field) and a label."""
 import io
-import json
 import sqlite3
 
 from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
@@ -9,9 +8,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
-from .auth import login_required, admin_required, fresh_login_required, clear_confirmed
-from .config import (load_config, save_config, load_logbook_db_config, save_logbook_db_config,
-                     is_system, technical_name)
+from . import fields
+from .auth import admin_required, fresh_login_required, clear_confirmed
+from .config import load_config, load_logbook_db_config, technical_name
 from .db import db_dir, connect, logbook_connect, _open
 from .models import sync_columns, drop_unused_columns, drop_unused_logbook_columns
 from .seclog import log_event
@@ -20,10 +19,10 @@ from .workdb import DATA_TYPES, reset_cache
 entities_bp = Blueprint("entities", __name__, url_prefix="/entities")
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-HEADERS = ["position", "group", "name", "entity", "data type", "display name"]
+HEADERS = ["position", "label", "group", "name", "field", "data type", "visible", "editable", "nullable", "delete"]
 FIELDS = {"group": "group_name", "name": "name", "entity": "entity", "data_type": "data_type", "display_name": "display_name"}
 TYPES = [t for t in ("text", "integer", "decimal", "boolean", "date", "datetime") if t in DATA_TYPES]
-KINDS = {"raw": "Raw DB settings", "work": "Work DB settings"}
+KINDS = fields.DBS
 
 
 # ---------------- storage ----------------
@@ -72,6 +71,7 @@ def _renumber(conn, ids):
 
 def _changed():
     reset_cache()
+    fields.invalidate()
 
 
 def load_entities():
@@ -90,12 +90,12 @@ def load_entities():
 
 def _entity_error(name):
     if not name:
-        return "The entity name is required."
+        return "The field name is required."
     try:
         if technical_name(name) != name:
             raise ValueError
     except ValueError:
-        return "An entity name only uses lowercase letters, digits and underscores."
+        return "A field name only uses lowercase letters, digits and underscores."
     return ""
 
 
@@ -140,13 +140,19 @@ def cell():
     if column == "data_type" and value not in TYPES:
         return ("Unknown data type.", 400)
     conn = _conn()
+    old_field = None
     try:
+        if column == "entity":
+            found = conn.execute("SELECT entity FROM entities WHERE id=?", (row_id,)).fetchone()
+            old_field = found[0] if found else None
         conn.execute(f"UPDATE entities SET {FIELDS[column]}=? WHERE id=?", (value, row_id))
         conn.commit()
     except sqlite3.IntegrityError:
-        return ("This entity already exists.", 409)
+        return ("This field already exists.", 409)
     finally:
         conn.close()
+    if old_field and old_field != value:
+        fields.rename_field(old_field, value)           # the databases, the roles and the YAML files follow the new name
     _changed()
     return ("", 204)
 
@@ -190,6 +196,11 @@ def delete():
         return ("No row selected.", 400)
     conn = _conn()
     try:
+        names = [r[0] for r in conn.execute(f"SELECT entity FROM entities WHERE id IN ({','.join('?' * len(ids))})", ids)]
+        for name in names:
+            used = fields.usage(name)
+            if used:
+                return (f"“{name}” is still used by: {', '.join(used)}. Remove it from them first.", 409)
         conn.execute(f"DELETE FROM entities WHERE id IN ({','.join('?' * len(ids))})", ids)
         _renumber(conn, [r["id"] for r in _ordered(conn)])
         conn.commit()
@@ -237,22 +248,25 @@ def _read_xlsx(stream):
     def norm(row):
         return [str(h or "").strip().lower().replace(" ", "_") for h in row]
 
-    start = next((i for i, row in enumerate(table) if "entity" in norm(row)), None)      # the header may be below a title block
+    start = next((i for i, row in enumerate(table) if "field" in norm(row) or "entity" in norm(row)), None)      # the header may be below a title block
     if start is None:
-        raise ValueError("No header row with an “entity” column was found (other columns: position, group, name, data type, display name).")
+        raise ValueError("No header row with a “field” column was found (other columns: position, label, group, name, data type).")
     header = norm(table[start])
     col = {h: i for i, h in enumerate(header) if h}
 
-    def cell_of(row, key):
-        i = col.get(key)
-        value = row[i] if i is not None and i < len(row) else None
-        return "" if value is None else str(value).strip()
+    def cell_of(row, *keys):
+        for key in keys:
+            i = col.get(key)
+            value = row[i] if i is not None and i < len(row) else None
+            if value not in (None, ""):
+                return str(value).strip()
+        return ""
 
     items, seen = [], set()
     for n, row in enumerate(table[start + 1:], start + 2):
         if not any(v not in (None, "") for v in row):
             continue
-        entity = cell_of(row, "entity")
+        entity = cell_of(row, "field", "entity")
         error = _entity_error(entity)
         if error:
             raise ValueError(f"Row {n}: {error}")
@@ -269,7 +283,7 @@ def _read_xlsx(stream):
             position = float("inf")
         items.append((position, len(items), {"group": group, "name": cell_of(row, "name") or _short(group, entity),
                                              "entity": entity, "data_type": data_type,
-                                             "display_name": cell_of(row, "display_name") or cell_of(row, "name") or entity}))
+                                             "display_name": cell_of(row, "label", "column_name", "display_name", "name") or entity}))
     if not items:
         raise ValueError("The file has no entity.")
     items.sort(key=lambda t: (t[0], t[1]))
@@ -342,110 +356,73 @@ def export():
     for c in ws[1]:
         c.font = Font(bold=True)
     for r in data:
-        ws.append([r["position"], r["group"], r["name"], r["entity"], r["data_type"], r["display_name"]])
-    for i, width in enumerate((10, 14, 22, 32, 12, 28), 1):
+        ws.append([r["position"], r["display_name"], r["group"], r["name"], r["entity"], r["data_type"], None, None, None, None])
+    for i, width in enumerate((10, 28, 14, 22, 32, 12, 10, 10, 10, 10), 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     buf = io.BytesIO()
     wb.save(buf)
     return Response(buf.getvalue(), mimetype=XLSX, headers={"Content-Disposition": 'attachment; filename="entities.xlsx"'})
 
 
-# ---------------- raw / work db structure (each account) ----------------
+# ---------------- structure of the four databases (raw, work, location, aircraft) ----------------
 
 def _kind(kind):
     if kind not in KINDS:
         abort(404)
 
 
-def _load(kind):
-    return load_config() if kind == "raw" else load_logbook_db_config()
-
-
 def _structure_rows(kind):
-    columns = [c for c in _load(kind)["database"]["columns"] if not is_system(c)]
-    by = {c["column"]: c for c in columns}
+    have = {c["column"]: c for c in fields.columns(kind)}
     conn = _conn()
     try:
         entities = _ordered(conn)
     finally:
         conn.close()
-    out, names = [], set()
+    out = []
     for e in entities:
-        names.add(e["entity"])
-        c = by.get(e["entity"])
+        c = have.get(e["entity"])
         out.append({"column": e["entity"], "group": e["group"], "display_name": e["display_name"], "is_entity": True,
                     "present": c is not None, "visible": c["visible"] if c else True,
                     "editable": c["editable"] if c else True, "nullable": c["nullable"] if c else True})
-    for c in columns:
-        if c["column"] not in names:
-            out.append({"column": c["column"], "group": "", "display_name": c["display_name"], "is_entity": False,
-                        "present": True, "visible": c["visible"], "editable": c["editable"], "nullable": c["nullable"]})
     return out
 
 
-@entities_bp.route("/structure/work")
-@admin_required
-def work_structure():
-    """Structure of the work data (columns, types, order), the same for all accounts."""
-    from .workstructure import columns
-    present = columns()
-    have = {c["column"] for c in present}
-    conn = _conn()
-    try:
-        entities = _ordered(conn)
-    finally:
-        conn.close()
-    return render_template("work_structure.html", title=KINDS["work"], types=TYPES,
-                           rows=[{k: c[k] for k in ("column", "display_name", "data_type", "visible", "editable", "nullable")} for c in present],
-                           available=[{"entity": e["entity"], "title": e["display_name"], "data_type": e["data_type"]}
-                                      for e in entities if e["entity"] not in have])
-
-
-@entities_bp.route("/structure/work/save", methods=["POST"])
-@admin_required
-def work_structure_save():
-    from .workstructure import save
-    from .workdb import apply_to_user
-    try:
-        removed = save(json.loads(request.form.get("columns", "[]")))
-    except (ValueError, sqlite3.Error) as exc:
-        flash(str(exc))
-        return redirect(url_for("entities.work_structure"))
-    message = "Work DB settings saved."
-    apply_to_user()                                    # this account follows the structure now, the others at their next login or refresh
-    cfg = load_logbook_db_config()
-    db = logbook_connect()
-    try:
-        sync_columns(db, "logbook", cfg["database"]["columns"])
-        drop_unused_logbook_columns(db, cfg)
-        db.commit()
-    except sqlite3.OperationalError:
-        db.rollback()
-        message += " The table could not be updated yet; it is updated by the next refresh."
-    finally:
-        db.close()
-    if removed:
-        log_event("data_destroy", target=f"work-structure:{len(removed)}-columns")
-        message += f" {len(removed)} column(s) removed."
-    flash(message)
-    return redirect(url_for("entities.work_structure"))
+def _apply_structure(kind):
+    """The tables follow the settings: this account for raw and work (the others at their next login), the shared tables for the others."""
+    if kind == "raw":
+        cfg = load_config()
+        db = connect()
+        try:
+            sync_columns(db, "users", cfg["database"]["columns"])
+            drop_unused_columns(db, cfg)
+            db.commit()
+        finally:
+            db.close()
+    elif kind == "work":
+        cfg = load_logbook_db_config()
+        db = logbook_connect()
+        try:
+            sync_columns(db, "logbook", cfg["database"]["columns"])
+            drop_unused_logbook_columns(db, cfg)
+            db.commit()
+        finally:
+            db.close()
+    else:
+        from .refcolumns import apply
+        apply(kind)
 
 
 @entities_bp.route("/structure/<kind>")
-@login_required
+@admin_required
 def structure(kind):
     _kind(kind)
-    return render_template("structure.html", kind=kind, title=KINDS[kind], rows=_structure_rows(kind))
+    return render_template("structure.html", kind=kind, title=KINDS[kind], rows=_structure_rows(kind), required=fields.required(kind))
 
 
 @entities_bp.route("/structure/<kind>/save", methods=["POST"])
-@login_required
+@admin_required
 def structure_save(kind):
     _kind(kind)
-    cfg = _load(kind)
-    system = [c for c in cfg["database"]["columns"] if is_system(c)]
-    old = [c for c in cfg["database"]["columns"] if not is_system(c)]
-    existing = {c["column"]: c for c in old}
     conn = _conn()
     try:
         entities = _ordered(conn)
@@ -453,46 +430,43 @@ def structure_save(kind):
         conn.close()
     wanted = set(request.form.getlist("present"))
     flags = {k: set(request.form.getlist(k)) for k in ("visible", "editable", "nullable")}
-
-    def build(column, display, data_type):
-        return {"column": column, "display_name": display, "position": 0, "data_type": data_type,
-                "nullable": column in flags["nullable"], "visible": column in flags["visible"],
-                "editable": column in flags["editable"]}
-
-    new = []
-    entity_names = {e["entity"] for e in entities}
-    for e in entities:                      # the entities first, in the order of the entity list
-        if e["entity"] in wanted:
-            new.append(build(e["entity"], e["display_name"], (existing.get(e["entity"]) or {}).get("data_type") or ("text" if kind == "raw" else e["data_type"])))
-    for c in old:                           # then the columns that are not entities
-        if c["column"] not in entity_names and c["column"] in wanted:
-            new.append(build(c["column"], c["display_name"], c["data_type"]))
-    for i, c in enumerate(new, 1):
-        c["position"] = i
-    kept = {c["column"] for c in new}
-    removed = [c["column"] for c in old if c["column"] not in kept]
-    cfg["database"]["columns"] = system + new
-    if kind == "raw":
-        save_config(cfg)
-    else:
-        save_logbook_db_config(cfg)
-    message = f"{KINDS[kind]} saved."
-    db = connect() if kind == "raw" else logbook_connect()
+    items = [{"field": e["entity"], "visible": e["entity"] in flags["visible"], "editable": e["entity"] in flags["editable"],
+              "nullable": e["entity"] in flags["nullable"]} for e in entities if e["entity"] in wanted]
     try:
-        if kind == "raw":
-            sync_columns(db, "users", cfg["database"]["columns"])
-            drop_unused_columns(db, cfg)
-        else:
-            sync_columns(db, "logbook", cfg["database"]["columns"])
-            drop_unused_logbook_columns(db, cfg)
-        db.commit()
-    except sqlite3.OperationalError:
-        db.rollback()
-        message += " The table could not be updated yet; it is updated by the next import or refresh."
-    finally:
-        db.close()
+        removed = fields.save(kind, items)
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for("entities.structure", kind=kind))
+    message = f"{KINDS[kind]} saved."
+    try:
+        _apply_structure(kind)
+    except (sqlite3.Error, OSError, ValueError):
+        message += " The tables could not be updated yet; they are updated at the next import, refresh or login."
     if removed:
         log_event("data_destroy", target=f"{kind}-structure:{len(removed)}-columns")
         message += f" {len(removed)} column(s) removed."
     flash(message)
     return redirect(url_for("entities.structure", kind=kind))
+
+
+# ---------------- roles ----------------
+
+@entities_bp.route("/roles", methods=["GET", "POST"])
+@admin_required
+def roles():
+    """The names the program uses, each bound to one field (defaults/roles.yml)."""
+    if request.method == "POST":
+        mapping = {r: request.form.get("f_" + r, "").strip() for r in fields.role_map()}
+        try:
+            fields.save_roles({r: f for r, f in mapping.items() if f})
+        except ValueError as exc:
+            flash(str(exc))
+        else:
+            flash("Roles saved.")
+            return redirect(url_for("entities.roles"))
+    conn = _conn()
+    try:
+        entities = _ordered(conn)
+    finally:
+        conn.close()
+    return render_template("roles.html", roles=fields.role_map(), entities=entities)

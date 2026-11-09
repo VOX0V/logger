@@ -16,6 +16,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 from .auth import login_required
+from . import fields as efields
 from .db import logbook_connect
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
@@ -167,7 +168,7 @@ def _load_rows():
     try:
         conn = logbook_connect()
         conn.row_factory = sqlite3.Row
-        rows = [dict(r) for r in conn.execute("SELECT * FROM logbook ORDER BY id")]
+        rows = efields.work_rows(conn)
         conn.close()
     except sqlite3.Error:
         rows = []

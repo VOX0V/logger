@@ -14,6 +14,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import Paragraph, Table, TableStyle
 
 from .auth import login_required
+from . import fields as efields
 from .config import load_breakdown, load_logbook_layout, save_breakdown
 from .db import logbook_connect
 from .seclog import log_event
@@ -338,7 +339,7 @@ def _context():
     try:
         conn = logbook_connect()
         conn.row_factory = sqlite3.Row
-        rows = [dict(r) for r in conn.execute("SELECT * FROM logbook ORDER BY id")]
+        rows = efields.work_rows(conn)
         conn.close()
     except sqlite3.Error:
         rows = []

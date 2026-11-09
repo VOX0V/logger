@@ -1,6 +1,4 @@
 """The shared location / aircraft reference data (grids, import, export, clear)."""
-import json
-import sqlite3
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
@@ -48,8 +46,10 @@ def _grid_columns(kind, core_specs):
     by_field = {c["field"]: c for c in core_specs}
     out = []
     for c in refcolumns.columns(kind):
+        if not c["visible"]:
+            continue
         if c["core"]:
-            out.append(by_field.get(c["field"]) or {"field": c["field"], "title": c["title"]})
+            out.append({**(by_field.get(c["field"]) or {"field": c["field"]}), "title": c["title"]})
         else:
             item = {"field": c["field"], "title": c["title"]}
             if c["data_type"] in ("integer", "decimal"):
@@ -126,7 +126,7 @@ def _fields(columns):
 @converter_bp.route("/locations")
 @admin_required
 def locations():
-    return render_template("refdata_grid.html", title="Locations", columns=_cols("location"), add_fields=_fields(_cols("location")), structure_url=url_for("converter.location_structure"),
+    return render_template("refdata_grid.html", title="Locations", columns=_cols("location"), add_fields=_fields(_cols("location")), structure_url=url_for("entities.structure", kind="location"),
                            note="A code is looked up in IATA first, then ICAO, then company code. The logbook shows the display name, or the ICAO code when it is empty.",
                            rows_url=url_for("converter.locations_rows"), cell_url=url_for("converter.locations_cell"),
                            add_url=url_for("converter.locations_add"), delete_url=url_for("converter.locations_delete"),
@@ -188,45 +188,12 @@ def location_delete(location_id):
     return redirect(url_for("converter.locations"))
 
 
-def _structure_view(kind, endpoint, back_endpoint, title):
-    if request.method == "POST":
-        try:
-            order = json.loads(request.form.get("order", "[]"))
-            if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
-                raise ValueError("Invalid order.")
-            removed = refcolumns.save_structure(kind, order)
-        except (ValueError, sqlite3.Error) as exc:
-            flash(str(exc))
-        else:
-            if removed:
-                log_event("data_destroy", target=f"{kind}-structure:{len(removed)}-columns")
-            flash(f"{title} structure saved." + (f" {len(removed)} column(s) removed." if removed else ""))
-        return redirect(url_for(endpoint))
-    columns = refcolumns.columns(kind)
-    present = {c["entity"] for c in columns}
-    return render_template("refstructure.html", title=title, back_url=url_for(back_endpoint),
-                           rows=[{"entity": c["entity"], "title": c["title"], "core": c["core"]} for c in columns],
-                           available=[{"entity": e, "title": v["display_name"]} for e, v in refcolumns.eligible(kind).items() if e not in present])
-
-
-@converter_bp.route("/locations/structure", methods=["GET", "POST"])
-@admin_required
-def location_structure():
-    return _structure_view("location", "converter.location_structure", "converter.locations", "Locations")
-
-
-@converter_bp.route("/aircrafts/structure", methods=["GET", "POST"])
-@admin_required
-def aircraft_structure():
-    return _structure_view("aircraft", "converter.aircraft_structure", "converter.aircrafts", "Aircraft")
-
-
 # ---------------- aircraft (admin) ----------------
 
 @converter_bp.route("/aircrafts")
 @admin_required
 def aircrafts():
-    return render_template("refdata_grid.html", title="Aircraft", columns=_cols("aircraft"), add_fields=_fields(_cols("aircraft")), structure_url=url_for("converter.aircraft_structure"), edit_lists_url=url_for("yamledit.editor", file="aircraft_options"),
+    return render_template("refdata_grid.html", title="Aircraft", columns=_cols("aircraft"), add_fields=_fields(_cols("aircraft")), structure_url=url_for("entities.structure", kind="aircraft"), edit_lists_url=url_for("yamledit.editor", file="aircraft_options"),
                            note="The flight is linked to its type by the designator (DH1, CR9...); the logbook shows the display name (DHC8, CRJ...), "
                                 "which several designators can share. Both MTOW values are official data, entered by hand. "
                                 "The number of engines is used by the day/night rules, and the audit checks the types against this table.",

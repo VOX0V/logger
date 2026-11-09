@@ -779,30 +779,6 @@ def load_spec():
             "profiles": {pid: {"skip": p["skip"], "rules": p["rules"]} for pid, p in profiles.items()}}
 
 
-def config_columns(spec=None):
-    """The columns in the format of the user's work data configuration (<user>_logbook.yml): they come from the Work DB settings."""
-    from .workstructure import columns as structure_columns
-    return [{"column": c["column"], "display_name": c["display_name"], "position": i, "data_type": c["data_type"],
-             "nullable": c["nullable"], "visible": c["visible"], "editable": c["editable"]} for i, c in enumerate(structure_columns(), 1)]
-
-
-def apply_to_user(username=None):
-    """Make the user's work data configuration follow the Work DB settings. Returns True when it changed.
-    An unreadable structure leaves the configuration untouched."""
-    import sqlite3
-    from .config import load_logbook_db_config, save_logbook_db_config
-    try:
-        wanted = config_columns()
-    except (SpecError, OSError, yaml.YAMLError, sqlite3.Error, RuntimeError):
-        return False
-    current = [(c["column"], c["display_name"], c["data_type"], c.get("nullable", True), c.get("visible", True), c.get("editable", True))
-               for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
-    if current == [(w["column"], w["display_name"], w["data_type"], w["nullable"], w["visible"], w["editable"]) for w in wanted]:
-        return False
-    save_logbook_db_config({"database": {"columns": wanted}}, username)
-    return True
-
-
 def convert_row(spec, source, pilot_name, warn):
     """Work data values of one raw row: a dict, or None when a skip rule leaves the row out.
     The rules of the import profile of the row (column import_profile) are tried before the global ones."""

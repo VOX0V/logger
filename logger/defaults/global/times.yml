@@ -2,7 +2,7 @@
 # its list of rules (the expressions that can be used are listed in the General profile). Managed from
 # Data > Conversion profiles.
 
-leg_time:
+time_flight_hhmm:
   - value: hhmm(minutes_between(location_departure_time_utc, location_arrival_time_utc))
   - when: not is_blank(location_departure_time_utc) and not is_blank(location_arrival_time_utc) and minutes(location_arrival_time_utc) >= minutes(location_departure_time_utc)
     value: hhmm(minutes(location_arrival_time_utc) - minutes(location_departure_time_utc))
@@ -10,14 +10,14 @@ leg_time:
     value: hhmm(minutes(location_arrival_time_utc) - minutes(location_departure_time_utc) + 1440)
 
 leg_length:
-  - value: round(distance_nm(w_departure_latitude, w_departure_longitude, w_arrival_latitude, w_arrival_longitude), 1)
+  - value: round(distance_nm(w_location_departure_latitude, w_location_departure_longitude, w_location_arrival_latitude, w_location_arrival_longitude), 1)
 
-average_speed:
-  - value: round(w_leg_length / (minutes(w_leg_time) / 60), 0)
+leg_average_speed:
+  - value: round(w_leg_length / (minutes(w_time_flight_hhmm) / 60), 0)
 
 ############### FLIGHT TIME ###############
 # Decimal hours (Transport Canada table). Only one of these raw columns is filled for a flight, so the order does not matter.
-flight_time:
+time_flight_decimal:
   - value: tc_hours(time_se_dual_day)
   - value: tc_hours(time_se_pic_day)
   - value: tc_hours(time_se_dual_night)
@@ -35,104 +35,104 @@ flight_time:
 # day or night of the arrival), whatever the role (dual, pic, copi), so that errors show in the totals.
 # Next step: keep only the column that matches the role.
 
-single_engine_dual_day:
+time_se_dual_day:
   - value: tc_hours(time_se_dual_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "single" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-single_engine_pic_day:
+time_se_pic_day:
   - value: tc_hours(time_se_pic_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "single" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-single_engine_dual_night:
+time_se_dual_night:
   - value: tc_hours(time_se_dual_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "single" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
-single_engine_pic_night:
+time_se_pic_night:
   - value: tc_hours(time_se_pic_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "single" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
-multi_engine_dual_day:
+time_me_dual_day:
   - value: tc_hours(time_me_dual_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-multi_engine_pic_day:
+time_me_pic_day:
   - value: tc_hours(time_me_pic_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-multi_engine_copi_day:
+time_me_copi_day:
   - value: tc_hours(time_me_copi_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-multi_engine_dual_night:
+time_me_dual_night:
   - value: tc_hours(time_me_dual_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
-multi_engine_pic_night:
+time_me_pic_night:
   - value: tc_hours(time_me_pic_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
-multi_engine_copi_night:
+time_me_copi_night:
   - value: tc_hours(time_me_copi_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_engines == "multi" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
 ############### FLIGHT DETAILS ###############
 # Instruments: the raw value when there is one; an IFR time equal to the flight time for a multi engine multi crew aircraft.
-ifr:
+time_ifr:
   - value: tc_hours(time_ifr)
-  - when: w_engines == "multi" and w_crew == "multi"
-    value: w_flight_time
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi"
+    value: w_time_flight_decimal
 
-hood:
+time_hood:
   - value: tc_hours(time_hood)
 
-ftd:
+time_ftd:
   - value: tc_hours(time_ftd)
 
-ifr_approach:
+count_ifr_approach:
   - value: count_ifr_approach
 
 # Cross-country: same rule as the IFR; the flight time goes to the day or night column of the arrival,
 # dual and pic both receive it for now (first pass, like the engine columns above).
 
-cross_country_dual_day:
+time_cc_dual_day:
   - value: tc_hours(time_cc_dual_day)
-  - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-cross_country_pic_day:
+time_cc_pic_day:
   - value: tc_hours(time_cc_pic_day)
-  - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "day"
-    value: w_flight_time
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
 
-cross_country_dual_night:
+time_cc_dual_night:
   - value: tc_hours(time_cc_dual_night)
-  - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
-cross_country_pic_night:
+time_cc_pic_night:
   - value: tc_hours(time_cc_pic_night)
-  - when: w_engines == "multi" and w_crew == "multi" and w_arrival_day_night == "night"
-    value: w_flight_time
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
 
 # Takeoffs and landings, instruction
-landings_day:
+count_landing_day:
   - value: count_landing_day
 
-landings_night:
+count_landing_night:
   - value: count_landing_night
 
-instruction_day:
+time_instruction_day:
   - value: tc_hours(time_instruction_day)
 
-instruction_night:
+time_instruction_night:
   - value: tc_hours(time_instruction_night)

@@ -36,17 +36,17 @@ styles:
 columns:
 - key: year
   label: YEAR
-  db_column: year
+  db_column: date_year
   width: 51
   group: date
 - key: month
   label: Month
-  db_column: month
+  db_column: date_month
   width: 51
   group: date
 - key: day
   label: Day
-  db_column: day
+  db_column: date_day
   width: 51
   group: date
 - key: type
@@ -56,55 +56,55 @@ columns:
   group: aircraft
 - key: registration
   label: Registr.
-  db_column: registration
+  db_column: aircraft_registration
   width: 90
   group: aircraft
 - key: pilot
   label: Pilot
-  db_column: pilot
+  db_column: crew_pilot_name
   width: 90
   group: crew
 - key: copilot
   label: Co-Pilot
-  db_column: copilot
+  db_column: crew_copilot_name
   width: 77
   group: crew
 - key: departure
   label: Departure
-  db_column: departure_code
+  db_column: location_departure_code
   width: 77
   group: route
 - key: arrival
   label: Arrival
-  db_column: arrival_code
+  db_column: location_arrival_code
   width: 77
   group: route
 - key: remarks
   label: Exercise, Mission, Flight Number…
-  db_column: remarks
+  db_column: misc_remarks
   width: 210
   group: remarks
 - key: se_dual_day
   label: Dual
-  db_column: single_engine_dual_day
+  db_column: time_se_dual_day
   width: 58
   group: single_engine
   subgroup: Day
 - key: se_pic_day
   label: PIC
-  db_column: single_engine_pic_day
+  db_column: time_se_pic_day
   width: 58
   group: single_engine
   subgroup: Day
 - key: se_dual_night
   label: Dual
-  db_column: single_engine_dual_night
+  db_column: time_se_dual_night
   width: 58
   group: single_engine
   subgroup: Night
 - key: se_pic_night
   label: PIC
-  db_column: single_engine_pic_night
+  db_column: time_se_pic_night
   width: 58
   group: single_engine
   subgroup: Night
@@ -118,105 +118,105 @@ columns:
   group: spacer
 - key: me_dual_day
   label: Dual
-  db_column: multi_engine_dual_day
+  db_column: time_me_dual_day
   width: 59
   group: multi_engine
   subgroup: Day
 - key: me_pic_day
   label: PIC
-  db_column: multi_engine_pic_day
+  db_column: time_me_pic_day
   width: 59
   group: multi_engine
   subgroup: Day
 - key: me_copilot_day
   label: Co-Pilot
-  db_column: multi_engine_copi_day
+  db_column: time_me_copi_day
   width: 59
   group: multi_engine
   subgroup: Day
 - key: me_dual_night
   label: Dual
-  db_column: multi_engine_dual_night
+  db_column: time_me_dual_night
   width: 59
   group: multi_engine
   subgroup: Night
 - key: me_pic_night
   label: PIC
-  db_column: multi_engine_pic_night
+  db_column: time_me_pic_night
   width: 59
   group: multi_engine
   subgroup: Night
 - key: me_copilot_night
   label: Co-Pilot
-  db_column: multi_engine_copi_night
+  db_column: time_me_copi_night
   width: 59
   group: multi_engine
   subgroup: Night
 - key: ifr
   label: IFR
-  db_column: ifr
+  db_column: time_ifr
   width: 59
   group: instruments
 - key: hood
   label: Hood
-  db_column: hood
+  db_column: time_hood
   width: 59
   group: instruments
 - key: ftd
   label: FTD
-  db_column: ftd
+  db_column: time_ftd
   width: 59
   group: instruments
 - key: ifr_app
   label: IFR app
-  db_column: ifr_approach
+  db_column: count_ifr_approach
   decimals: 0
   width: 59
   group: instruments
 - key: cc_dual_day
   label: Dual
-  db_column: cross_country_dual_day
+  db_column: time_cc_dual_day
   width: 59
   group: cross_country
   subgroup: Day
 - key: cc_pic_day
   label: PIC
-  db_column: cross_country_pic_day
+  db_column: time_cc_pic_day
   width: 59
   group: cross_country
   subgroup: Day
 - key: cc_dual_night
   label: Dual
-  db_column: cross_country_dual_night
+  db_column: time_cc_dual_night
   width: 59
   group: cross_country
   subgroup: Night
 - key: cc_pic_night
   label: PIC
-  db_column: cross_country_pic_night
+  db_column: time_cc_pic_night
   width: 59
   group: cross_country
   subgroup: Night
 - key: land_day
   label: Day
-  db_column: landings_day
+  db_column: count_landing_day
   decimals: 0
   width: 59
   group: landings
 - key: land_night
   label: Night
-  db_column: landings_night
+  db_column: count_landing_night
   decimals: 0
   width: 59
   group: landings
 - key: instruction_day
   label: Day
-  db_column: instruction_day
+  db_column: time_instruction_day
   width: 59
   group: instruction
 - key: instruction_night
   label: Night
-  db_column: instruction_night
+  db_column: time_instruction_night
   width: 59
   group: instruction
 group_labels:

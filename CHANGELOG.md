@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.37 — Entities are the single source of the columns
+
+- **Entities**: a field (unique technical name) and a label (text shown). The Excel file is now: position, label, group, name, field, data type, visible, editable, nullable, delete (the old headers “entity” and “display name” are still read; the last four columns are ignored). Renaming a label shows everywhere at once. Renaming a field is followed by the databases, the roles and all the YAML files; a field still used by a database or a role cannot be deleted.
+- **One mechanism for the four databases** (Raw, Work, Location, Aircraft): their columns can only be entities, chosen on one page (`Data > … DB settings`: present, visible, editable, nullable), the same for all accounts. The type and the label come from the entity. First use: Raw and Work get every entity, Location and Aircraft get their key columns. Clearing the data no longer deletes the structure.
+- **Roles** (`defaults/roles.yml`, page Data > Roles): the names the program knows (year, leg_time, ifr…) are bound to one field each; the code reads the work data through them, so it no longer depends on field names. Location and Aircraft key columns are roles too (`location.icao_code`…).
+- The shipped global profiles, `logbook_layout.yml` and `breakdown.yml` now cite fields. The per-account `<user>_data.yml` and `<user>_logbook.yml`, `work_structure.yml`, `default-userdb.yml`, the free-form Work DB settings page and the Locations / Aircraft structure pages are removed. Work data and raw data tables must be rebuilt (clear the data, convert again).
+- `VERSION` is now 0.3.37.
+
 ## 0.3.36 — Global profiles as YAML files, cleanup
 
 - **Global profiles** (Data > Conversion profiles): each global profile is a YAML file `<id>_global.yml`. **Create** opens the YAML text editor, **Import** accepts a `.yml` file only (the identifier comes from the file name; refused if it already exists or is invalid), and each file has **Edit**, **Export** and **Delete**. The rule-by-rule screens of 0.3.35 are removed. A deleted profile stays deleted (marker `.globals_ready`).

@@ -1,15 +1,15 @@
-import re
 import io
 import zipfile
 from datetime import datetime
 from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for, send_file
 from .auth import login_required, fresh_login_required, clear_confirmed
+from . import fields as efields
 from .importer import importable_rows
 from .import_profiles import list_profiles, load_profile, ensure_profile_columns, detect_profile, load_entities
 from .db import safe_identifier, connect, logbook_connect, user_root, current_username
-from .config import load_config, save_config, configurable_columns, load_logbook_layout, logbook_columns, load_data_view, load_logbook_view
+from .config import load_config, configurable_columns, load_logbook_layout, logbook_columns, load_data_view, load_logbook_view
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
-from .models import import_rows, drop_unused_columns
+from .models import import_rows
 from .gridview import grid_data, grid_export
 from .logbook_pdf import build_logbook_pdf
 from .errors import safe_message
@@ -27,8 +27,9 @@ def _read_logbook_value(row, col):
     part = col.get("date_part")
     if part in {"year","month","day"} and "date" not in row.keys():      # work data with its own year / month / day columns
         return row[part] if part in row.keys() and row[part] is not None else ""
-    if col.get("db_column") == "date":
-        value = row["date"] if "date" in row.keys() else None
+    date_field = efields.field_of("date")
+    if col.get("db_column") == date_field:
+        value = row[date_field] if date_field in row.keys() else None
         if not value: return ""
         try:
             dt=datetime.fromisoformat(str(value)[:10]); part=col.get("date_part")
@@ -209,7 +210,7 @@ def _date_expr():
 def logbook_db_page():
     view=load_logbook_view()
     dx=_date_expr()
-    fields=[({"name":v["column"],"label":v["label"],"kind":"date"} if v["column"]=="date" else {"name":v["column"],"label":v["label"]}) for v in view if v["column"] not in dx]
+    fields=[({"name":v["column"],"label":v["label"],"kind":"date"} if v["column"]==efields.field_of("date") else {"name":v["column"],"label":v["label"]}) for v in view if v["column"] not in dx]
     return render_template("logbook_db.html",view=view,add_fields=fields)
 
 @main_bp.route("/logbook-db/rows")
@@ -224,7 +225,7 @@ def logbook_db_rows():
 @login_required
 def add_logbook_row():
     try:
-        _add_row(logbook_connect,"logbook",{c["column"] for c in logbook_columns(load_config())}|{"date"},request.form); return ("",204)
+        _add_row(logbook_connect,"logbook",{c["column"] for c in logbook_columns(load_config())}|{efields.field_of("date")},request.form); return ("",204)
     except Exception as exc: return (safe_message(exc),400)
 
 @main_bp.route("/logbook-db/delete",methods=["POST"])
@@ -247,11 +248,10 @@ def logbook_table_export(fmt):
 @login_required
 def export_logbook_data():
     from .db import logbook_db_path
-    from .config import logbook_db_config_path
     username=current_username()
     buf=io.BytesIO()
     with zipfile.ZipFile(buf,"w",zipfile.ZIP_DEFLATED) as zf:
-        for f in (logbook_db_path(),logbook_db_config_path()):
+        for f in (logbook_db_path(),):
             if f.exists(): zf.write(f,arcname=f.name)
     buf.seek(0)
     stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -329,12 +329,9 @@ def refresh_logbook_data():
 @fresh_login_required
 def clear_logbook_data():
     if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
-    from .config import save_logbook_db_config
-    from .models import drop_unused_logbook_columns
-    save_logbook_db_config({"database": {"columns": []}})        # only the technical columns remain configured
-    conn=logbook_connect(); conn.execute("DELETE FROM logbook"); drop_unused_logbook_columns(conn,{}); conn.commit(); conn.close()
-    log_event("data_destroy", target="work-data:all-rows-and-columns")
-    flash("The work data and its columns were deleted. The YAML files are kept; the columns are created again from the Work DB settings at the next refresh or login.")
+    conn=logbook_connect(); conn.execute("DELETE FROM logbook"); conn.commit(); conn.close()
+    log_event("data_destroy", target="work-data:all-rows")
+    flash("The work data was deleted. The Work DB settings and the profiles are kept.")
     return redirect(url_for("hubs.data"))
 
 @main_bp.route("/logbook/cell",methods=["POST"])
@@ -356,10 +353,8 @@ def edit_logbook_cell():
 @fresh_login_required
 def clear_data():
     if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
-    from .config import is_system
-    config=load_config(); config["database"]["columns"]=[c for c in config["database"]["columns"] if is_system(c)]; save_config(config)
-    conn=connect(); conn.execute("DELETE FROM users"); conn.execute("DELETE FROM sqlite_sequence WHERE name='users'"); drop_unused_columns(conn,config); conn.commit(); conn.close()
-    log_event("data_destroy", target="raw-data:all-rows-and-columns"); flash("The raw data and its columns were deleted. The import profiles are kept."); return redirect(url_for("hubs.data"))
+    conn=connect(); conn.execute("DELETE FROM users"); conn.execute("DELETE FROM sqlite_sequence WHERE name='users'"); conn.commit(); conn.close()
+    log_event("data_destroy", target="raw-data:all-rows"); flash("The raw data was deleted. The Raw DB settings and the import profiles are kept."); return redirect(url_for("hubs.data"))
 
 @main_bp.route("/import",methods=["GET","POST"])
 @login_required

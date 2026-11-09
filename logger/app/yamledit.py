@@ -16,7 +16,6 @@ from .seclog import log_event
 from . import cssafe
 from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
 from .converter.transforms import FUNCTIONS
-from .models import init_user_db
 from . import audit, graph, import_profiles, refdata, workdb
 from .importer import FileImportError
 
@@ -65,27 +64,6 @@ def _columns_of(data):
     return cols
 
 
-def check_structure(data, normalize):
-    seen = set()
-    for i, raw in enumerate([c for c in _columns_of(data) if not (c.get("system") or c.get("group") == "system")], 1):
-        try:
-            col = normalize(raw, i)["column"]
-        except (ValueError, KeyError, TypeError) as exc:
-            raise Problem(f"Column no.{i} ({raw.get('column') or raw.get('display_name') or '?'}) : {exc}")
-        if col in RESERVED:
-            raise Problem(f"Column no.{i} : the name “ {col} ” is reserved.")
-        if col in seen:
-            raise Problem(f"Duplicate column: “ {col}”.")
-        if str(raw.get("data_type", "text")).lower() not in DATA_TYPES:
-            raise Problem(f"Column “ {col} ”: data_type must be one of {', '.join(sorted(DATA_TYPES))}.")
-        seen.add(col)
-    if not seen:
-        raise Problem("At least one data column is required (in addition to the system columns).")
-
-
-def check_logbook(data): check_structure(data, C._norm_lb)
-
-
 def check_layout(data):
     if "rows_per_page" in data:
         _number(data["rows_per_page"], "rows_per_page", 1)
@@ -124,7 +102,6 @@ def check_breakdown(data):
 
 # clé -> (libellé, fonction qui donne le chemin du fichier de l'utilisateur, vérification)
 FILES = {
-    "logbook": ("Work data — structure", C.logbook_db_config_path, check_logbook),
     "layout": ("Logbook — layout", C.logbook_layout_path, check_layout),
     "breakdown": ("Breakdown — layout", C.breakdown_path, check_breakdown),
 }
@@ -349,8 +326,6 @@ def editor():
                 tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(posted, encoding="utf-8")
                 os.replace(tmp, target)
-                if key == "logbook":
-                    init_user_db(username)                         # ajoute les nouvelles colonnes aux bases
                 log_event("config_change", target=f"yaml:{key}")
                 flash("File saved. The previous version is kept (“Restore” button).")
                 return redirect(url_for("yamledit.editor", file=key))

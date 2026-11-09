@@ -20,21 +20,23 @@ def index():
 @login_required
 def data():
     """Locations {code: name, lat, lon} and legs [from, to, year, count] grouped by pair of locations and year."""
+    from . import fields as efields
+    f = {r: efields.field_of(r) for r in list(NEEDED) + ["year", "departure_name", "arrival_name"]}
     conn = logbook_connect()
     try:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(logbook)")}
-        missing = [c for c in NEEDED if c not in cols]
+        missing = [r for r in NEEDED if f[r] not in cols]
         if missing:
-            return jsonify(error="The work data has no column: " + ", ".join(missing) + " (see the global profiles).")
-        year = "year" if "year" in cols else "NULL"
-        dname = "departure_name" if "departure_name" in cols else "''"
-        aname = "arrival_name" if "arrival_name" in cols else "''"
+            return jsonify(error="The work data has no column: " + ", ".join(f[r] for r in missing) + " (see the global profiles).")
+        year = f'"{f["year"]}"' if f["year"] in cols else "NULL"
+        dname = f'"{f["departure_name"]}"' if f["departure_name"] in cols else "''"
+        aname = f'"{f["arrival_name"]}"' if f["arrival_name"] in cols else "''"
+        dc, dla, dlo = (f'"{f[r]}"' for r in ("departure_code", "departure_latitude", "departure_longitude"))
+        ac, ala, alo = (f'"{f[r]}"' for r in ("arrival_code", "arrival_latitude", "arrival_longitude"))
         rows = conn.execute(
-            f"SELECT departure_code, {dname}, departure_latitude, departure_longitude, "
-            f"arrival_code, {aname}, arrival_latitude, arrival_longitude, {year}, COUNT(*) FROM logbook "
-            "WHERE departure_code IS NOT NULL AND arrival_code IS NOT NULL AND departure_code != '' AND arrival_code != '' "
-            "AND departure_latitude IS NOT NULL AND departure_longitude IS NOT NULL "
-            "AND arrival_latitude IS NOT NULL AND arrival_longitude IS NOT NULL "
+            f"SELECT {dc}, {dname}, {dla}, {dlo}, {ac}, {aname}, {ala}, {alo}, {year}, COUNT(*) FROM logbook "
+            f"WHERE {dc} IS NOT NULL AND {ac} IS NOT NULL AND {dc} != '' AND {ac} != '' "
+            f"AND {dla} IS NOT NULL AND {dlo} IS NOT NULL AND {ala} IS NOT NULL AND {alo} IS NOT NULL "
             "GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9").fetchall()
     finally:
         conn.close()

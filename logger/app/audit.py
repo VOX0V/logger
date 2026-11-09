@@ -22,6 +22,7 @@ import yaml
 from flask import Blueprint, g, render_template
 
 from . import workdb
+from . import fields as efields
 from .auth import login_required
 from .db import logbook_connect
 
@@ -397,7 +398,7 @@ def index():
     try:
         conn = logbook_connect()
         conn.row_factory = sqlite3.Row
-        rows = [dict(r) for r in conn.execute("SELECT * FROM logbook ORDER BY id")]
+        rows = efields.work_rows(conn)
         conn.close()
     except sqlite3.Error:
         rows = []

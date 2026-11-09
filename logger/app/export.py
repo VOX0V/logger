@@ -15,6 +15,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 
 from .auth import login_required
+from . import fields as efields
 from .errors import safe_message
 from .seclog import log_event
 from .uploads import check_xlsx
@@ -170,7 +171,7 @@ def _load_rows():
     try:
         conn = logbook_connect()
         conn.row_factory = sqlite3.Row
-        rows = [dict(r) for r in conn.execute("SELECT * FROM logbook ORDER BY id")]
+        rows = efields.work_rows(conn)
         conn.close()
     except sqlite3.Error:
         rows = []

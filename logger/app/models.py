@@ -1,6 +1,5 @@
 """SQLite schema management for the per-user 'users' (raw import) table."""
 from .db import connect, logbook_connect, safe_identifier, sqlite_type, user_root
-from .workdb import apply_to_user
 from .config import (SYSTEM_COLUMNS, LOGBOOK_SYSTEM_COLUMNS, load_config, load_logbook_db_config,
                       configurable_columns, ensure_configs)
 
@@ -73,7 +72,6 @@ def init_user_db(username):
     from .converter.catalog import ensure_user_selection  # lazy: avoids a circular import
     user_root(username)  # ensures the folder exists
     ensure_configs(username)
-    apply_to_user(username)               # work data columns = Work DB settings
     ensure_user_selection(username)
     config = load_config(username)
     conn = connect(username)

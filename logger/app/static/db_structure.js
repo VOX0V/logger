@@ -1,6 +1,7 @@
-// Raw DB settings: same grid as the Work DB settings page (tick / cross cells, filter, confirmation before columns are removed).
+// Settings of a database (raw, work, location, aircraft): the same grid for all of them (tick / cross cells, filter, confirmation before columns are removed).
 (function () {
-  window.initRawStructure = function (cfg) {
+  window.initStructure = function (cfg) {
+    const required = cfg.required || [];
     const form = document.getElementById("structure-form");
     const filter = document.getElementById("s-filter");
     const was = {};
@@ -12,7 +13,10 @@
                 const on = !rows.every(function (r) { return r.getData()[field]; });
                 rows.forEach(function (r) { const change = {}; change[field] = on; r.update(change); });
               },
-              cellClick: function (e, cell) { cell.setValue(!cell.getValue()); }};
+              cellClick: function (e, cell) {
+                if (field === "present" && cell.getValue() && required.indexOf(cell.getRow().getData().column) !== -1) return;
+                cell.setValue(!cell.getValue());
+              }};
     }
     const table = new Tabulator("#grid", {
       data: cfg.rows, index: "column", layout: "fitDataStretch", height: "70vh", placeholder: "No columns.",

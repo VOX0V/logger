@@ -2,10 +2,10 @@
 <style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}</style>
 <form method="post" action="{{url_for('entities.structure_save', kind=kind)}}" id="structure-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="page-head"><h2>{{title}}</h2><div class="btns"><input type="search" id="s-filter" placeholder="Filter…"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
-<div class="card"><p class="muted">Columns of your {{ 'raw' if kind == 'raw' else 'work' }} database. Click ✓ / ✗ to change which entities are present and which of them are visible, editable and nullable (a click on a column title changes all the rows shown). Removing a present entity deletes its column together with its data. Columns that are not entities are listed after them.</p>
+<div class="card"><p class="muted">The columns of this database can only be entities. Click ✓ / ✗ to choose which entities are present and, for each, whether it is visible, editable and nullable (a click on a column title changes all the rows shown). The type and the label come from the entity. Removing a present entity deletes its column together with its data.{% if required %} The key columns that the program reads cannot be removed.{% endif %}</p>
 <div id="grid"></div></div></form>
 <link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
-<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='raw_structure.js') }}"></script>
-<script nonce="{{ csp_nonce }}">initRawStructure({rows: {{ rows|tojson }}});</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='db_structure.js') }}"></script>
+<script nonce="{{ csp_nonce }}">initStructure({rows: {{ rows|tojson }}, required: {{ required|tojson }}});</script>
 {% endblock %}

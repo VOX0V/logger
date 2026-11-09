@@ -7,12 +7,12 @@ aircraft_type:
   - value: aircraft(aircraft_type, "display")
   - value: aircraft_type
 
-category:
+aircraft_category:
   - value: aircraft(aircraft_type, "category")
 
-registration:
+aircraft_registration:
   - value: registration_format(aircraft_registration)
 
-engines:
+aircraft_engine:
   - value: aircraft(aircraft_type, "engines")
 
