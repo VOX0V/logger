@@ -1,17 +1,7 @@
 {% extends "base.html" %}{% block content %}
-<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:12px}</style>
-<form method="post" id="profile-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="columns" id="columns">
-<div class="page-head"><h2>{{ 'New import profile' if creating else 'Import profile' }}</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('profiles.import_list')}}">Cancel</a></div></div>
-<div class="card"><div class="add-grid">
-<div class="field"><label>Name (shown in the import menu)</label><input name="name" value="{{state.name}}" required></div>
-<div class="field"><label>Identifier (file name){% if not creating %} — changing it renames the file{% endif %}</label><input name="id" value="{{state.id}}" placeholder="empty: made from the name"></div>
-<div class="field"><label>Sheet (optional)</label><input name="sheet" value="{{state.sheet}}"></div></div>
-<div class="field"><label>Ignored headers (documentation only, one per line)</label><textarea name="ignored" rows="3">{{state.ignored}}</textarea></div>
-<p class="muted">One row per header of the file, with the entity it goes to. A header that is not listed is not imported.</p>
-<div class="row-btns" style="margin-bottom:10px"><button type="button" class="btn secondary" id="row-add">Add a header</button><button type="button" class="btn danger" id="row-delete">Delete selected</button></div>
-<div id="grid"></div></div></form>
-<link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">
-<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
-<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='import_profile_edit.js') }}"></script>
-<script nonce="{{ csp_nonce }}">initImportProfile({rows: {{ state.rows|tojson }}, entities: {{ entities|tojson }}});</script>
+<style>[hidden]{display:none!important}.page-head .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}</style>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-head"><h2>Import profile — {{ 'new' if creating else profile_id }}</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('profiles.import_list')}}">Cancel</a></div></div>
+<div class="card">{% if creating %}<div class="field"><label>Identifier (lowercase letters, digits, - and _; the file is &lt;identifier&gt;_import.yml)</label><input name="new_id" value="{{new_id}}" required></div>{% else %}<p class="muted">File {{profile_id}}_import.yml.</p>{% endif %}
+<textarea name="content" rows="32" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px">{{content}}</textarea></div></form>
 {% endblock %}

@@ -3,7 +3,6 @@
 An import profile is a file <id>_import.yml (appdata/importer): which header of a company file goes to which entity.
 A conversion profile is a file <id>_convert.yml (appdata/workdb): the conversion rules, raw data to work data, of the rows
 imported with the import profile <id>; they are tried before the global profiles."""
-import json
 import re
 
 import yaml
@@ -17,8 +16,21 @@ from .seclog import log_event
 
 profiles_bp = Blueprint("profiles", __name__, url_prefix="/profiles")
 
-IMPORT_HEADER = ("# Import profile: one line per header of the file, written  header: entity  (entities: see Data > Entities).\n"
-                 "# A header that is not listed here is not imported. Managed from Data > Import profiles.\n")
+IMPORT_SKELETON = """# Import profile: one line per header of the file, written  header: entity  (entities: see Data > Entities).
+# A header that is not listed under "columns" is not imported. The columns of the raw database are created by the import.
+name: Company name
+columns:
+  header_of_the_file: entity
+
+# Optional: rows of the file to import (a row must pass every filter).
+# filters:
+#   - column: header_of_the_file
+#     only: [value1, value2]        # keep only the rows whose value is one of these
+#   - column: header_of_the_file
+#     exclude: [text]               # leave out the rows whose value contains one of these texts
+#   - column: header_of_the_file
+#     not_after: today              # leave out the rows whose date is later than today
+"""
 SKELETON = """# Conversion rules for the import profile “__NAME__” (__ID__).
 # They are tried before the rules of the global profiles: for a work column, the first rule here whose "when" is true and
 # whose "value" is not empty gives the value; if there is none, the global rules apply. The columns, their types and
@@ -82,60 +94,8 @@ def import_list():
         except FileImportError as exc:
             error = str(exc)
         columns = data.get("columns")
-        rows.append({"id": pid, "name": str(data.get("name") or pid), "sheet": str(data.get("sheet") or ""),
-                     "count": len(columns) if isinstance(columns, dict) else 0, "error": error, "convert": pid in converts})
+        rows.append({"id": pid, "name": str(data.get("name") or pid), "count": len(columns) if isinstance(columns, dict) else 0, "error": error, "convert": pid in converts})
     return render_template("import_profiles.html", rows=rows)
-
-
-def _entity_choices():
-    try:
-        entities = ip.load_entities()
-    except FileImportError:
-        entities = {}
-    return [{"label": f"{e} — {v['display_name']}", "value": e} for e, v in entities.items()]
-
-
-def _parse_rows(raw):
-    try:
-        rows = json.loads(raw or "[]")
-    except ValueError:
-        raise ValueError("The columns are not readable.")
-    if not isinstance(rows, list):
-        raise ValueError("The columns are not readable.")
-    return [{"header": str(r.get("header", "")).strip(), "entity": str(r.get("entity", "")).strip()} for r in rows if isinstance(r, dict)]
-
-
-def _save_import(profile_id, folder):
-    name = request.form.get("name", "").strip()
-    if not name:
-        raise ValueError("The name is required.")
-    new_id = request.form.get("id", "").strip().lower() or re.sub(r"[^a-z0-9]+", "", name.lower())
-    if not ip.PROFILE_ID.fullmatch(new_id):
-        raise ValueError("The identifier only uses lowercase letters, digits, - and _.")
-    if new_id != profile_id and (new_id in ip.profile_ids() or workdb.convert_path(new_id).exists()):
-        raise ValueError(f"The identifier “{new_id}” is already used.")
-    columns = {}
-    for row in _parse_rows(request.form.get("columns")):
-        if not row["header"] and not row["entity"]:
-            continue
-        if row["header"] in columns:
-            raise ValueError(f"The header “{row['header']}” appears twice.")
-        columns[row["header"]] = row["entity"]
-    data = {"name": name}
-    if request.form.get("sheet", "").strip():
-        data["sheet"] = request.form["sheet"].strip()
-    data["columns"] = columns
-    ignored = [h.strip() for h in request.form.get("ignored", "").splitlines() if h.strip()]
-    if ignored:
-        data["ignored"] = ignored
-    ip.parse_spec(data)                     # raises FileImportError with a readable message
-    _write(folder / f"{new_id}{ip.SUFFIX}", IMPORT_HEADER + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=1000))
-    if profile_id and new_id != profile_id:  # renamed: the file and its conversion file follow
-        (folder / f"{profile_id}{ip.SUFFIX}").unlink(missing_ok=True)
-        old = workdb.convert_path(profile_id)
-        if old.is_file():
-            old.replace(workdb.convert_path(new_id))
-    return new_id
 
 
 @profiles_bp.route("/import/new", methods=["GET", "POST"])
@@ -143,30 +103,31 @@ def _save_import(profile_id, folder):
 @admin_required
 def import_edit(profile_id=None):
     folder = _folder()
-    if profile_id is not None:
+    creating = profile_id is None
+    if not creating:
         _known(profile_id)
-    state = None
-    if request.method == "POST":
+    posting = request.method == "POST"
+    if creating:
+        new_id = request.form.get("new_id", "").strip().lower() if posting else ""
+        content = request.form.get("content", "") if posting else IMPORT_SKELETON
+    else:
+        new_id = profile_id
+        content = request.form.get("content", "") if posting else ip.profile_path(profile_id).read_text(encoding="utf-8")
+    if posting:
         try:
-            new_id = _save_import(profile_id, folder)
-        except (ValueError, FileImportError) as exc:
+            if creating:
+                if not ip.PROFILE_ID.fullmatch(new_id):
+                    raise ValueError("The identifier is required and only uses lowercase letters, digits, - and _.")
+                if new_id in ip.profile_ids() or workdb.convert_path(new_id).exists():
+                    raise ValueError(f"The identifier “{new_id}” is already used.")
+            ip.parse_spec(yamledit.parse(content))
+        except (yamledit.Problem, ValueError, FileImportError) as exc:
             flash(str(exc))
-            try:
-                rows = _parse_rows(request.form.get("columns"))
-            except ValueError:
-                rows = []
-            state = {"name": request.form.get("name", ""), "id": request.form.get("id", ""), "sheet": request.form.get("sheet", ""),
-                     "ignored": request.form.get("ignored", ""), "rows": rows}
         else:
+            _write(folder / f"{new_id}{ip.SUFFIX}", content if content.endswith("\n") else content + "\n")
             flash(f"Import profile “{new_id}” saved.")
             return redirect(url_for("profiles.import_list"))
-    if state is None:
-        data = _load_data(profile_id) if profile_id else {}
-        columns = data.get("columns") if isinstance(data.get("columns"), dict) else {}
-        state = {"name": str(data.get("name") or "") if profile_id else "", "id": profile_id or "", "sheet": str(data.get("sheet") or ""),
-                 "ignored": "\n".join(str(h) for h in (data.get("ignored") or [])),
-                 "rows": [{"header": str(h), "entity": str(e)} for h, e in columns.items()]}
-    return render_template("import_profile_edit.html", state=state, creating=profile_id is None, entities=_entity_choices())
+    return render_template("import_profile_edit.html", profile_id=profile_id, new_id=new_id, content=content, creating=creating)
 
 
 @profiles_bp.route("/import/<profile_id>/delete", methods=["POST"])

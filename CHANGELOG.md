@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.38 — Row filters in import profiles, YAML editor for import profiles
+
+- **Filters** (optional `filters` list in `<id>_import.yml`): each filter names a header of the file (`column`) and one rule: `only` (keep only the rows whose value is in the list, not case sensitive), `exclude` (leave out the rows whose value contains one of the texts) or `not_after: today` (leave out the rows whose date is later than today). A row must pass every filter. Rows left out are not added to the raw database. If a filter column is not in the file, or a date cannot be read, the import stops with a message.
+- **Import profile page** (`/profiles/import/<id>/edit` and `/new`): now a YAML text editor, like the global and conversion profiles. The identifier is typed only when creating. Renaming an import profile from its editor is no longer possible.
+- **Sheet** removed from import profiles: an Excel file is read from the sheet named “raw”, otherwise from the active sheet. A profile that still contains `sheet:` is refused.
+- `VERSION` is now 0.3.38.
+
 ## 0.3.37 — Entities are the single source of the columns
 
 - **Entities**: a field (unique technical name) and a label (text shown). The Excel file is now: position, label, group, name, field, data type, visible, editable, nullable, delete (the old headers “entity” and “display name” are still read; the last four columns are ignored). Renaming a label shows everywhere at once. Renaming a field is followed by the databases, the roles and all the YAML files; a field still used by a database or a role cannot be deleted.

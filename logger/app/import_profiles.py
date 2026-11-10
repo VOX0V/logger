@@ -6,13 +6,20 @@ untouched (the raw database holds raw data). The columns of the raw database are
 entities that the profile uses: name and order come from the entity list; the type is always text (the work data converts to the right type).
 
     name: Jazz Aviation          # shown in the import menu
-    sheet: raw                   # optional: sheet to read (default: "raw", else the active sheet)
     columns:                     # header of the file: entity   (several headers may go to the same entity)
       fcv_aircraft_type: aircraft_type
       to_day: count_takeoff_day
     ignored: [deadhead, tail_number]    # optional, documentation only: headers deliberately not imported
+    filters:                     # optional: rows of the file to import; a row must pass every filter
+      - column: fcv_aircraft_type        # a header of the file
+        only: [CRJ9, CRJ2]               # keep only the rows whose value is one of these (not case sensitive)
+      - column: some_header
+        exclude: [text]                  # leave out the rows whose value contains one of these texts
+      - column: dep_datetime_local
+        not_after: today                 # leave out the rows whose date is later than today (YYYY-MM-DD...)
 
-A header of the file that is not listed under "columns" is not imported.
+A header of the file that is not listed under "columns" is not imported. In an Excel file, the sheet named "raw" is read,
+otherwise the active sheet.
 """
 import re
 import shutil
@@ -125,19 +132,47 @@ def load_entities():
     return _load()
 
 
+FILTER_KINDS = ("only", "exclude", "not_after")
+
+
+def _check_filters(filters):
+    """Checks the optional “filters” list of an import profile; raises FileImportError with a readable message."""
+    if filters is None:
+        return
+    if not isinstance(filters, list) or not filters:
+        raise FileImportError("“filters” must be a list of filters, each with a “column” and one of “only”, “exclude” or “not_after”.")
+    for i, item in enumerate(filters, 1):
+        if not isinstance(item, dict):
+            raise FileImportError(f"Filter no.{i} must have a “column” and one of “only”, “exclude” or “not_after”.")
+        unknown = set(item) - {"column", *FILTER_KINDS}
+        if unknown:
+            raise FileImportError(f"Filter no.{i}: unknown key “{sorted(unknown, key=str)[0]}”.")
+        if not isinstance(item.get("column"), str) or not item["column"].strip():
+            raise FileImportError(f"Filter no.{i}: “column” (a header of the file) is required.")
+        kinds = [k for k in FILTER_KINDS if k in item]
+        if len(kinds) != 1:
+            raise FileImportError(f"Filter no.{i}: use exactly one of “only”, “exclude” or “not_after”.")
+        kind = kinds[0]
+        if kind == "not_after":
+            if item["not_after"] != "today":
+                raise FileImportError(f"Filter no.{i}: “not_after” only accepts “today”.")
+            continue
+        values = item[kind] if isinstance(item[kind], list) else [item[kind]]
+        if not values or any(v is None or isinstance(v, (bool, dict, list)) or not str(v).strip() for v in values):
+            raise FileImportError(f"Filter no.{i}: “{kind}” must be a text or a list of texts.")
+
+
 def parse_spec(data):
     """Checks the content of one <id>_import.yml; raises FileImportError with a readable message."""
     if not isinstance(data, dict):
         raise FileImportError("The file must contain “name” and “columns” (header: entity).")
     if "groups" in data:
         raise FileImportError("Old format: replace “groups” by “columns”, one line per header, written  header: entity.")
-    unknown = set(data) - {"name", "sheet", "columns", "ignored"}
+    unknown = set(data) - {"name", "columns", "ignored", "filters"}
     if unknown:
         raise FileImportError(f"Unknown key “{sorted(unknown)[0]}”.")
     if data.get("name") is not None and not isinstance(data["name"], str):
         raise FileImportError("“name” must be a text.")
-    if data.get("sheet") is not None and not isinstance(data["sheet"], str):
-        raise FileImportError("“sheet” must be a text.")
     columns = data.get("columns")
     if not isinstance(columns, dict) or not columns:
         raise FileImportError("“columns” must list the headers of the file, one per line, written  header: entity.")
@@ -150,6 +185,7 @@ def parse_spec(data):
     ignored = data.get("ignored")
     if ignored is not None and not (isinstance(ignored, list) and all(isinstance(h, str) for h in ignored)):
         raise FileImportError("“ignored” must be a list of headers.")
+    _check_filters(data.get("filters"))
 
 
 def _read(profile_id):
@@ -198,7 +234,14 @@ def load_profile(profile_id):
     columns = [{"header": str(header), "column": entity, "display_name": entities[entity]["display_name"],
                 "group": entities[entity]["group"], "data_type": entities[entity]["data_type"]}
                for header, entity in data["columns"].items()]
-    return {"id": profile_id, "name": str(data.get("name") or profile_id), "sheet": data.get("sheet") or None, "columns": columns}
+    filters = []
+    for item in data.get("filters") or []:
+        entry = {"column": item["column"].strip()}
+        for kind in FILTER_KINDS:
+            if kind in item:
+                entry[kind] = item[kind] if kind == "not_after" else [str(v) for v in (item[kind] if isinstance(item[kind], list) else [item[kind]])]
+        filters.append(entry)
+    return {"id": profile_id, "name": str(data.get("name") or profile_id), "columns": columns, "filters": filters}
 
 
 def ensure_profile_columns(config, profile, extra=()):
@@ -250,16 +293,14 @@ def detect_profile(filename, file_bytes):
     if not profiles:
         return None
     shared = Counter(h for _profile, headers in profiles for h in headers)
-    file_headers, scored = {}, []
+    try:
+        file_headers = {normalize(v) for v in _read_table(filename, file_bytes)[0]}
+    except Exception:
+        file_headers = set()
+    scored = []
     for profile, headers in profiles:
-        sheet = profile.get("sheet")
-        if sheet not in file_headers:
-            try:
-                file_headers[sheet] = {normalize(v) for v in _read_table(filename, file_bytes, sheet)[0]}
-            except Exception:
-                file_headers[sheet] = set()
         total = sum(1 / shared[h] for h in headers)
-        hit = sum(1 / shared[h] for h in headers if h in file_headers[sheet])
+        hit = sum(1 / shared[h] for h in headers if h in file_headers)
         scored.append((hit / total if total else 0, profile))
     scored.sort(key=lambda s: s[0], reverse=True)
     if scored[0][0] < 0.5 or (len(scored) > 1 and scored[0][0] - scored[1][0] < 0.1):
