@@ -108,7 +108,7 @@ def _compile_filters(filters, headers):
         idx = positions.get(normalize(item["column"]))
         if idx is None:
             raise FileImportError(f"The column “{item['column']}” of a filter does not exist in this file.")
-        for kind in ("only", "exclude", "not_after"):
+        for kind in ("only", "only_containing", "exclude", "not_after"):
             if kind in item:
                 values = None if kind == "not_after" else {str(v).strip().casefold() for v in item[kind]}
                 compiled.append((idx, kind, values))
@@ -126,6 +126,8 @@ def _kept(compiled, values, line, today):
             continue
         text = _cell_text(value)
         if kind == "only" and text not in wanted:
+            return False
+        if kind == "only_containing" and not any(part in text for part in wanted):
             return False
         if kind == "exclude" and any(part in text for part in wanted):
             return False

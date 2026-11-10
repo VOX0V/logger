@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.39 — Filter “only_containing”
+
+- **New filter** `only_containing` in the `filters` list of an import profile: keeps only the rows whose value in the column contains one of the texts (not case sensitive), for example `only_containing: [816505]` on `crew_list`. A number is read as a text.
+- `VERSION` is now 0.3.39.
+
 ## 0.3.38 — Row filters in import profiles, YAML editor for import profiles
 
 - **Filters** (optional `filters` list in `<id>_import.yml`): each filter names a header of the file (`column`) and one rule: `only` (keep only the rows whose value is in the list, not case sensitive), `exclude` (leave out the rows whose value contains one of the texts) or `not_after: today` (leave out the rows whose date is later than today). A row must pass every filter. Rows left out are not added to the raw database. If a filter column is not in the file, or a date cannot be read, the import stops with a message.

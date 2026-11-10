@@ -27,6 +27,8 @@ columns:
 #   - column: header_of_the_file
 #     only: [value1, value2]        # keep only the rows whose value is one of these
 #   - column: header_of_the_file
+#     only_containing: [text]       # keep only the rows whose value contains one of these texts
+#   - column: header_of_the_file
 #     exclude: [text]               # leave out the rows whose value contains one of these texts
 #   - column: header_of_the_file
 #     not_after: today              # leave out the rows whose date is later than today

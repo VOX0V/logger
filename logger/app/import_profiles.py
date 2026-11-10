@@ -13,6 +13,8 @@ entities that the profile uses: name and order come from the entity list; the ty
     filters:                     # optional: rows of the file to import; a row must pass every filter
       - column: fcv_aircraft_type        # a header of the file
         only: [CRJ9, CRJ2]               # keep only the rows whose value is one of these (not case sensitive)
+      - column: crew_list
+        only_containing: [816505]        # keep only the rows whose value contains one of these texts
       - column: some_header
         exclude: [text]                  # leave out the rows whose value contains one of these texts
       - column: dep_datetime_local
@@ -132,7 +134,7 @@ def load_entities():
     return _load()
 
 
-FILTER_KINDS = ("only", "exclude", "not_after")
+FILTER_KINDS = ("only", "only_containing", "exclude", "not_after")
 
 
 def _check_filters(filters):
@@ -140,10 +142,10 @@ def _check_filters(filters):
     if filters is None:
         return
     if not isinstance(filters, list) or not filters:
-        raise FileImportError("“filters” must be a list of filters, each with a “column” and one of “only”, “exclude” or “not_after”.")
+        raise FileImportError("“filters” must be a list of filters, each with a “column” and one of “only”, “only_containing”, “exclude” or “not_after”.")
     for i, item in enumerate(filters, 1):
         if not isinstance(item, dict):
-            raise FileImportError(f"Filter no.{i} must have a “column” and one of “only”, “exclude” or “not_after”.")
+            raise FileImportError(f"Filter no.{i} must have a “column” and one of “only”, “only_containing”, “exclude” or “not_after”.")
         unknown = set(item) - {"column", *FILTER_KINDS}
         if unknown:
             raise FileImportError(f"Filter no.{i}: unknown key “{sorted(unknown, key=str)[0]}”.")
@@ -151,7 +153,7 @@ def _check_filters(filters):
             raise FileImportError(f"Filter no.{i}: “column” (a header of the file) is required.")
         kinds = [k for k in FILTER_KINDS if k in item]
         if len(kinds) != 1:
-            raise FileImportError(f"Filter no.{i}: use exactly one of “only”, “exclude” or “not_after”.")
+            raise FileImportError(f"Filter no.{i}: use exactly one of “only”, “only_containing”, “exclude” or “not_after”.")
         kind = kinds[0]
         if kind == "not_after":
             if item["not_after"] != "today":
