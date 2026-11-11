@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.40 — Work DB columns computed in any direction, dark mode
+
+- **Work DB conversion**: a rule can now use `w_<column>` of any other work column, placed before or after it in the Work DB settings (for example year, month and day from the date, or an average speed from a flight time placed later). A column used by a rule is computed first, whatever its place. When two columns depend on each other, the rule that closes the loop is left out for that row and the next rules are tried. The “can only use a column placed before it” error no longer exists; a `w_` name that is not a column of the Work DB settings is still refused.
+- **Dark mode**: a button at the top right of every page switches between the light and a soft dark theme; the choice is kept in the browser. Colours written directly inside some pages (charts, map) may stay light.
+- `VERSION` is now 0.3.40.
+
 ## 0.3.39 — Filter “only_containing”
 
 - **New filter** `only_containing` in the `filters` list of an import profile: keeps only the rows whose value in the column contains one of the texts (not case sensitive), for example `only_containing: [816505]` on `crew_list`. A number is read as a text.

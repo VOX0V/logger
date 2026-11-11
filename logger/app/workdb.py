@@ -613,7 +613,7 @@ parse_spec = parse_rules                                     # former name
 
 
 def _check_references(label, parsed, order):
-    """w_<column> must name a column of the structure that comes before the column using it."""
+    """w_<column> must name a column of the Work DB settings (before or after the column using it)."""
     for column, rules in parsed["rules"].items():
         for rule in rules:
             for tree in (rule["when"], rule["value"]):
@@ -622,8 +622,6 @@ def _check_references(label, parsed, order):
                         target = node.id.lower()[2:]
                         if target not in order:
                             raise SpecError(f"{label}: {column}: “{node.id}” refers to a work column that is not in the Work DB settings.")
-                        if column in order and order[target] >= order[column]:
-                            raise SpecError(f"{label}: {column}: “{node.id}” can only use a column placed before it in the Work DB settings.")
 
 
 def check_rules_data(data, label="global profile"):
@@ -779,12 +777,25 @@ def load_spec():
             "profiles": {pid: {"skip": p["skip"], "rules": p["rules"]} for pid, p in profiles.items()}}
 
 
+def _rule_refs(rule):
+    """Work columns (w_<column>) used by a rule, found once and kept in the rule."""
+    refs = rule.get("refs")
+    if refs is None:
+        refs = set()
+        for tree in (rule["when"], rule["value"]):
+            for node in (ast.walk(tree) if tree is not None else ()):
+                if isinstance(node, ast.Name) and node.id.lower().startswith("w_"):
+                    refs.add(node.id.lower()[2:])
+        rule["refs"] = refs
+    return refs
+
+
 def convert_row(spec, source, pilot_name, warn):
     """Work data values of one raw row: a dict, or None when a skip rule leaves the row out.
     The rules of the import profile of the row (column import_profile) are tried before the global ones."""
     env = {str(k).lower(): v for k, v in source.items()}
     env.update(pilot_name=pilot_name, true=True, false=False)
-    env.update({"w_" + c["column"]: None for c in spec["columns"]})     # w_<column>: the value computed for an earlier column
+    env.update({"w_" + c["column"]: None for c in spec["columns"]})     # w_<column>: the value of another work column, computed when needed
     profile = spec.get("profiles", {}).get(str(source.get("import_profile") or ""), {"skip": [], "rules": {}})
     for rule in spec["skip"] + profile["skip"]:
         try:
@@ -792,18 +803,36 @@ def convert_row(spec, source, pilot_name, warn):
                 return None
         except ExprError as exc:
             warn(f"Skip rule “{rule['name']}”: {exc}")
-    out = {}
-    for col in spec["columns"]:
-        for rule in profile["rules"].get(col["column"], []) + col["rules"]:
+    rules_of = {col["column"]: profile["rules"].get(col["column"], []) + col["rules"] for col in spec["columns"]}
+    types = {col["column"]: col["type"] for col in spec["columns"]}
+    out, state = {}, {}
+
+    def compute(column):
+        state[column] = "running"
+        for rule in rules_of[column]:
+            blocked = False
+            for target in _rule_refs(rule):
+                if state.get(target) == "running":
+                    blocked = True                  # circular reference: this rule is left out for this row
+                    break
+                if target in rules_of and target not in state:
+                    compute(target)                 # a column used by the rule is computed first, wherever it is placed
+            if blocked:
+                continue
             try:
                 if rule["when"] is not None and not _truthy(_eval(rule["when"], env, warn)):
                     continue
-                value = _coerce(_eval(rule["value"], env, warn), col["type"])
+                value = _coerce(_eval(rule["value"], env, warn), types[column])
             except ExprError as exc:
-                warn(f"Column {col['column']}: {exc}")
+                warn(f"Column {column}: {exc}")
                 continue
             if value is not None:
-                out[col["column"]] = value
-                env["w_" + col["column"]] = value
+                out[column] = value
+                env["w_" + column] = value
                 break
+        state[column] = "done"
+
+    for col in spec["columns"]:
+        if col["column"] not in state:
+            compute(col["column"])
     return out

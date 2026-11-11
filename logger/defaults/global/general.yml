@@ -4,12 +4,13 @@
 #
 # Every key is the name of a work column, followed by its list of rules. The rules of the file of the import profile
 # (Data > Conversion profiles) are tried first, then these ones: the first rule whose "when" is true (a rule without
-# "when" always applies) and whose "value" is not empty gives the value of the column. A column can use w_<column>
-# only for a column that comes before it in the Work DB settings.
+# "when" always applies) and whose "value" is not empty gives the value of the column. A column can use w_<column> of any
+# other work column, placed before or after it in the Work DB settings. When two columns depend on each other, the rule that
+# closes the loop is left out for that row and the next rules are tried.
 #
 # Expressions ("when" and "value") can use:
 #   - the columns of the raw data by their entity name (date_year, aircraft_type, location_departure_code, time_se_pic_day, ...) and pilot_name
-#   - w_<column>: the value already computed for a work column placed before it in the structure (w_time_flight_hhmm, ...)
+#   - w_<column>: the value of another work column, computed when needed (w_time_flight_hhmm, ...)
 #   - numbers, "text", true / false, and / or / not, comparisons (== != < <= > >=), + - * /
 #   - dates:    year_of(x), month_of(x), day_of(x)   (x = 2026-09-27, 27/09/2026 or 27/10/23; two digits: 00-69 = 2000s, 70-99 = 1900s)
 #               also "Sep 11 2026" and "11 September 2026"; date_of(x) = YYYY-MM-DD of any of these formats

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script nonce="{{ csp_nonce }}">try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}</script>
 <title>Logger</title>
 <style>
 body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f7;color:#20242a}header{background:#1f2937;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;position:sticky;top:0;z-index:20}header a{color:#fff;margin-left:14px;text-decoration:none}main{padding:10px 14px;max-width:none}.btn{display:inline-block;padding:8px 12px;background:#2563eb;color:white;text-decoration:none;border:0;border-radius:4px;cursor:pointer}.btn.secondary{background:#4b5563}.btn.danger{background:#b91c1c}.card{background:white;padding:20px;border:1px solid #ddd;border-radius:6px;margin-bottom:18px}.card.grid-card{padding:8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.field{margin-bottom:12px}.field label{display:block;font-weight:600;font-size:12px;margin-bottom:4px}.field input,.field select,.field textarea{padding:8px;border:1px solid #bbb;border-radius:4px;width:100%;box-sizing:border-box}.rules{min-height:100px}.muted{color:#666}.flash{padding:10px 12px;background:#e8f5e9;margin-bottom:14px}.db-view{position:relative}.db-scrollbar{position:sticky;top:59px;z-index:15;overflow-x:auto;overflow-y:hidden;height:18px;background:#f4f5f7;margin-bottom:2px}.db-scrollbar-inner{height:1px}.db-table-wrap{max-height:calc(100vh - 170px);overflow:auto;background:white}.data-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;background:white}.data-table th,.data-table td{border-right:1px solid #ddd;border-bottom:1px solid #ddd;padding:7px;text-align:left;vertical-align:top}.data-table th{background:#eef1f4;position:sticky;top:0;z-index:10;white-space:nowrap}.data-table td{white-space:nowrap}.data{border-collapse:collapse;width:max-content;min-width:100%;background:#fff}.data th,.data td{border:1px solid #ddd;padding:7px;text-align:left}.app-version{position:fixed;right:8px;bottom:4px;font-size:10px;color:#777;z-index:30}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
@@ -46,9 +47,47 @@ header a.header-btn:hover{background:#1d4ed8}
 .tabulator-row.totals-row.totals-to_date{background:#e3ecff}
 .logout-form{display:inline;margin:0}.linklike{background:none;border:0;color:#fff;margin-left:14px;font:inherit;cursor:pointer;padding:0}
 </style>
+<style>
+html[data-theme=dark]{color-scheme:dark}
+html[data-theme=dark] body{background:#1f2328;color:#dfe3e8}
+html[data-theme=dark] header{background:#15181c}
+html[data-theme=dark] .card{background:#2a2f36;border-color:#3b424b}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] textarea{background:#23282e;color:#dfe3e8;border-color:#4a525c}
+html[data-theme=dark] .muted,html[data-theme=dark] .logbook-meta,html[data-theme=dark] .app-version{color:#9aa4af}
+html[data-theme=dark] .flash{background:#1f3a2a;color:#cfe9d6}
+html[data-theme=dark] .db-scrollbar{background:#1f2328}
+html[data-theme=dark] .db-table-wrap,html[data-theme=dark] .data-table,html[data-theme=dark] .data{background:#2a2f36}
+html[data-theme=dark] .data-table th,html[data-theme=dark] .data-table td,html[data-theme=dark] .data th,html[data-theme=dark] .data td{border-color:#3b424b}
+html[data-theme=dark] .data-table th{background:#333a42}
+html[data-theme=dark] .logbook-scroll,html[data-theme=dark] .logbook-table,html[data-theme=dark] .logbook-table td.spacer{background:#2a2f36!important;border-color:#4a525c}
+html[data-theme=dark] .logbook-table th,html[data-theme=dark] .logbook-table td{border-color:#4a525c!important}
+html[data-theme=dark] .logbook-table th,html[data-theme=dark] .logbook-table .page-total td,html[data-theme=dark] .logbook-table .grand-total td{background:#333a42!important}
+html[data-theme=dark] .logbook-table .cell-input:focus{background:#2f3b4d}
+html[data-theme=dark] .tabulator,html[data-theme=dark] .tabulator .tabulator-tableholder .tabulator-table{background:#2a2f36!important;color:#dfe3e8!important;border-color:#3b424b}
+html[data-theme=dark] .tabulator .tabulator-header,html[data-theme=dark] .tabulator .tabulator-col,html[data-theme=dark] .tabulator .tabulator-calcs-holder{background:#333a42!important;color:#dfe3e8!important;border-color:#3b424b!important}
+html[data-theme=dark] .tabulator .tabulator-col-group .tabulator-col-group-cols{border-color:#3b424b}
+html[data-theme=dark] .tabulator-row{background:#2a2f36!important;color:#dfe3e8!important;border-bottom-color:#3b424b!important}
+html[data-theme=dark] .tabulator-row.tabulator-row-even{background:#2f353c!important}
+html[data-theme=dark] .tabulator-row:hover{background:#35404f!important}
+html[data-theme=dark] .tabulator-row .tabulator-cell{border-right-color:#3b424b!important}
+html[data-theme=dark] .tabulator .tabulator-footer{background:#1f2328!important;color:#aab3bd!important;border-top-color:#3b424b!important}
+html[data-theme=dark] .tabulator .tabulator-footer .tabulator-page{background:#2a2f36;color:#dfe3e8;border-color:#3b424b}
+html[data-theme=dark] .tabulator .tabulator-footer .tabulator-page.active{background:#2563eb;border-color:#2563eb;color:#fff}
+html[data-theme=dark] .tabulator .tabulator-header-filter input{background:#23282e;color:#dfe3e8;border-color:#4a525c}
+html[data-theme=dark] .tabulator-row.totals-row{background:#333a42!important;border-top-color:#4a525c!important}
+html[data-theme=dark] .tabulator-row.totals-row.totals-to_date{background:#263a5e!important}
+html[data-theme=dark] .year-tabs{border-bottom-color:#3b424b}
+html[data-theme=dark] .year-tab{background:#333a42;border-color:#3b424b;color:#aab3bd}
+html[data-theme=dark] .year-tab.active{background:#2a2f36;color:#6ea0ff;border-color:#2563eb}
+#theme-toggle{font-size:16px;line-height:1}
+</style>
 </head>
 <body>
-<header><div style="display:flex;align-items:center"><strong>Logger</strong>{% if g.user %}<span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span>{% endif %}{% if g.user %}<a class="header-btn" href="{{url_for('main.logbook')}}">Logbook</a><a class="header-btn" href="{{url_for('breakdown.index')}}">Breakdown</a><a class="header-btn" href="{{url_for('worldmap.index')}}">World map</a><a class="header-btn" href="{{url_for('graph.index')}}">Graph</a><a class="header-btn" href="{{url_for('hubs.data')}}">Data</a><a class="header-btn" href="{{url_for('hubs.export')}}">Export</a><a class="header-btn" href="{{url_for('audit.index')}}">Audit</a>{% endif %}</div><nav>{% if g.user %}<a class="header-btn" href="{{url_for('manual.new_flight')}}">Add a flight</a><a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a>{% if g.role=='admin' %}<a href="{{url_for('security.index')}}">Security</a>{% endif %}<form method="post" action="{{url_for('auth.logout')}}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linklike" type="submit">Logout</button></form>{% endif %}</nav></header>
+<header><div style="display:flex;align-items:center"><strong>Logger</strong>{% if g.user %}<span style="font-size:11px;margin-left:8px;color:#9ca3af">v{{config.APP_VERSION}}</span>{% endif %}{% if g.user %}<a class="header-btn" href="{{url_for('main.logbook')}}">Logbook</a><a class="header-btn" href="{{url_for('breakdown.index')}}">Breakdown</a><a class="header-btn" href="{{url_for('worldmap.index')}}">World map</a><a class="header-btn" href="{{url_for('graph.index')}}">Graph</a><a class="header-btn" href="{{url_for('hubs.data')}}">Data</a><a class="header-btn" href="{{url_for('hubs.export')}}">Export</a><a class="header-btn" href="{{url_for('audit.index')}}">Audit</a>{% endif %}</div><nav>{% if g.user %}<a class="header-btn" href="{{url_for('manual.new_flight')}}">Add a flight</a><a href="{{url_for('accounts.me')}}">{{g.username}}{% if g.role=='admin' %} (admin){% endif %}</a>{% if g.role=='admin' %}<a href="{{url_for('security.index')}}">Security</a>{% endif %}<form method="post" action="{{url_for('auth.logout')}}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linklike" type="submit">Logout</button></form>{% endif %}<button id="theme-toggle" class="linklike" type="button" title="Light / dark mode" aria-label="Dark mode">☾</button></nav></header>
 <main>{% for message in get_flashed_messages() %}<div class="flash">{{message}}</div>{% endfor %}{% block content %}{% endblock %}</main>
+<script nonce="{{ csp_nonce }}">(function(){var b=document.getElementById('theme-toggle');if(!b)return;var root=document.documentElement;
+function show(){var d=root.getAttribute('data-theme')==='dark';b.textContent=d?'☀':'☾';b.setAttribute('aria-label',d?'Light mode':'Dark mode');}
+b.addEventListener('click',function(){var d=root.getAttribute('data-theme')==='dark';if(d){root.removeAttribute('data-theme');}else{root.setAttribute('data-theme','dark');}
+try{localStorage.setItem('theme',d?'light':'dark');}catch(e){}show();});show();})();</script>
 <script src="{{ url_for('static', filename='app.js') }}" nonce="{{ csp_nonce }}"></script>
 </body></html>
