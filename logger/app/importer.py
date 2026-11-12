@@ -1,7 +1,7 @@
 import csv
 import io
 import re
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from openpyxl import load_workbook
 
 from .uploads import check_xlsx
@@ -72,8 +72,17 @@ def _read_table(filename, file_bytes):
     raise FileImportError("Unsupported file format: use an .xlsx, .xlsm or .csv file.")
 
 
+def _cell_raw(value):
+    """Text of a cell; a whole number such as 1234.0 is read as 1234."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value).strip()
+
+
 def _cell_text(value):
-    return "" if value is None else str(value).strip().casefold()
+    return _cell_raw(value).casefold()
 
 
 def _cell_date(value, line):
@@ -108,9 +117,14 @@ def _compile_filters(filters, headers):
         idx = positions.get(normalize(item["column"]))
         if idx is None:
             raise FileImportError(f"The column “{item['column']}” of a filter does not exist in this file.")
-        for kind in ("only", "only_containing", "exclude", "not_after"):
+        for kind in ("only", "only_containing", "only_matching", "exclude", "not_after"):
             if kind in item:
-                values = None if kind == "not_after" else {str(v).strip().casefold() for v in item[kind]}
+                if kind == "not_after":
+                    values = item[kind]
+                elif kind == "only_matching":
+                    values = [re.compile(str(v), re.IGNORECASE) for v in item[kind]]
+                else:
+                    values = {str(v).strip().casefold() for v in item[kind]}
                 compiled.append((idx, kind, values))
     return compiled
 
@@ -120,8 +134,14 @@ def _kept(compiled, values, line, today):
     for idx, kind, wanted in compiled:
         value = values[idx] if idx < len(values) else None
         if kind == "not_after":
+            limit = today if wanted == "today" else today - timedelta(days=1)
             day = _cell_date(value, line)
-            if day is not None and day > today:
+            if day is not None and day > limit:
+                return False
+            continue
+        if kind == "only_matching":
+            raw = _cell_raw(value)
+            if not any(pattern.fullmatch(raw) for pattern in wanted):
                 return False
             continue
         text = _cell_text(value)

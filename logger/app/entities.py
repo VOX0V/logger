@@ -9,7 +9,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
 from . import fields
-from .auth import admin_required, fresh_login_required, clear_confirmed
+from .auth import admin_required, clear_confirmed
 from .config import load_config, load_logbook_db_config, technical_name
 from .db import db_dir, connect, logbook_connect, _open
 from .models import sync_columns, drop_unused_columns, drop_unused_logbook_columns
@@ -324,7 +324,6 @@ def import_xlsx():
 
 @entities_bp.route("/clear", methods=["POST"])
 @admin_required
-@fresh_login_required
 def clear():
     if not clear_confirmed():
         flash("Nothing was deleted: type CLEAR to confirm.")

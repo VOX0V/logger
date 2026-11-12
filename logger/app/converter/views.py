@@ -2,7 +2,7 @@
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
-from ..auth import admin_required, fresh_login_required, clear_confirmed
+from ..auth import admin_required, clear_confirmed
 from ..seclog import log_event
 from ..gridview import grid_data
 from ..db import location_connect, aircrafts_connect
@@ -262,7 +262,6 @@ def _do_import(importer, back):
 
 @converter_bp.route("/locations/clear", methods=["POST"])
 @admin_required
-@fresh_login_required
 def locations_clear():
     if not clear_confirmed():
         flash("Nothing was deleted: type CLEAR to confirm.")
@@ -273,7 +272,6 @@ def locations_clear():
 
 @converter_bp.route("/aircrafts/clear", methods=["POST"])
 @admin_required
-@fresh_login_required
 def aircrafts_clear():
     if not clear_confirmed():
         flash("Nothing was deleted: type CLEAR to confirm.")

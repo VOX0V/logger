@@ -30,10 +30,10 @@ time_flight_decimal:
   - value: tc_hours(time_me_copi_night)
   - value: tc_hours(time_flight_hhmm)
 
-# Each column first takes its own raw value (se_*, me_*). Only when a flight has none of these raw values (airline
-# files without role columns), the flight time is copied into every column of the right category (single or multi engine,
-# day or night of the arrival), whatever the role (dual, pic, copi), so that errors show in the totals.
-# Next step: keep only the column that matches the role.
+# Each column first takes its own raw value (se_*, me_*). For the single engine columns only: when a flight has none of
+# these raw values (airline files without role columns), the flight time is copied into every column of the right category
+# (day or night of the arrival), whatever the role (dual, pic), so that errors show in the totals.
+# The multi engine columns (me_*) take only their raw value: the conversion profile of the company fills them from the role.
 
 time_se_dual_day:
   - value: tc_hours(time_se_dual_day)
@@ -57,33 +57,21 @@ time_se_pic_night:
 
 time_me_dual_day:
   - value: tc_hours(time_me_dual_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
-    value: w_time_flight_decimal
 
 time_me_pic_day:
   - value: tc_hours(time_me_pic_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
-    value: w_time_flight_decimal
 
 time_me_copi_day:
   - value: tc_hours(time_me_copi_day)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "day"
-    value: w_time_flight_decimal
 
 time_me_dual_night:
   - value: tc_hours(time_me_dual_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
-    value: w_time_flight_decimal
 
 time_me_pic_night:
   - value: tc_hours(time_me_pic_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
-    value: w_time_flight_decimal
 
 time_me_copi_night:
   - value: tc_hours(time_me_copi_night)
-  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "multi" and w_location_arrival_light == "night"
-    value: w_time_flight_decimal
 
 ############### FLIGHT DETAILS ###############
 # Instruments: the raw value when there is one; an IFR time equal to the flight time for a multi engine multi crew aircraft.

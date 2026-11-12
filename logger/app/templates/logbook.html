@@ -24,6 +24,7 @@
 .logbook-table .footer-row td{height:19px;border:0;background:#fff;font-size:9px;font-weight:400}
 .logbook-table .footer-row .page-label{text-align:left}.logbook-table .footer-row .period{text-align:center}.logbook-table .footer-row .email{text-align:center}.logbook-table .gap{border:0!important;background:#fff!important;padding:0}
 @media print{.hbar{display:none!important}.page-head,.year-tabs,.flash,.btn{display:none!important}.year-panel{display:block!important}.logbook-wrap{overflow:visible}.logbook-page{margin:0;page-break-after:always}.logbook-table{min-width:0;width:100%}}
+@media screen{html[data-theme=dark] .logbook-wrap{color:#111;filter:invert(.86) hue-rotate(180deg)}html[data-theme=dark] .hbar{background:#2a2f36;border-top-color:#3b424b}}
 </style>
 <div class="year-tabs">{% for y in years %}<a class="year-tab{% if y==active_year %} active{% endif %}" data-year="{{y}}" href="{{url_for('main.logbook', year=y)}}">{{y}}</a>{% endfor %}</div>
 

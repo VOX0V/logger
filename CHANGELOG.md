@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.41 — Pattern filter, yesterday, CLEAR only, logbook in dark mode
+
+- **Import filters**: new `only_matching` (keeps only the rows whose whole value matches a pattern, a regular expression, not case sensitive; for example `only_matching: '\d{4}'` on a flight number keeps the 4-digit numbers). `not_after` now accepts `yesterday` as well as `today`. A whole number read as 1234.0 in an Excel file is now read as 1234 by the filters.
+- **Emptying a database** (raw data, work data, locations, aircraft types, entities): typing CLEAR is enough, the password is no longer asked again.
+- **Global profile “times” shipped with the application**: the flight time is no longer copied into every multi engine column (`time_me_*`); these take only their raw value, so the conversion profile of the company fills them from the role. The single engine columns are unchanged.
+- **Dark mode**: the logbook page was unreadable (dark text on dark cells); the logbook table is now shown in a softened dark version of its own colours. Printing is not affected.
+- `VERSION` is now 0.3.41.
+
 ## 0.3.40 — Work DB columns computed in any direction, dark mode
 
 - **Work DB conversion**: a rule can now use `w_<column>` of any other work column, placed before or after it in the Work DB settings (for example year, month and day from the date, or an average speed from a flight time placed later). A column used by a rule is computed first, whatever its place. When two columns depend on each other, the rule that closes the loop is left out for that row and the next rules are tried. The “can only use a column placed before it” error no longer exists; a `w_` name that is not a column of the Work DB settings is still refused.

@@ -15,10 +15,12 @@ entities that the profile uses: name and order come from the entity list; the ty
         only: [CRJ9, CRJ2]               # keep only the rows whose value is one of these (not case sensitive)
       - column: crew_list
         only_containing: [816505]        # keep only the rows whose value contains one of these texts
+      - column: flight_number
+        only_matching: '\d{4}'           # keep only the rows whose whole value matches a pattern (regular expression): here 4 digits
       - column: some_header
         exclude: [text]                  # leave out the rows whose value contains one of these texts
       - column: dep_datetime_local
-        not_after: today                 # leave out the rows whose date is later than today (YYYY-MM-DD...)
+        not_after: today                 # leave out the rows whose date is later than today (or yesterday) (YYYY-MM-DD...)
 
 A header of the file that is not listed under "columns" is not imported. In an Excel file, the sheet named "raw" is read,
 otherwise the active sheet.
@@ -134,7 +136,7 @@ def load_entities():
     return _load()
 
 
-FILTER_KINDS = ("only", "only_containing", "exclude", "not_after")
+FILTER_KINDS = ("only", "only_containing", "only_matching", "exclude", "not_after")
 
 
 def _check_filters(filters):
@@ -142,10 +144,10 @@ def _check_filters(filters):
     if filters is None:
         return
     if not isinstance(filters, list) or not filters:
-        raise FileImportError("“filters” must be a list of filters, each with a “column” and one of “only”, “only_containing”, “exclude” or “not_after”.")
+        raise FileImportError("“filters” must be a list of filters, each with a “column” and one of “only”, “only_containing”, “only_matching”, “exclude” or “not_after”.")
     for i, item in enumerate(filters, 1):
         if not isinstance(item, dict):
-            raise FileImportError(f"Filter no.{i} must have a “column” and one of “only”, “only_containing”, “exclude” or “not_after”.")
+            raise FileImportError(f"Filter no.{i} must have a “column” and one of “only”, “only_containing”, “only_matching”, “exclude” or “not_after”.")
         unknown = set(item) - {"column", *FILTER_KINDS}
         if unknown:
             raise FileImportError(f"Filter no.{i}: unknown key “{sorted(unknown, key=str)[0]}”.")
@@ -153,15 +155,21 @@ def _check_filters(filters):
             raise FileImportError(f"Filter no.{i}: “column” (a header of the file) is required.")
         kinds = [k for k in FILTER_KINDS if k in item]
         if len(kinds) != 1:
-            raise FileImportError(f"Filter no.{i}: use exactly one of “only”, “only_containing”, “exclude” or “not_after”.")
+            raise FileImportError(f"Filter no.{i}: use exactly one of “only”, “only_containing”, “only_matching”, “exclude” or “not_after”.")
         kind = kinds[0]
         if kind == "not_after":
-            if item["not_after"] != "today":
-                raise FileImportError(f"Filter no.{i}: “not_after” only accepts “today”.")
+            if item["not_after"] not in ("today", "yesterday"):
+                raise FileImportError(f"Filter no.{i}: “not_after” only accepts “today” or “yesterday”.")
             continue
         values = item[kind] if isinstance(item[kind], list) else [item[kind]]
         if not values or any(v is None or isinstance(v, (bool, dict, list)) or not str(v).strip() for v in values):
             raise FileImportError(f"Filter no.{i}: “{kind}” must be a text or a list of texts.")
+        if kind == "only_matching":
+            for v in values:
+                try:
+                    re.compile(str(v))
+                except re.error as exc:
+                    raise FileImportError(f"Filter no.{i}: the pattern “{v}” is not valid ({exc}).")
 
 
 def parse_spec(data):

@@ -29,9 +29,11 @@ columns:
 #   - column: header_of_the_file
 #     only_containing: [text]       # keep only the rows whose value contains one of these texts
 #   - column: header_of_the_file
+#     only_matching: '\d{4}'        # keep only the rows whose whole value matches a pattern (regular expression)
+#   - column: header_of_the_file
 #     exclude: [text]               # leave out the rows whose value contains one of these texts
 #   - column: header_of_the_file
-#     not_after: today              # leave out the rows whose date is later than today
+#     not_after: today              # leave out the rows whose date is later than today (or yesterday)
 """
 SKELETON = """# Conversion rules for the import profile “__NAME__” (__ID__).
 # They are tried before the rules of the global profiles: for a work column, the first rule here whose "when" is true and

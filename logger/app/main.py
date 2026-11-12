@@ -2,7 +2,7 @@ import io
 import zipfile
 from datetime import datetime
 from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for, send_file
-from .auth import login_required, fresh_login_required, clear_confirmed
+from .auth import login_required, clear_confirmed
 from . import fields as efields
 from .importer import importable_rows
 from .import_profiles import list_profiles, load_profile, ensure_profile_columns, detect_profile, load_entities
@@ -326,7 +326,6 @@ def refresh_logbook_data():
 
 @main_bp.route("/logbook-db/clear",methods=["POST"])
 @login_required
-@fresh_login_required
 def clear_logbook_data():
     if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
     conn=logbook_connect(); conn.execute("DELETE FROM logbook"); conn.commit(); conn.close()
@@ -350,7 +349,6 @@ def edit_logbook_cell():
 
 @main_bp.route("/data/clear",methods=["POST"])
 @login_required
-@fresh_login_required
 def clear_data():
     if not clear_confirmed(): flash("Nothing was deleted: type CLEAR to confirm."); return redirect(url_for("hubs.data"))
     conn=connect(); conn.execute("DELETE FROM users"); conn.execute("DELETE FROM sqlite_sequence WHERE name='users'"); conn.commit(); conn.close()
