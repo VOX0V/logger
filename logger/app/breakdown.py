@@ -363,7 +363,8 @@ def index():
         geo, error = None, str(exc)
     codes = [t["code"] for t in types]
     r1, r2, r3 = header_rows()
-    return render_template("breakdown.html", cfg=cfg, geo=geo, error=error, rep=rep, codes=codes, headers=(r1, r2, r3),
+    from .license_image import url as license_url
+    return render_template("breakdown.html", license_url=license_url(g.username), cfg=cfg, geo=geo, error=error, rep=rep, codes=codes, headers=(r1, r2, r3),
                            colors=row_colors(len(rep["lines"]), lb), rac_title=RAC_TITLE, rac_text=RAC_TEXT, certify=CERTIFY,
                            title=cfg.get("title") or TITLE, sections=SECTIONS, cols=COLS, dmy=dmy, spaced=spaced, fmt=fmt)
 

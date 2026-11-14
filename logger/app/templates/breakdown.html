@@ -24,7 +24,7 @@
 <style>.bd-onlyedit{display:none!important}.editing .bd-onlyedit{display:inline-block!important}.editing .bd-onlyview{display:none!important}.bd-sel{display:none}.editing .bd-sel{display:inline-block}.editing .bd-txt{display:none}</style>
 <p><button type="button" class="btn bd-onlyview" data-edit-toggle="bd-form">Edit breakdown</button><button class="btn bd-onlyedit">Save</button> <a class="btn secondary bd-onlyedit" href="{{url_for('breakdown.index')}}">Cancel</a></p>
 <div class="bd-wrap"><div class="bd-sheet" style="width:{{ '%.2f'|format(geo.inner*k) }}px;padding:{{ '%.2f'|format(geo.m*k) }}px">
-<div style="height:{{ '%.2f'|format(cfg.title_height_u*k) }}px"><h1 class="bd-title">{{title}}</h1></div>
+<div style="position:relative;height:{{ '%.2f'|format(cfg.title_height_u*k) }}px">{% if license_url %}<img src="{{license_url}}" alt="License" style="position:absolute;left:0;top:0;max-height:100%;max-width:30%;object-fit:contain">{% endif %}<h1 class="bd-title">{{title}}</h1></div>
 <div class="bd-box" style="width:{{ '%.2f'|format((geo.tw.left+geo.tw.middle)*k) }}px;height:{{ '%.2f'|format(cfg.rac_bar_height_u*k) }}px;line-height:{{ '%.2f'|format(cfg.rac_bar_height_u*k) }}px;text-align:center;font-weight:bold;font-size:12px">{{rac_title}}</div>
 <div style="display:grid;grid-template-columns:{{ '%.2f'|format(geo.tw.left*k) }}px {{ '%.2f'|format(geo.tw.middle*k) }}px {{ '%.2f'|format(geo.tw.right*k) }}px;height:{{ '%.2f'|format(cfg.top_height_u*k) }}px;margin-top:{{ '%.2f'|format(cfg.gap_u*k) }}px">
 <div class="bd-box" style="display:flex;flex-direction:column;justify-content:space-between;font-size:12px">

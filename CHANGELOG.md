@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — Data page reorganised, license image
+
+- **Data page**: every button has the same size (150 px wide) and the “Convert Data” button stays green at that size. The “Roles” button is removed (the page and `roles.yml` remain). The “App Data” section is gone: import, edit, export and clear of the locations and aircraft types are now on the “Location DB” and “Aircraft DB” rows of “Databases”, before and after the settings button. “Logbook” and “Breakdown” are grouped in a new “Data view” section, and a “Data audit” section with the Audit button follows it.
+- **Menu**: the Audit button leaves the top menu (it is on the Data page).
+- **License upload** (My account): a JPG or PNG image (5 MB at most, checked on its content) is kept in the user's folder and shown at the top left of the Flight time breakdown page. It is not added to the PDF.
+- `VERSION` is now 0.4.0.
+
 ## 0.3.41 — Pattern filter, yesterday, CLEAR only, logbook in dark mode
 
 - **Import filters**: new `only_matching` (keeps only the rows whose whole value matches a pattern, a regular expression, not case sensitive; for example `only_matching: '\d{4}'` on a flight number keeps the 4-digit numbers). `not_after` now accepts `yesterday` as well as `today`. A whole number read as 1234.0 in an Excel file is now read as 1234 by the filters.

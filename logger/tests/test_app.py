@@ -559,7 +559,7 @@ def test_header_has_logbook_button_and_links_moved_to_account_page(client, app):
     for gone in ('Raw data', 'Convertisseur', 'Work data'):
         assert gone not in header                                                                  # retirés de la barre du haut
     assert 'Logout' in header and 'admin' in header
-    for entry in ('Logbook', 'Breakdown', 'Data', 'Export', 'Audit'):
+    for entry in ('Logbook', 'Breakdown', 'Data', 'Export'):
         assert f'>{entry}<' in header                                                              # en-tête : 5 entrées seulement
     data = client.get('/hub/data').get_data(as_text=True)
     for link in ('>Import data<', '>Raw data<', '>Converter<', '>Work data<'):

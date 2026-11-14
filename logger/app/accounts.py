@@ -269,6 +269,20 @@ def me():
                 except (ValueError, IndexError):
                     flash("Qualification not found.")
             return redirect(url_for("accounts.me"))
+        if action == "license_upload":
+            from . import license_image
+            file = request.files.get("file")
+            try:
+                license_image.save(file.read(license_image.MAX_BYTES + 1) if file else b"", g.username)
+                flash("License image saved.")
+            except ValueError as exc:
+                flash(str(exc))
+            return redirect(url_for("accounts.me"))
+        if action == "license_delete":
+            from . import license_image
+            license_image.delete(g.username)
+            flash("License image deleted.")
+            return redirect(url_for("accounts.me"))
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "")
         confirm = request.form.get("confirm_password", "")
@@ -291,7 +305,25 @@ def me():
     today = date.today()
     quals = [dict(q, days=(date.fromisoformat(q["expiry"]) - today).days) for q in catalog.load_qualifications(g.username)
              if len(q["expiry"]) == 10]
-    return render_template("account_me.html", profile=catalog.load_profile(g.username), quals=quals)
+    from . import license_image
+    return render_template("account_me.html", profile=catalog.load_profile(g.username), quals=quals,
+                           license_url=license_image.url(g.username))
+
+
+@accounts_bp.route("/me/license")
+@login_required
+def license_image_file():
+    from flask import abort, send_file
+    from . import license_image
+    found = license_image.find(g.username)
+    if not found:
+        abort(404)
+    path, mime = found
+    response = send_file(path, mimetype=mime, conditional=True)
+    response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "private, max-age=3600"
+    return response
 
 
 @accounts_bp.route("/me/revoke-sessions", methods=["POST"])
