@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 — Logbook table aligned on the model, not editable on the page, PDF margin and centering
+
+- **Logbook table** (page and PDF) now follows `logbook.xlsx`: header on 4 lines (group titles merged on 2 or 3 lines, year on the third line, Month/Day/Type… on the fourth), totals merged as in the model (A:C empty, D alone, E:F date, G:I “GRAND TOTAL”, J label; Signature A:C, Date E:F, grand total G:I) and a boxed footer row made of separate cells (“Page :”, number, “Période du :”, date, “au :”, date, e-mail), bold, labels on the right and values on the left.
+- **Dates** of the totals and the footer are written in French as in the model: 5 juin 2013.
+- **Logbook page**: the cells of the table can no longer be edited from the page (the editing will be redone later). The Data > Logbook grid is unchanged and still edits cells.
+- **PDF**: a 2 u margin (`margin_outer_u`) on the left of the left sheet and on the right of the right sheet, so the outer vertical line of the table is no longer cut by the page edge. It is taken from the gutter of the same sheet, so each sheet still totals 1100 u.
+- **PDF**: the table is centered vertically on the page (`center_vertical`, with `offset_top_u` as a fine adjustment).
+- `VERSION` is now 0.4.1.
+
 ## 0.4.0 — Data page reorganised, license image
 
 - **Data page**: every button has the same size (150 px wide) and the “Convert Data” button stays green at that size. The “Roles” button is removed (the page and `roles.yml` remain). The “App Data” section is gone: import, edit, export and clear of the locations and aircraft types are now on the “Location DB” and “Aircraft DB” rows of “Databases”, before and after the settings button. “Logbook” and “Breakdown” are grouped in a new “Data view” section, and a “Data audit” section with the Audit button follows it.

@@ -41,15 +41,15 @@ def _read_logbook_value(row, col):
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-_MONTHS = ("January","February","March","April","May","June","July","August","September","October","November","December")
+_MONTHS = ("janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre")
 
 @main_bp.app_template_filter("long_date")
 def _long_date(row):
-    """Date of a logbook row in words: June 5, 2013. Empty when incomplete."""
+    """Date of a logbook row in words, in French as the model (d mmmm yyyy): 5 juin 2013. Empty when incomplete."""
     try: y,m,d=int(row.get("year")),int(row.get("month")),int(row.get("day"))
     except (TypeError,ValueError): return ""
     if not 1<=m<=12: return ""
-    return f"{_MONTHS[m-1]} {d}, {y}"
+    return f"{d} {_MONTHS[m-1]} {y}"
 
 @main_bp.app_template_filter("two")
 def _two(value):

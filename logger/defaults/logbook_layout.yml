@@ -6,12 +6,15 @@ row_height_u: 22
 pdf:
   page_width_u: 1100
   page_height_u: 850
-  offset_top_u: 0         # offset of the table from the top (0: the printer handles the margins)
+  center_vertical: true   # table centered vertically on the page
+  offset_top_u: 0         # fine adjustment downwards (with center_vertical, 0 = exactly centered)
   blank_first_page: true  # blank page 1 so that pages 2 and 3 face each other
   # Gutters (PDF only, for punching the pages): each sheet must total page_width_u.
-  # left sheet = columns A to N + gutter_left_u; right sheet = gutter_right_u + columns O to AF.
+  # left sheet = margin_outer_u + columns A to N + (gutter_left_u - margin_outer_u)
+  # right sheet = (gutter_right_u - margin_outer_u) + columns O to AF + margin_outer_u
   gutter_left_u: 29
   gutter_right_u: 38
+  margin_outer_u: 2       # blank margin on the outer side of each sheet, so the outer vertical line is visible
 # On the web page: no gutters, only the two “spacer” columns (width in u) between the left and right tables.
 styles:
   font_family: Arial
