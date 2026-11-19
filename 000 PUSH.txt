@@ -8,8 +8,8 @@ git push origin main
 Docker recreate :
 
 cd /home/srv/tools
-docker compose pull
-docker compose up -d --force-recreate
+docker compose pull logger
+docker compose up -d --force-recreate logger
 
 cd /home/srv/tools
 sudo chown -R voxov:voxov logger

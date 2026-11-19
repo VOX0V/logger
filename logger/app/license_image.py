@@ -1,4 +1,4 @@
-"""Image of the pilot's license (JPG or PNG): kept in the user's folder, shown at the top left of the breakdown."""
+"""Image of the pilot's license (JPG or PNG): kept in the user's folder, shown in the photo area of the breakdown (page and PDF)."""
 from flask import url_for
 
 from .db import user_file

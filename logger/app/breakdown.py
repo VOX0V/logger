@@ -174,7 +174,7 @@ def _border(styles):
     return None if not mo or mo.group(2) == "none" else (0.5 * int(mo.group(1)), colors.HexColor(mo.group(3)))
 
 
-def build_pdf(rep, cfg, geo, lb_styles):
+def build_pdf(rep, cfg, geo, lb_styles, license_img=None):
     st, m = cfg["styles"], geo["m"]
     W, H = geo["W"] * U, geo["H"] * U
     X = lambda u: u * U
@@ -205,8 +205,19 @@ def build_pdf(rep, cfg, geo, lb_styles):
     c.line(X(W / U / 2 - half), Y(base - 3), X(W / U / 2 + half), Y(base - 3))
     box(m, geo["y_rac"], tl + tm, cfg["rac_bar_height_u"])
     text(m + (tl + tm) / 2, geo["y_rac"] + cfg["rac_bar_height_u"] - 4, RAC_TITLE, 8, True, "c")
-    # left block: image area (empty for now), contact, totals
+    # left block: license image, contact, totals
     box(xl, y_top, tl, top_h)
+    if license_img:                                                    # image de la licence dans la zone photo, proportions conservées
+        try:
+            from reportlab.lib.utils import ImageReader
+            img = ImageReader(str(license_img))
+            iw, ih = img.getSize()
+            aw, ah = tl - 8, cfg["photo_height_u"] - 8
+            k = min(aw / iw, ah / ih)
+            w, h = iw * k, ih * k
+            c.drawImage(img, X(xl + 4 + (aw - w) / 2), Y(y_top + 4 + (ah + h) / 2), X(w), X(h), mask="auto")
+        except Exception:                                              # image illisible : le PDF reste produit, sans elle
+            pass
     yc = y_top + cfg["photo_height_u"]
     for i, (label, val) in enumerate((("Phone number :", rep["phone"]), ("Email address :", rep["email"]))):
         text(xl + tl * 0.40, yc + 16 + i * 14, label, 7.5, False, "r")
@@ -392,7 +403,9 @@ def save_rows():
 def pdf():
     cfg, rep, _types = _context()
     try:
-        out = build_pdf(rep, cfg, geometry(cfg), load_logbook_layout()["styles"])
+        from .license_image import find as license_find
+        found = license_find(g.username)
+        out = build_pdf(rep, cfg, geometry(cfg), load_logbook_layout()["styles"], found[0] if found else None)
     except ValueError as exc:
         flash(str(exc))
         return redirect(url_for("breakdown.index"))

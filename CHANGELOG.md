@@ -7,6 +7,7 @@
 - **Logbook page**: the cells of the table can no longer be edited from the page (the editing will be redone later). The Data > Logbook grid is unchanged and still edits cells.
 - **PDF**: a 2 u margin (`margin_outer_u`) on the left of the left sheet and on the right of the right sheet, so the outer vertical line of the table is no longer cut by the page edge. It is taken from the gutter of the same sheet, so each sheet still totals 1100 u.
 - **PDF**: the table is centered vertically on the page (`center_vertical`, with `offset_top_u` as a fine adjustment).
+- **Breakdown**: the license image now sits in the photo area at the top of the left box (above the phone number and e-mail), on the page and in the PDF, instead of at the top left of the title.
 - `VERSION` is now 0.4.1.
 
 ## 0.4.0 — Data page reorganised, license image
