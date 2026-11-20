@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<style>.rv{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 16px}.rv th,.rv td{border-bottom:1px solid var(--border,#ccc);padding:4px 8px;text-align:left;vertical-align:top}.rv .old{color:#b91c1c}.rv .new{color:#15803d}.rv label{margin-right:12px;white-space:nowrap}.rvbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}</style>
+<div class="page-head"><h2>Review conversion</h2></div>
+<div class="card">
+<p>The work data has not been changed yet. Below, the raw data converted again is compared with the current work data. Leaving this page cancels the conversion.</p>
+<p><strong>{{ sections.added|length }}</strong> row(s) will be added · <strong>{{ sections.changed|length }}</strong> row(s) differ from the work data (your choice) · <strong>{{ sections.present|length }}</strong> identical (ignored) · <strong>{{ sections.only_work|length }}</strong> only in the work data.</p>
+{% for m in info.messages %}<p class="muted">Warning — {{ m }}</p>{% endfor %}
+</div>
+<form method="post" action="{{ url_for('review.convert_apply') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<h3>Rows that differ ({{ sections.changed|length }})</h3>
+{% if sections.changed %}
+<p class="muted">Choose for each row: keep the work data as it is (for example your manual changes), or take the row rebuilt from the raw data. Pre-selected: the work data.</p>
+<div class="rvbar"><button type="button" class="btn secondary" data-review-all="work" data-review-group="convert">Keep the work data for all</button><button type="button" class="btn secondary" data-review-all="built" data-review-group="convert">Take the rebuilt rows for all</button></div>
+<table class="rv"><thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}<th>Differences (work data → rebuilt)</th><th>Keep</th></tr></thead><tbody>
+{% for r in sections.changed %}<tr>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+<td>{% for d in r.diffs %}<div><strong>{{ d.label }}</strong>: <span class="old">{{ d.old }}</span> → <span class="new">{{ d.new }}</span></div>{% endfor %}</td>
+<td><label><input type="radio" name="choice_{{ r.id }}" value="work" data-review-group="convert" checked> Work data</label><label><input type="radio" name="choice_{{ r.id }}" value="built" data-review-group="convert"> Rebuilt</label></td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>Only in the work data ({{ sections.only_work|length }})</h3>
+{% if sections.only_work %}
+<p class="muted">Rows with no matching raw row (added by hand, or whose raw row was deleted or skipped). Pre-selected: keep.</p>
+<div class="rvbar"><button type="button" class="btn secondary" data-review-all="keep" data-review-group="only">Keep all</button><button type="button" class="btn secondary" data-review-all="delete" data-review-group="only">Delete all</button></div>
+<table class="rv"><thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}<th>Action</th></tr></thead><tbody>
+{% for r in sections.only_work %}<tr>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+<td><label><input type="radio" name="choice_{{ r.id }}" value="keep" data-review-group="only" checked> Keep</label><label><input type="radio" name="choice_{{ r.id }}" value="delete" data-review-group="only"> Delete</label></td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>To be added ({{ sections.added|length }})</h3>
+{% if sections.added %}<details><summary>Show the list</summary><table class="rv"><thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{% for r in sections.added %}<tr>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></details>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>Identical — ignored ({{ sections.present|length }})</h3>
+{% if sections.present %}<details><summary>Show the list</summary><table class="rv"><thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{% for r in sections.present %}<tr>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></details>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<div class="rvbar"><button class="btn">Validate conversion</button></div>
+</form>
+<form method="post" action="{{ url_for('review.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary">Cancel conversion</button></form>
+<script src="{{ url_for('static', filename='review.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}

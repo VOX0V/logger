@@ -193,3 +193,50 @@ def plan_merge(existing, incoming, cols, ctx):
         else:
             stats["unchanged"] += 1
     return inserts, updates, stats
+
+
+def plan_review(existing, incoming, cols, ctx):
+    """Comme plan_merge, mais sans rien décider : une entrée par ligne du fichier, pour la page de revue.
+
+    kind : "added" (aucun vol correspondant), "present" (vol déjà là, rien de nouveau, ou doublon d'une autre ligne du même import)
+    ou "changed" (vol correspondant mais différent). Pour "changed" : fills = champs vides de la base que le fichier remplit,
+    diffs = champs où la base et le fichier ont deux valeurs différentes {colonne: (valeur base, valeur fichier)}.
+    Les lignes "added" servent aussi de candidates aux lignes suivantes (deux fichiers du même import ne créent pas de doublon).
+    """
+    by_date, undated = {}, []
+    for e in existing:
+        d = row_date(e)
+        (by_date.setdefault(d, []) if d else undated).append(e)
+    used, items, staged = set(), [], 0
+    for rec in incoming:
+        d = row_date(rec)
+        if d:
+            pool = [e for e in by_date.get(d, []) if e["id"] not in used]
+            match = find_match(rec, pool, ctx)
+        else:
+            filled = [c for c in cols if c != "crew_operator" and not blank(rec.get(c))]
+            match = next((e for e in undated if e["id"] not in used and filled
+                          and all(not blank(e.get(c)) and same_value(c, e.get(c), rec.get(c), ctx) for c in filled)), None)
+        if match is None:
+            staged += 1
+            candidate = dict(rec)
+            candidate["id"] = -staged
+            (by_date.setdefault(d, []) if d else undated).append(candidate)
+            items.append({"kind": "added", "rec": rec, "match_id": None, "fills": {}, "diffs": {}, "dup": False})
+            continue
+        used.add(match["id"])
+        if match["id"] < 0:
+            items.append({"kind": "present", "rec": rec, "match_id": None, "fills": {}, "diffs": {}, "dup": True})
+            continue
+        fills, diffs = {}, {}
+        for c in cols:
+            new, old = rec.get(c), match.get(c)
+            if blank(new):
+                continue
+            if blank(old) or (c == "crew_operator" and old == "undefined"):
+                fills[c] = new
+            elif not same_value(c, old, new, ctx):
+                diffs[c] = (old, new)
+        items.append({"kind": "changed" if fills or diffs else "present", "rec": rec, "match_id": match["id"],
+                      "fills": fills, "diffs": diffs, "dup": False})
+    return items

@@ -12,8 +12,11 @@ from .catalog import pilot_name
 from .profiles import profile_rules  # noqa: F401  (no longer used here; the tests still patch it)
 
 
-def refresh_logbook(config, username=None):
-    """Rebuild the logbook table from the conversion rules. Returns {"rows": int, "warnings": [str]}."""
+def build_logbook(config, username=None):
+    """Convert every row of the raw database in memory; the work rows are not touched.
+    The tables' columns are brought up to date first (as a refresh always did).
+    Returns {"names": [work columns], "built": [(raw row dict, converted dict)] in chronological order,
+    "ignored": int, "messages": [str]}."""
     spec = workdb.load_spec()                      # an invalid file raises here: nothing is touched
     b_columns = [c["column"] for c in load_logbook_db_config(username)["database"]["columns"] if not c.get("system")]
     a_columns = [c["column"] for c in configurable_columns(config)]
@@ -31,9 +34,9 @@ def refresh_logbook(config, username=None):
         conn.execute("CREATE TABLE IF NOT EXISTS logbook (id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,import_source TEXT)")
         sync_logbook_columns(conn, config, username)
         drop_unused_logbook_columns(conn, config, username)
+        conn.commit()
         select = ",".join(["id", "import_source", "import_profile"] + [f'"{safe_identifier(c)}"' for c in a_columns])
         rows = uc.execute(f"SELECT {select} FROM users ORDER BY id").fetchall()
-        conn.execute("DELETE FROM logbook")
         names = [safe_identifier(n) for n in b_columns]
         ignored = 0
         built = []
@@ -47,19 +50,36 @@ def refresh_logbook(config, username=None):
         # chronological order whatever the import order (rows without a date last)
         built.sort(key=lambda t: (t[1].get("year") is None, t[1].get("year") or 0, t[1].get("month") or 0,
                                   t[1].get("day") or 0, t[0]["id"]))
-        if names:
-            for source, out in built:
-                conn.execute(
-                    f'INSERT INTO logbook (import_source,{",".join(chr(34) + n + chr(34) for n in names)}) VALUES (?,{",".join("?" for _ in names)})',
-                    [source["import_source"]] + [out.get(n) for n in names])
-        conn.commit()
     finally:
         uc.close(); conn.close()
 
     if ignored:
         warnings["Rows skipped (skip_rows of the profiles)"] += ignored
     messages = [f"{msg} — {count} row(s)" for msg, count in sorted(warnings.items())]
-    return {"rows": len(rows) - ignored, "warnings": messages}
+    return {"names": names, "built": built, "ignored": ignored, "messages": messages}
+
+
+def insert_work_row(conn, names, values, import_source=None, raw_id=None, created_at=None, updated_at=None):
+    """Insert one row in the logbook table (values: dict column -> value)."""
+    cols = ["import_source", "raw_id"] + [n for n, v in (("created_at", created_at), ("updated_at", updated_at)) if v] + list(names)
+    params = [import_source, raw_id] + [v for v in (created_at, updated_at) if v] + [values.get(n) for n in names]
+    conn.execute(f'INSERT INTO logbook ({",".join(chr(34) + c + chr(34) for c in cols)}) VALUES ({",".join("?" for _ in cols)})', params)
+
+
+def refresh_logbook(config, username=None):
+    """Rebuild the logbook table from the conversion rules. Returns {"rows": int, "warnings": [str]}.
+    Direct rebuild without review (the web pages go through the review page: see staging.py)."""
+    result = build_logbook(config, username)
+    conn = logbook_connect(username)
+    try:
+        conn.execute("DELETE FROM logbook")
+        if result["names"]:
+            for source, out in result["built"]:
+                insert_work_row(conn, result["names"], out, source["import_source"], source["id"])
+        conn.commit()
+    finally:
+        conn.close()
+    return {"rows": len(result["built"]), "warnings": result["messages"]}
 
 
 def list_logbook_rows(username=None):

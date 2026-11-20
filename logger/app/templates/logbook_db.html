@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block content %}
-<div class="page-head"><h2>Work data</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}" data-confirm="Refresh rebuilds the work data from the raw data and erases the changes made by hand here. Continue?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Refresh</button></form><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
+<div class="page-head"><h2>Work data</h2><div class="btns"><button type="button" class="btn secondary" data-toggle="add-panel">Add row</button><button type="button" class="btn danger" id="grid-delete">Delete selected</button><form class="inline" method="post" action="{{url_for('main.refresh_logbook_data')}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Refresh</button></form><a class="btn secondary" href="{{url_for('hubs.data')}}">Data</a></div></div>
 {% include "_grid_add.html" %}
 <div class="card grid-card"><div id="grid"></div></div>
 <link href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}" rel="stylesheet">

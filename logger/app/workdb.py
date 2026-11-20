@@ -14,7 +14,7 @@ import yaml
 
 SHIPPED_GLOBAL = Path(__file__).resolve().parent.parent / "defaults" / "global"
 DATA_TYPES = {"integer", "decimal", "boolean", "date", "datetime", "text"}
-RESERVED = {"id", "created_at", "updated_at", "import_source", "import_profile"}
+RESERVED = {"id", "created_at", "updated_at", "import_source", "import_profile", "raw_id"}
 KEY = re.compile(r"(\d+)_(.+)")
 NAME = re.compile(r"[a-z][a-z0-9_]*")
 

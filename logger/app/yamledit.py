@@ -22,7 +22,7 @@ from .importer import FileImportError
 yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
 
 MAX_BYTES = 256 * 1024
-RESERVED = {"id", "created_at", "updated_at", "import_source"}
+RESERVED = {"id", "created_at", "updated_at", "import_source", "raw_id"}
 DATA_TYPES = {"integer", "decimal", "boolean", "date", "datetime", "text"}
 
 

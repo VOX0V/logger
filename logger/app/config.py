@@ -13,7 +13,9 @@ SYSTEM_COLUMNS = [
     {"column": "updated_at", "display_name": "Updated at", "position": 0, "system": True, "data_type": "datetime", "nullable": False, "visible": False, "editable": False},
     {"column": "import_source", "display_name": "Import source", "position": 0, "system": True, "data_type": "text", "nullable": True, "visible": False, "editable": False},
 ]
-LOGBOOK_SYSTEM_COLUMNS = [dict(c) for c in SYSTEM_COLUMNS]
+LOGBOOK_SYSTEM_COLUMNS = [dict(c) for c in SYSTEM_COLUMNS] + [
+    {"column": "raw_id", "display_name": "Raw ID", "position": 0, "system": True, "data_type": "integer", "nullable": True, "visible": False, "editable": False},
+]
 
 DEFAULT_LOGBOOK_LAYOUT = yaml.safe_load((Path(__file__).resolve().parent.parent / "defaults" / "logbook_layout.yml").read_text(encoding="utf-8"))
 

@@ -1,0 +1,7 @@
+# Journal des imports et des conversions (Data > Journal).
+# Nombre maximum d'entrées conservées ; les plus anciennes sont supprimées automatiquement.
+# Une entrée d'import permet de retirer les lignes qu'il a ajoutées à la base brute ;
+# une entrée de conversion permet de revenir à l'état de la base de travail d'avant la conversion.
+# Copie modifiable : appdata/journal.yml (créée au premier usage ; elle l'emporte sur ce fichier).
+max_imports: 10
+max_conversions: 10

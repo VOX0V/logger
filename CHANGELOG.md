@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2 — Review before import and conversion, journal, no more duplicates
+
+- **Import** no longer writes into the raw data directly. The rows of the file go into a temporary database (`<user>_temp.db`) and a review page lists: the flights **to be added**, the flights **already present** (ignored) and the **similar but different** flights, with a choice **line by line** (keep the database line, or take the file line). Nothing reaches the raw data until **Validate import**. Pre-selected: the file when it only fills empty fields, the database when the two disagree.
+- **Convert** works the same way between the raw data and the work data: added rows, identical rows (ignored), rows that differ from the work data (keep the work data or take the rebuilt row, line by line) and rows only in the work data (keep or delete). Manual changes in the work data are no longer erased without a choice.
+- The temporary database is deleted on validation, on **Cancel**, when a new import or conversion replaces it, and as soon as another page is opened.
+- **Journal** (Data > Journal): every validated import and conversion is recorded. An import can be cancelled (the rows it added are removed from the raw data, nothing else); a conversion can be cancelled (the work data goes back to its state before the conversion, from a copy saved in `journal/`).
+- The number of journal entries kept is set in `appdata/journal.yml` (`max_imports`, `max_conversions`, 10 by default; shipped as `defaults/journal.yml`).
+- New system column `raw_id` in the work data (id of the raw row a work row comes from). Work rows created before 0.4.2 have none: at the first conversion they are paired with an identical rebuilt row, otherwise they appear under “only in the work data”.
+- `merge.plan_review` (one entry per file line) added beside `plan_merge`; `converter.engine.build_logbook` splits the in-memory conversion from the writing. `refresh_logbook` still exists for direct use.
+- The tests that import or convert through the web pages go through the review page now and have not been updated yet.
+- `VERSION` is now 0.4.2.
+
 ## 0.4.1 — Logbook table aligned on the model, not editable on the page, PDF margin and centering
 
 - **Logbook table** (page and PDF) now follows `logbook.xlsx`: header on 4 lines (group titles merged on 2 or 3 lines, year on the third line, Month/Day/Type… on the fourth), totals merged as in the model (A:C empty, D alone, E:F date, G:I “GRAND TOTAL”, J label; Signature A:C, Date E:F, grand total G:I) and a boxed footer row made of separate cells (“Page :”, number, “Période du :”, date, “au :”, date, e-mail), bold, labels on the right and values on the left.

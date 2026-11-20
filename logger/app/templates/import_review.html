@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<style>.rv{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 16px}.rv th,.rv td{border-bottom:1px solid var(--border,#ccc);padding:4px 8px;text-align:left;vertical-align:top}.rv .old{color:#b91c1c}.rv .new{color:#15803d}.rv label{margin-right:12px;white-space:nowrap}.rvbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}</style>
+<div class="page-head"><h2>Review import</h2></div>
+<div class="card">
+<p>File(s): {{ info.files|join(", ") }} — profile: {{ info.profile_name }}. Nothing has been written to the raw data yet: check the lists below, then validate. Leaving this page cancels the import.</p>
+<p><strong>{{ sections.added|length }}</strong> flight(s) will be added · <strong>{{ sections.changed|length }}</strong> similar flight(s) to decide · <strong>{{ sections.present|length }}</strong> already present (ignored).</p>
+</div>
+<form method="post" action="{{ url_for('review.import_apply') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<h3>Similar but different ({{ sections.changed|length }})</h3>
+{% if sections.changed %}
+<p class="muted">For each line choose which one to keep: the line already in the database, or the line of the file (the file's values replace the database's for the fields listed). Pre-selected: the file when it only fills empty fields, the database when the two disagree.</p>
+<div class="rvbar"><button type="button" class="btn secondary" data-review-all="db" data-review-group="import">Keep the database for all</button><button type="button" class="btn secondary" data-review-all="file" data-review-group="import">Take the file for all</button></div>
+<table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Differences (database → file)</th><th>Keep</th></tr></thead><tbody>
+{% for r in sections.changed %}<tr>
+<td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td>
+<td>{% for d in r.diffs %}<div><strong>{{ d.label }}</strong>: <span class="old">{{ d.old }}</span> → <span class="new">{{ d.new }}</span></div>{% endfor %}{% for f in r.fills %}<div><strong>{{ f.label }}</strong>: <em>empty</em> → <span class="new">{{ f.new }}</span></div>{% endfor %}<div class="muted">{{ r.source }}</div></td>
+<td><label><input type="radio" name="choice_{{ r.id }}" value="db" data-review-group="import"{% if r.default == "db" %} checked{% endif %}> Database</label><label><input type="radio" name="choice_{{ r.id }}" value="file" data-review-group="import"{% if r.default == "file" %} checked{% endif %}> File</label></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>To be added ({{ sections.added|length }})</h3>
+{% if sections.added %}<table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Remarks</th><th>File</th></tr></thead><tbody>
+{% for r in sections.added %}<tr><td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td><td>{{ r.summary.remarks }}</td><td>{{ r.source }}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>Already present — ignored ({{ sections.present|length }})</h3>
+{% if sections.present %}<details><summary>Show the list</summary><table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Remarks</th><th>File</th></tr></thead><tbody>
+{% for r in sections.present %}<tr><td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td><td>{{ r.summary.remarks }}{% if r.dup %} <em>(same flight as another line of this import)</em>{% endif %}</td><td>{{ r.source }}</td></tr>{% endfor %}</tbody></table></details>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<div class="rvbar"><button class="btn">Validate import</button></div>
+</form>
+<form method="post" action="{{ url_for('review.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary">Cancel import</button></form>
+<script src="{{ url_for('static', filename='review.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}

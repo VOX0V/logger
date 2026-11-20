@@ -10,6 +10,7 @@ from .db import safe_identifier, connect, logbook_connect, user_root, current_us
 from .config import load_config, configurable_columns, load_logbook_layout, logbook_columns, load_data_view, load_logbook_view
 from .converter import refresh_logbook, list_logbook_rows, update_logbook_cell, update_logbook_date_part
 from .models import import_rows
+from .staging import stage_import, stage_conversion
 from .gridview import grid_data, grid_export
 from .logbook_pdf import build_logbook_pdf
 from .errors import safe_message
@@ -319,8 +320,8 @@ def logbook_pdf():
 @login_required
 def refresh_logbook_data():
     try:
-        result=refresh_logbook(load_config()); flash(f"logbook.db refreshed from user.db ({result['rows']} row(s)).")
-        for warning in result["warnings"]: flash(f"Warning — {warning}")
+        stage_conversion(load_config())
+        return redirect(url_for("review.convert_review"))
     except Exception as exc: flash(f"Logbook refresh impossible — {safe_message(exc)}")
     return _back("main.logbook_db_page")
 
@@ -367,16 +368,18 @@ def import_files():
             profile=load_profile(profile_id); added=ensure_profile_columns(config,profile,extra=("misc_import_profile",))
         except Exception as exc: flash(f"Import profile error: {safe_message(exc)}"); return _back("main.import_files")
         if added: flash("Columns added to the database for this profile: "+", ".join(added)+".")
-        total=0
+        staged=[]; total=0
         for file in files:
             try:
                 data=file.read(); rows,matched=importable_rows(file.filename,data,profile=profile)
                 if "misc_import_profile" in load_entities():            # every row gets the name of the profile it was imported with
                     for r in rows: r["misc_import_profile"]=profile["name"]
-                stats=import_rows(file.filename,rows,config,profile=profile["id"]); total+=len(rows)
-                flash(f"{file.filename}: {stats['read']} row(s) read, {matched} recognized column(s) — {stats['added']} flight(s) added, {stats['completed']} flight(s) completed ({sum(stats['filled'].values())} field(s) filled), {stats['unchanged']} unchanged, {stats['disagreements']} disagreement(s).")
-                if stats["filled"]: flash("Completed fields: "+", ".join(f"{c} ×{n}" for c,n in stats["filled"].most_common(8)))
-                for d,c,old,new in stats["samples"][:3]: flash(f"Disagreement (database value kept) — {d}, {c} : base “{old} ”, file “ {new}”.")
+                staged.append((file.filename,rows,matched)); total+=len(rows)
             except Exception as exc: flash(f"{file.filename}: import impossible — {safe_message(exc)}")
-        log_event("data_import", target=f"{len(files)} file(s), {total} row(s) read"); flash(f"Import complete: {total} row(s) read."); return _back("main.index")
+        if not staged: return _back("main.import_files")
+        try: counts=stage_import(staged,profile["id"],profile["name"])
+        except Exception as exc: flash(f"Import impossible — {safe_message(exc)}"); return _back("main.import_files")
+        log_event("data_import_staged", target=f"{len(staged)} file(s), {total} row(s) read")
+        flash(f"{total} row(s) read from {len(staged)} file(s): {counts['added']} to add, {counts['changed']} similar to decide, {counts['present']} already present. Nothing is imported until you validate.")
+        return redirect(url_for("review.import_review"))
     return render_template("import.html",profiles=list_profiles(include_default=True))
