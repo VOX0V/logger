@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<style>.rv{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 16px}.rv th,.rv td{border-bottom:1px solid var(--border,#ccc);padding:4px 8px;text-align:left;vertical-align:top}</style>
+<div class="page-head"><h2>Import log</h2></div>
+<div class="card"><p>Times are in UTC. The log keeps at most {{ limits.max_imports }} import(s) (setting <code>max_imports</code> in <code>appdata/journal.yml</code>); the oldest are deleted automatically.</p></div>
+
+{% if imports %}<table class="rv"><thead><tr><th>When (UTC)</th><th>File(s)</th><th>Added</th><th>Replaced by file</th><th>Kept as database</th><th>Already present</th><th></th></tr></thead><tbody>
+{% for e in imports %}<tr><td>{{ e.created_at }}</td><td>{{ e.label }}</td><td>{{ e.summary.get('added', '') }}</td><td>{{ e.summary.get('file_kept', '') }}</td><td>{{ e.summary.get('database_kept', '') }}</td><td>{{ e.summary.get('present', '') }}</td>
+<td><form method="post" action="{{ url_for('review.journal_undo_import', entry_id=e.id) }}" data-confirm="Remove from the raw data the {{ e.rows }} row(s) added by this import? Fields completed or replaced on existing rows are not undone."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Remove the added rows</button></form></td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">No import yet.</p>{% endif %}
+{% endblock %}

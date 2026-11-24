@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<style>.rv{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 16px}.rv th,.rv td{border-bottom:1px solid var(--border,#ccc);padding:4px 8px;text-align:left;vertical-align:top}</style>
+<div class="page-head"><h2>Conversion log</h2></div>
+<div class="card"><p>Times are in UTC. The log keeps at most {{ limits.max_conversions }} conversion(s) (setting <code>max_conversions</code> in <code>appdata/journal.yml</code>); the oldest are deleted automatically.</p></div>
+
+{% if conversions %}<table class="rv"><thead><tr><th>When (UTC)</th><th>Added</th><th>Rebuilt</th><th>Work data kept</th><th>Work-only kept / deleted</th><th></th></tr></thead><tbody>
+{% for e in conversions %}<tr><td>{{ e.created_at }}</td><td>{{ e.summary.get('added', '') }}</td><td>{{ e.summary.get('rebuilt', '') }}</td><td>{{ e.summary.get('work_kept', '') }}</td><td>{{ e.summary.get('only_work_kept', '') }} / {{ e.summary.get('only_work_deleted', '') }}</td>
+<td>{% if e.available %}<form method="post" action="{{ url_for('review.journal_undo_convert', entry_id=e.id) }}" data-confirm="Put the work data back in its state before this conversion? The work data as it is now will be replaced."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Restore the state before</button></form>{% else %}<span class="muted">saved state missing</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">No conversion yet.</p>{% endif %}
+{% endblock %}

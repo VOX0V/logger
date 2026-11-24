@@ -397,7 +397,19 @@ def cancel():
 @review_bp.route("/journal")
 @login_required
 def journal_page():
-    return render_template("journal.html", imports=journal.list_entries("import"), conversions=journal.list_entries("convert"), limits=journal.limits())
+    return redirect(url_for("review.journal_import_page"))
+
+
+@review_bp.route("/journal/import")
+@login_required
+def journal_import_page():
+    return render_template("journal_import.html", imports=journal.list_entries("import"), limits=journal.limits())
+
+
+@review_bp.route("/journal/convert")
+@login_required
+def journal_convert_page():
+    return render_template("journal_convert.html", conversions=journal.list_entries("convert"), limits=journal.limits())
 
 
 @review_bp.route("/journal/<int:entry_id>/undo-import", methods=["POST"])
@@ -409,7 +421,7 @@ def journal_undo_import(entry_id):
         flash(f"Import cancelled: {removed} row(s) removed from the raw data.")
     except Exception as exc:
         flash(f"Cancel impossible — {safe_message(exc)}")
-    return redirect(url_for("review.journal_page"))
+    return redirect(url_for("review.journal_import_page"))
 
 
 @review_bp.route("/journal/<int:entry_id>/undo-convert", methods=["POST"])
@@ -421,4 +433,4 @@ def journal_undo_convert(entry_id):
         flash("Conversion cancelled: the work data is back to its state before that conversion.")
     except Exception as exc:
         flash(f"Cancel impossible — {safe_message(exc)}")
-    return redirect(url_for("review.journal_page"))
+    return redirect(url_for("review.journal_convert_page"))

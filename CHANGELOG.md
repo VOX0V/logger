@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.7 — Graphs follow the renamed entities; the journal is split into an import log and a conversion log
+
+- **Graph**: the charts read the new entity names again. `graph.py` now uses `date_year` and `date_month` for the year, month and year-month groupings. In `graph/10_hours.yml`: `flight_time` → `time_flight_decimal`, `ifr` → `time_ifr`, `departure_code` → `location_departure_code`, `engines` → `aircraft_engine` (values `single` / `multi`).
+- **Graph**: the « Day and night per year » chart and its `day` / `night` measures are removed.
+- **Data page**: the « Journal » row is removed. The Import row has an **Import log** button and the Convert row a **Conversion log** button.
+- The journal page is split in two: `/journal/import` (imports) and `/journal/convert` (conversions). Cancelling an import or a conversion returns to its own page. `/journal` redirects to the import log.
+- `VERSION` is now 0.4.7.
+
 ## 0.4.6 — After a Clear nothing is left in the databases; the columns come back with an import or a conversion
 
 - After a **Clear** the raw and work databases only hold their technical columns: no data column and no row. The Data and Work data pages show no column at all until something is imported or converted.

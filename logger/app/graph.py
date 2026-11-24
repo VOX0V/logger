@@ -94,11 +94,11 @@ def _key(name, env):
     """(sort key, label) of a row for a time grouping or a column; None when the row has no usable date."""
     try:
         if name == "year":
-            y = int(float(env.get("year"))); return (y, str(y))
+            y = int(float(env.get("date_year"))); return (y, str(y))
         if name == "month":
-            m = int(float(env.get("month"))); return (m, MONTHS[m - 1]) if 1 <= m <= 12 else None
+            m = int(float(env.get("date_month"))); return (m, MONTHS[m - 1]) if 1 <= m <= 12 else None
         if name == "year_month":
-            y, m = int(float(env.get("year"))), int(float(env.get("month")))
+            y, m = int(float(env.get("date_year"))), int(float(env.get("date_month")))
             return (y * 12 + m - 1, f"{y}-{m:02d}") if 1 <= m <= 12 else None
     except (TypeError, ValueError):
         return None
