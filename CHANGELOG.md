@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9 — Totals block of the left page follows the model (no vertical lines between Signature and Date)
+
+- **Logbook, screen and PDF** (left page): in the totals block, columns A to F no longer have vertical lines between the empty cell, column D and the date cell, nor between « Signature », column D and « Date ». The vertical line between the date cell and the GRAND TOTAL, the outer left border and the thick lines are kept. Column D has no horizontal line under it; the lines above « Signature » and « Date » are kept.
+- Screen: classes `bl0`, `br0`, `bt0`, `bb0` (no left/right/top/bottom border) on those cells. PDF: the grid of the left sheet is drawn in two parts (data and header rows; totals from column G) plus the two lines above « Signature » and « Date ».
+- `VERSION` is now 0.4.9.
+
 ## 0.4.8 — Left page of the logbook (screen and PDF) and shipped graph file
 
 - **Logbook, screen**: the left page now has the thick right border (class `outer-right` on the last single-engine column: header, data rows, totals, footer).

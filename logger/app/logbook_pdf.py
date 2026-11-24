@@ -179,6 +179,12 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
             footer_cmds.append(("LEFTPADDING", (c, F), (c, F), 4))
         elif align == "RIGHT":
             footer_cmds.append(("RIGHTPADDING", (c, F), (c, F), 4))
+    if side == "left":      # modèle : pas de traits verticaux entre Signature, D et Date ; pas de trait sous D (zone A à F des totaux)
+        inner_grid = [("INNERGRID", (0, 0), (-1, T0 - 1), 0.5, GREY), ("INNERGRID", (6, T0), (-1, T2), 0.5, GREY),
+                      ("LINEBEFORE", (6, T0), (6, T2), 0.5, GREY),
+                      ("LINEBELOW", (0, T1), (2, T1), 0.5, GREY), ("LINEBELOW", (4, T1), (5, T1), 0.5, GREY)]
+    else:
+        inner_grid = [("INNERGRID", (0, 0), (-1, T2), 0.5, GREY)]
     cmds += spans
     cmds += [
         ("FONT", (0, 0), (-1, F), "Helvetica", fs), ("ALIGN", (0, 0), (-1, T2), "CENTER"), ("VALIGN", (0, 0), (-1, F), "MIDDLE"),
@@ -187,7 +193,7 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
         ("FONT", (0, 0), (-1, HDR - 1), "Helvetica-Bold", hfs), ("BACKGROUND", (0, 0), (-1, 1), hdr_bg),
         ("BACKGROUND", (0, 2), (-1, 2), HexColor("#d9d9d9")), ("BACKGROUND", (0, 3), (-1, 3), HexColor("#eeeeee")),
         ("BACKGROUND", (0, T0), (-1, T2), tot_bg),
-        ("INNERGRID", (0, 0), (-1, T2), 0.5, GREY), ("BOX", (0, 0), (-1, F), SECTION, black),
+        *inner_grid, ("BOX", (0, 0), (-1, F), SECTION, black),
         ("LINEABOVE", (0, T0), (-1, T0), SECTION, black), ("LINEABOVE", (0, HDR), (-1, HDR), SECTION, black),
         ("LINEABOVE", (0, F), (-1, F), SECTION, black),
         ("FONT", (0, F), (-1, F), bold, fs),

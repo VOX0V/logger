@@ -21,6 +21,7 @@
 .logbook-table .grand-total{background:#d9d9d9!important;font-size:14px;font-weight:700}
 .logbook-table .period-cell{font-weight:700;text-align:center}
 .logbook-table .summary-label{font-style:italic;font-weight:700;text-align:center;text-decoration:underline}
+.logbook-table .bl0{border-left:0!important}.logbook-table .br0{border-right:0!important}.logbook-table .bt0{border-top:0!important}.logbook-table .bb0{border-bottom:0!important}
 .logbook-table .signature{height:22px;text-align:center;vertical-align:bottom;font-weight:700}
 .logbook-table .footer-row td{height:{{ '%.2f'|format(layout.row_height_u * 0.96) }}px;border:0;border-top:2px solid #000;border-bottom:2px solid #000;background:#fff;font-weight:700}
 .logbook-table .footer-row .flabel{text-align:right;padding-right:4px}.logbook-table .footer-row .fvalue{text-align:left;padding-left:4px}.logbook-table .footer-row .email{text-align:center}
@@ -113,19 +114,19 @@ const formatHours = (value, dec = 1) => { const [i, d] = Math.abs(Number(value |
 {% endfor %}
 {% set s1=summary[0] if summary|length>0 else {} %}{% set s2=summary[1] if summary|length>1 else {} %}{% set s3=summary[2] if summary|length>2 else {} %}
 <tr class="total-row total-first">
- <td colspan="3" rowspan="2" class="outer-left"></td><td></td>
- <td colspan="2" rowspan="2" class="period-cell">{{ns.last_date}}</td>
+ <td colspan="3" rowspan="2" class="outer-left br0"></td><td class="bl0 br0 bb0"></td>
+ <td colspan="2" rowspan="2" class="period-cell bl0">{{ns.last_date}}</td>
  <td colspan="3" rowspan="2" class="grand-total">GRAND TOTAL</td>
  <td class="summary-label">{{s1.get('remarks','Page Totals')}}</td>
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}{% if c.key=='me_dual_day' %}<td class="gap"></td><td class="gap"></td>{% endif %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key in ['se_pic_night','instruction_night'] %} outer-right{% endif %}">{{s1.get(c.key,0)|hours1(c.get('decimals',1))}}</td>{% endfor %}
 </tr>
 <tr class="total-row">
- <td></td>
+ <td class="bl0 br0 bt0 bb0"></td>
  <td class="summary-label">{{s2.get('remarks','Totals forwarded')}}</td>
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}{% if c.key=='me_dual_day' %}<td class="gap"></td><td class="gap"></td>{% endif %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key in ['se_pic_night','instruction_night'] %} outer-right{% endif %}">{{s2.get(c.key,0)|hours1(c.get('decimals',1))}}</td>{% endfor %}
 </tr>
 <tr class="total-row total-last">
- <td colspan="3" class="signature outer-left">Signature</td><td class="signature"></td><td colspan="2" class="signature">Date</td><td colspan="3" class="grand-total">{{ year_grand[y][page_index]|hours1 }}</td>
+ <td colspan="3" class="signature outer-left br0">Signature</td><td class="signature bl0 br0 bt0"></td><td colspan="2" class="signature bl0">Date</td><td colspan="3" class="grand-total">{{ year_grand[y][page_index]|hours1 }}</td>
  <td class="summary-label">{{s3.get('remarks','Totals to date')}}</td>
 {% for c in columns if c.group in ['single_engine','multi_engine','instruments','cross_country','landings','instruction'] %}{% if c.key=='me_dual_day' %}<td class="gap"></td><td class="gap"></td>{% endif %}<td class="{% if c.key in ['se_dual_day','me_dual_day','ifr','cc_dual_day','land_day','instruction_day'] %}section-left{% endif %}{% if c.key in ['se_pic_night','instruction_night'] %} outer-right{% endif %}">{{s3.get(c.key,0)|hours1(c.get('decimals',1))}}</td>{% endfor %}
 </tr>
