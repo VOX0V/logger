@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.8 — Left page of the logbook (screen and PDF) and shipped graph file
+
+- **Logbook, screen**: the left page now has the thick right border (class `outer-right` on the last single-engine column: header, data rows, totals, footer).
+- **Logbook, screen and PDF**: « Page Totals », « Totals forwarded » and « Totals to date » are centered and underlined; « Signature » and « Date » are centered (in the PDF the three labels are `Paragraph` cells).
+- **Graph**: the shipped `graph/10_hours.yml` no longer depends on `time_flight_decimal`: hours are the sum of the `time_se_*` and `time_me_*` columns (single-engine and multi-engine measures follow the same columns). `ifr` uses `time_ifr`, the departure chart uses `location_departure_code`. The day/night charts stay removed. A copy edited in the Graph page (appdata) still takes precedence over this file.
+- Frames and merges between the totals cells were not changed.
+- `VERSION` is now 0.4.8.
+
 ## 0.4.7 — Graphs follow the renamed entities; the journal is split into an import log and a conversion log
 
 - **Graph**: the charts read the new entity names again. `graph.py` now uses `date_year` and `date_month` for the year, month and year-month groupings. In `graph/10_hours.yml`: `flight_time` → `time_flight_decimal`, `ifr` → `time_ifr`, `departure_code` → `location_departure_code`, `engines` → `aircraft_engine` (values `single` / `multi`).

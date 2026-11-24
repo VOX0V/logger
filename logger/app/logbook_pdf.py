@@ -4,11 +4,14 @@ Chaque feuille garde une gouttière vide côté reliure (droite pour les pages p
 afin de pouvoir perforer. Une page vierge est ajoutée au début pour que les pages se retrouvent face à face.
 Tous les réglages sont dans la section `pdf:` de logbook_layout.yml (unité entière : 1 u = 0,01 po)."""
 from io import BytesIO
+from xml.sax.saxutils import escape
 
 from reportlab.lib.colors import HexColor, black
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
-from reportlab.platypus import Table, TableStyle
+from reportlab.platypus import Paragraph, Table, TableStyle
 
 PDF_DEFAULTS = {
     "page_width_u": 1100,       # Letter paysage : 11 po
@@ -150,7 +153,8 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
         grid[T0][4] = _fit(dates[1], cw[4] + cw[5], bold, fs)
         grid[T0][6] = "GRAND TOTAL"
         for r, s, dflt in ((T0, s1, "Page Totals"), (T1, s2, "Totals forwarded"), (T2, s3, "Totals to date")):
-            put(r, 9, s.get("remarks", dflt), 1, italic)
+            lbl_style = ParagraphStyle("lbl", fontName=italic, fontSize=fs, leading=fs * 1.15, alignment=TA_CENTER)
+            grid[r][9] = Paragraph("<u>%s</u>" % escape(_fit(s.get("remarks", dflt), cw[9], italic, fs)), lbl_style)      # centré et souligné
             for j, k in enumerate(keys):
                 put(r, 10 + j, num(s, k), 1, bold)
         label(T2, 0, "Signature", 3); label(T2, 4, "Date", 2)
@@ -197,9 +201,9 @@ def _page_table(side, year, rows, summary, grand, layout, columns, cfg, page_no,
         cmds.append(("LINEBEFORE", (c, 0), (c, T2), SECTION, black))
     cmds += footer_cmds                                                 # après les marges générales, pour qu'elles ne les écrasent pas
     if side == "left":
-        cmds += [("ALIGN", (9, T0), (9, T2), "LEFT"), ("FONT", (6, T0), (6, T0), bold, 14 * PX),
+        cmds += [("ALIGN", (9, T0), (9, T2), "CENTER"), ("FONT", (6, T0), (6, T0), bold, 14 * PX),
                  ("BACKGROUND", (6, T0), (8, T1), HexColor("#d9d9d9")), ("BACKGROUND", (6, T2), (8, T2), HexColor("#d9d9d9")),
-                 ("FONT", (6, T2), (8, T2), bold, 14 * PX), ("ALIGN", (0, T2), (0, T2), "LEFT"), ("LEFTPADDING", (0, T2), (0, T2), 4), ("LEFTPADDING", (9, T0), (9, T2), 4),
+                 ("FONT", (6, T2), (8, T2), bold, 14 * PX), ("ALIGN", (0, T2), (0, T2), "CENTER"), ("ALIGN", (4, T2), (4, T2), "CENTER"),
                  ("VALIGN", (0, T2), (-1, T2), "BOTTOM"), ("BACKGROUND", (0, T0), (3, T1), hdr_bg)]
     rh = int(cfg["row_height_u"])
     if rh * (F + 1) > cfg["page_height_u"] - int(cfg["offset_top_u"]):

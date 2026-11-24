@@ -14,9 +14,9 @@
 #           limit       keep the N biggest groups, the rest becomes “Other” (columns only)   [optional]
 name: Hours
 measures:
-  total: num(time_flight_decimal)
-  single_engine: iif(aircraft_engine == "single", num(time_flight_decimal), 0)
-  multi_engine: iif(aircraft_engine == "multi", num(time_flight_decimal), 0)
+  total: num(time_se_dual_day) + num(time_se_pic_day) + num(time_se_dual_night) + num(time_se_pic_night) + num(time_me_dual_day) + num(time_me_pic_day) + num(time_me_copi_day) + num(time_me_dual_night) + num(time_me_pic_night) + num(time_me_copi_night)
+  single_engine: num(time_se_dual_day) + num(time_se_pic_day) + num(time_se_dual_night) + num(time_se_pic_night)
+  multi_engine: num(time_me_dual_day) + num(time_me_pic_day) + num(time_me_copi_day) + num(time_me_dual_night) + num(time_me_pic_night) + num(time_me_copi_night)
   ifr: num(time_ifr)
 
 charts:
