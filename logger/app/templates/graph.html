@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.gr-top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:12px}
+.gr-top select{min-width:300px;padding:7px 10px;border-radius:8px;border:1px solid #cbd5e1;font:inherit;background:#fff}
+.gr-total{margin-left:auto;font-size:14px;color:#475569}.gr-total b{font-size:20px;color:#0f172a;font-variant-numeric:tabular-nums}
+.gr-card{background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 4px 18px rgba(15,23,42,.10);border:1px solid #e2e8f0}
+.gr-box{position:relative;height:calc(100vh - 290px);min-height:360px}
+.gr-msg{color:#64748b;padding:30px;text-align:center}
+</style>
+<div class="page-head"><h2>Graph</h2></div>
+{% for p in problems %}<p class="flash">{{p}}</p>{% endfor %}
+<div class="gr-top">
+  <select id="gr-select" aria-label="Chart">{% for c in charts %}<option value="{{loop.index0}}">{{c}}</option>{% endfor %}</select>
+  <span class="gr-total"><span id="gr-total-label">Total</span> <b id="gr-total">–</b> h</span>
+</div>
+{% if edit_files %}<p class="muted">Edit the charts: {% for key, label in edit_files %}<a href="{{url_for('yamledit.editor', file=key)}}">{{label}}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+<div class="gr-card"><div class="gr-box"><canvas id="gr-canvas"></canvas></div><div class="gr-msg" id="gr-msg" hidden></div></div>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/chartjs/chart.umd.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='graph.js') }}" data-url="{{ url_for('graph.data') }}"></script>
+{% endblock %}

@@ -1,0 +1,122 @@
+# French labels of the bundled converter rules before they were translated to English (version 0.3.13).
+# Only used by a catalog migration: a rule whose name or group still equals its old French default gets the English one.
+skip_zero_block:
+  name: Ignorer les vols au temps de bloc 0:00 (non opérés)
+  group: Filtres
+skip_not_flying:
+  name: Ignorer les vols où je ne suis pas aux commandes (deadhead, formation…)
+  group: Filtres
+date_from_parts:
+  name: Date à partir de année / mois / jour
+  group: Date
+date_from_departure:
+  name: Date à partir du départ local (si année/mois/jour vides)
+  group: Date
+aircraft_type_normalize:
+  name: Type d'appareil normalisé (CRJ9 → CRJ…) → aircraft_type
+  group: Avion
+registration_format:
+  name: Immatriculation formatée (C-FABC) → registration
+  group: Avion
+copy_pilot_in_command:
+  name: Copie pilot_in_command → pilot_in_command
+  group: Équipage
+copy_copilot:
+  name: Copie copilot → copilot
+  group: Équipage
+crew_from_list:
+  name: Équipage depuis crew_list → pilot_in_command, copilot
+  group: Équipage
+departure_icao:
+  name: Départ en ICAO → departure
+  group: Route
+arrival_icao:
+  name: Arrivée en ICAO → arrival
+  group: Route
+copy_remarks:
+  name: Copie remarks → remarks
+  group: Remarques
+remarks_flight_number:
+  name: 'Remarques : préfixe + flight_number → remarks'
+  group: Remarques
+copy_single_engine_dual_day:
+  name: Copie single_engine_dual_day → single_engine_dual_day
+  group: Monomoteur
+copy_single_engine_pic_day:
+  name: Copie single_engine_pic_day → single_engine_pic_day
+  group: Monomoteur
+copy_single_engine_dual_night:
+  name: Copie single_engine_dual_night → single_engine_dual_night
+  group: Monomoteur
+copy_single_engine_pic_night:
+  name: Copie single_engine_pic_night → single_engine_pic_night
+  group: Monomoteur
+copy_multi_engine_dual_day:
+  name: Copie multi_engine_dual_day → multi_engine_dual_day
+  group: Multimoteur
+copy_multi_engine_pic_day:
+  name: Copie multi_engine_pic_day → multi_engine_pic_day
+  group: Multimoteur
+copy_multi_engine_copi_day:
+  name: Copie multi_engine_copi_day → multi_engine_copi_day
+  group: Multimoteur
+copy_multi_engine_dual_night:
+  name: Copie multi_engine_dual_night → multi_engine_dual_night
+  group: Multimoteur
+copy_multi_engine_pic_night:
+  name: Copie multi_engine_pic_night → multi_engine_pic_night
+  group: Multimoteur
+copy_multi_engine_copi_night:
+  name: Copie multi_engine_copi_night → multi_engine_copi_night
+  group: Multimoteur
+copy_ifr:
+  name: Copie ifr → ifr
+  group: Instruments
+copy_hood:
+  name: Copie hood → hood
+  group: Instruments
+copy_ftd:
+  name: Copie ftd → ftd
+  group: Instruments
+copy_ifr_approach:
+  name: Copie ifr_approach → ifr_approach
+  group: Instruments
+copy_cross_country_dual_day:
+  name: Copie cross_country_dual_day → cross_country_dual_day
+  group: Vol sur campagne
+copy_cross_country_pic_day:
+  name: Copie cross_country_pic_day → cross_country_pic_day
+  group: Vol sur campagne
+copy_cross_country_dual_night:
+  name: Copie cross_country_dual_night → cross_country_dual_night
+  group: Vol sur campagne
+copy_cross_country_pic_night:
+  name: Copie cross_country_pic_night → cross_country_pic_night
+  group: Vol sur campagne
+copy_landings_day:
+  name: Copie landings_day → landings_day
+  group: Atterrissages
+copy_landings_night:
+  name: Copie landings_night → landings_night
+  group: Atterrissages
+copy_instruction_day:
+  name: Copie instruction_day → instruction_day
+  group: Instruction
+copy_instruction_night:
+  name: Copie instruction_night → instruction_night
+  group: Instruction
+daynight_single_pic:
+  name: Temps de bloc jour/nuit — monomoteur PIC
+  group: Jour / nuit
+daynight_multi_pic:
+  name: Temps de bloc jour/nuit — multimoteur PIC
+  group: Jour / nuit
+ifr_block_time:
+  name: Temps de bloc → ifr
+  group: Instruments
+daynight_multi_copi:
+  name: Temps de bloc jour/nuit — multimoteur copilote
+  group: Jour / nuit
+daynight_xc_pic:
+  name: Temps de bloc jour/nuit — vol sur campagne PIC
+  group: Jour / nuit

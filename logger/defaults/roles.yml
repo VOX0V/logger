@@ -1,0 +1,80 @@
+# Roles: the names the program uses (left) and the entity field that each one is bound to (right).
+# The program reads the work data through these names; a renamed field is followed automatically (Data > Entities),
+# and a role can be bound to another field on the Roles page (Data > Roles).
+
+date: date_date
+year: date_year
+month: date_month
+day: date_day
+aircraft_type: aircraft_type
+category: aircraft_category
+registration: aircraft_registration
+engines: aircraft_engine
+crew: aircraft_crew
+pilot: crew_pilot_name
+copilot: crew_copilot_name
+employer: crew_operator
+remarks: misc_remarks
+leg_time: time_flight_hhmm
+leg_length: leg_length
+average_speed: leg_average_speed
+flight_time: time_flight_decimal
+ifr: time_ifr
+hood: time_hood
+ftd: time_ftd
+ifr_approach: count_ifr_approach
+landings_day: count_landing_day
+landings_night: count_landing_night
+instruction_day: time_instruction_day
+instruction_night: time_instruction_night
+departure_code: location_departure_code
+departure_name: location_departure_name
+departure_latitude: location_departure_latitude
+departure_longitude: location_departure_longitude
+departure_time_utc: location_departure_time_utc
+departure_sun: location_departure_sun
+departure_day_night: location_departure_light
+arrival_code: location_arrival_code
+arrival_name: location_arrival_name
+arrival_latitude: location_arrival_latitude
+arrival_longitude: location_arrival_longitude
+arrival_time_utc: location_arrival_time_utc
+arrival_sun: location_arrival_sun
+arrival_day_night: location_arrival_light
+single_engine_dual_day: time_se_dual_day
+single_engine_pic_day: time_se_pic_day
+single_engine_dual_night: time_se_dual_night
+single_engine_pic_night: time_se_pic_night
+multi_engine_dual_day: time_me_dual_day
+multi_engine_pic_day: time_me_pic_day
+multi_engine_copi_day: time_me_copi_day
+multi_engine_dual_night: time_me_dual_night
+multi_engine_pic_night: time_me_pic_night
+multi_engine_copi_night: time_me_copi_night
+cross_country_dual_day: time_cc_dual_day
+cross_country_pic_day: time_cc_pic_day
+cross_country_dual_night: time_cc_dual_night
+cross_country_pic_night: time_cc_pic_night
+
+# Locations database: key columns
+location.display: location_display
+location.icao_code: location_icao
+location.iata_code: location_iata
+location.company_code: location_reference
+location.full_name: location_name
+location.country: location_country
+location.latitude: location_latitude
+location.longitude: location_longitude
+
+# Aircraft database: key columns
+aircraft.display: aircraft_display
+aircraft.designator: aircraft_designator
+aircraft.maker: aircraft_maker
+aircraft.model: aircraft_model
+aircraft.category: aircraft_category
+aircraft.engines: aircraft_engine
+aircraft.engine_type: aircraft_engine_type
+aircraft.crew: aircraft_crew
+aircraft.landing_gear: aircraft_landing_gear
+aircraft.mtow_lb: aircraft_mtow_lbs
+aircraft.mtow_kg: aircraft_mtow_kg

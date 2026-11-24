@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:12px}</style>
+<div class="page-head"><h2>Conversion profiles</h2><div class="btns"><a class="btn secondary" href="{{url_for('profiles.import_list')}}">Import profiles</a></div></div>
+<div class="card"><p class="muted">A conversion profile holds the rules, raw data to work data, of the rows imported with one import profile. They are tried before the global rules; a profile without a file simply uses the global rules.</p>
+<table class="stable"><thead><tr><th>Import profile</th><th>Identifier</th><th class="c">Conversion file</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.name or '(no import profile with this identifier)' }}</td><td>{{r.id}}</td><td class="c">{{ 'yes' if r.exists else 'no' }}</td>
+<td><div class="row-btns"><a class="btn secondary" href="{{url_for('profiles.convert_edit', profile_id=r.id)}}">{{ 'Edit' if r.exists else 'New' }}</a>
+{% if r.exists %}<a class="btn secondary" href="{{url_for('profiles.convert_export', profile_id=r.id)}}">Export</a>
+<form method="post" action="{{url_for('profiles.convert_rename', profile_id=r.id)}}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="new_id" placeholder="new identifier" size="14" required><button class="btn secondary">Rename</button></form>
+<form method="post" action="{{url_for('profiles.convert_delete', profile_id=r.id)}}" data-confirm="Delete the conversion file of “{{r.id}}”?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Delete</button></form>{% endif %}</div></td></tr>
+{% else %}<tr><td colspan="4">No import profile yet.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="page-head" style="margin-top:28px"><h2>Global profiles</h2><div class="btns"><a class="btn" href="{{url_for('profiles.global_edit')}}">Create</a><button type="button" class="btn secondary" data-toggle="g-import">Import</button></div></div>
+<div class="card" id="g-import" hidden><form method="post" action="{{url_for('profiles.global_import')}}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field"><label>YAML file (.yml)</label><input type="file" name="file" accept=".yml,.yaml" required></div><button class="btn">Import</button></form></div>
+<div class="card"><p class="muted">The global profiles hold the rules that apply to every row, after the rules of the conversion profile of the company. Each file handles one theme of the work data; create as many as you need, import a .yml file, edit, export or delete them.</p>
+<table class="stable"><thead><tr><th>Profile</th><th>File</th><th></th></tr></thead><tbody>
+{% for g in global_profiles %}<tr><td>{{g.title}}</td><td>{{g.file}}</td>
+<td><div class="row-btns"><a class="btn secondary" href="{{url_for('profiles.global_edit', gid=g.id)}}">Edit</a><a class="btn secondary" href="{{url_for('profiles.global_export', gid=g.id)}}">Export</a>
+<form method="post" action="{{url_for('profiles.global_delete', gid=g.id)}}" data-confirm="Delete the global profile “{{g.id}}”?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger">Delete</button></form></div></td></tr>
+{% else %}<tr><td colspan="3">No global profile.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

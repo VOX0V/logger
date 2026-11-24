@@ -1,0 +1,333 @@
+"""Éditeur de fichiers YAML dans l'interface web, à la manière de Home Assistant.
+
+Chaque utilisateur édite uniquement SES fichiers (la liste est fixe : aucun chemin n'est jamais
+lu dans la requête). Avant d'enregistrer, le contenu est vérifié : YAML valide, puis structure
+attendue par l'application. L'ancienne version est gardée dans <fichier>.bak."""
+import os
+import shutil
+
+import yaml
+from flask import Blueprint, g, render_template, request, redirect, url_for, flash, abort
+
+from . import config as C
+from .auth import login_required
+from .db import current_username
+from .seclog import log_event
+from . import cssafe
+from .converter.profiles import BUNDLED_DIR, PROFILE_ID, edited_dir
+from .converter.transforms import FUNCTIONS
+from . import audit, graph, import_profiles, refdata, workdb
+from .importer import FileImportError
+
+yaml_bp = Blueprint("yamledit", __name__, url_prefix="/config")
+
+MAX_BYTES = 256 * 1024
+RESERVED = {"id", "created_at", "updated_at", "import_source", "raw_id", "technical_raw_id", "technical_work_id", "technical_import_date", "technical_modification_date", "technical_import_source", "technical_import_profile"}
+DATA_TYPES = {"integer", "decimal", "boolean", "date", "datetime", "text"}
+
+
+class Problem(Exception):
+    pass
+
+
+def _number(value, label, minimum=None):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Problem(f"{label} must be a number.")
+    if minimum is not None and value < minimum:
+        raise Problem(f"{label} must be at least {minimum}.")
+
+
+def parse(text):
+    if len(text.encode("utf-8")) > MAX_BYTES:
+        raise Problem("File too large (256 KB maximum).")
+    try:
+        for event in yaml.parse(text, Loader=yaml.SafeLoader):      # ancres/alias interdits : bombes d'expansion (“billion laughs”)
+            if isinstance(event, yaml.AliasEvent) or getattr(event, "anchor", None):
+                raise Problem("YAML anchors and aliases (&name, *name) are not allowed.")
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        where = f"line {mark.line + 1}, column {mark.column + 1} : " if mark else ""
+        raise Problem(f"Invalid YAML — {where}{getattr(exc, 'problem', None) or exc}")
+    except RecursionError:
+        raise Problem("YAML nested too deeply.")
+    if not isinstance(data, dict):
+        raise Problem("The file must start with keys (key: value), not with a list or text.")
+    return data
+
+
+def _columns_of(data):
+    db = data.get("database", data)
+    cols = db.get("columns") if isinstance(db, dict) else None
+    if not isinstance(cols, list) or not cols or not all(isinstance(c, dict) for c in cols):
+        raise Problem("“columns” must be a non-empty list of columns (each column is a key: value block).")
+    return cols
+
+
+def check_layout(data):
+    if "rows_per_page" in data:
+        _number(data["rows_per_page"], "rows_per_page", 1)
+    if "row_height_u" in data:
+        _number(data["row_height_u"], "row_height_u", 5)
+    if "columns" in data:
+        items = data["columns"]
+        if not isinstance(items, list) or not all(isinstance(x, dict) for x in items):
+            raise Problem("“columns” must be a list of key: value blocks.")
+    for i, col in enumerate(data.get("columns", []), 1):
+        if "width" in col: _number(col["width"], f"columns n°{i} : width", 0)
+    for i, col in enumerate(data.get("columns", []), 1):
+        if not isinstance(col.get("key"), str) or not col["key"]:
+            raise Problem(f"columns n°{i} : “key” manquant.")
+    for i, col in enumerate(data.get("columns", []), 1):
+        if "decimals" in col and (isinstance(col["decimals"], bool) or not isinstance(col["decimals"], int) or not 0 <= col["decimals"] <= 3):
+            raise Problem(f"columns n°{i} : decimals must be an integer from 0 to 3.")
+    styles = data.get("styles", {})
+    if not isinstance(styles, dict):
+        raise Problem("“styles” must be a key: value block.")
+    for i, b in enumerate(styles.get("data_blocks", []), 1):
+        if not isinstance(b, dict) or not isinstance(b.get("color"), str) or isinstance(b.get("rows"), bool) or not isinstance(b.get("rows"), int):
+            raise Problem(f"styles.data_blocks no.{i} : “rows” (integer) and “color” (e.g. #f1dddd) are required.")
+    problems = cssafe.layout_problems(data)          # sécurité : après les contrôles d'origine, pour garder leurs messages
+    if problems:
+        raise Problem(" ".join(problems))
+
+
+def check_breakdown(data):
+    if not isinstance(data, dict):
+        raise Problem("The file must be a key: value block.")
+    problems = cssafe.breakdown_problems(data)
+    if problems:
+        raise Problem(" ".join(problems))
+
+
+# clé -> (libellé, fonction qui donne le chemin du fichier de l'utilisateur, vérification)
+FILES = {
+    "layout": ("Logbook — layout", C.logbook_layout_path, check_layout),
+    "breakdown": ("Breakdown — layout", C.breakdown_path, check_breakdown),
+}
+
+
+def check_convert(data):
+    rules = data.get("rules")
+    if not isinstance(rules, list) or not all(isinstance(r, dict) and r.get("id") and r.get("transform") for r in rules):
+        raise Problem("“rules” must be a list of blocks that each have at least “id” and “transform”.")
+    for r in rules:
+        if r["transform"] not in FUNCTIONS:
+            raise Problem(f"{r['id']} : unknown transform “{r['transform']}”.")
+
+
+def check_importer(data):
+    try:
+        import_profiles.parse_spec(data)
+    except FileImportError as exc:
+        raise Problem(str(exc))
+
+
+def check_options(data):
+    try:
+        refdata.check_options(data)
+    except ValueError as exc:
+        raise Problem(str(exc))
+
+
+def check_converter_settings(data):
+    night = data.get("night")
+    if not isinstance(night, dict):
+        raise Problem("“night” must be a key: value block.")
+    for k in ("after_sunset_minutes", "before_sunrise_minutes"):
+        _number(night.get(k), f"night.{k}", 0)
+        if night[k] > 180:
+            raise Problem(f"night.{k} must be at most 180.")
+    rounding = data.get("tc_rounding")
+    rules = rounding.get("rules") if isinstance(rounding, dict) else None
+    if not isinstance(rules, list) or not rules or not all(isinstance(r, dict) for r in rules):
+        raise Problem("“tc_rounding” must contain a non-empty list “rules” of blocks.")
+    covered = set()
+    for i, r in enumerate(rules, 1):
+        for k in ("min", "max", "decimal"):
+            _number(r.get(k), f"tc_rounding rule no.{i} : {k}", 0)
+        if r["min"] > r["max"] or r["max"] > 60:
+            raise Problem(f"tc_rounding rule no.{i} : invalid minute range.")
+        covered |= set(range(int(r["min"]), int(r["max"]) + 1))
+    if covered != set(range(61)):
+        raise Problem("The rounding table must cover all minutes from 0 to 60.")
+    if data.get("aircraft_types") is not None and not isinstance(data["aircraft_types"], dict):
+        raise Problem("“aircraft_types” must be a key: value block.")
+
+
+def _converter_settings_path(_username):
+    from .converter import catalog
+    catalog.ensure_defaults()
+    return catalog.settings_path()
+
+
+# Files shared by all accounts, editable by administrators only.
+ADMIN_FILES = {
+    "converter_settings": ("Converter — settings (settings.yml)", _converter_settings_path, check_converter_settings),
+    "aircraft_options": ("Aircraft table — choice lists (aircraft_options.yml)", lambda _u: refdata.options_path(), check_options),
+}
+
+
+def converter_files():
+    """Conversion profiles (<id>_convert.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    ids = set()
+    for folder in (BUNDLED_DIR, edited_dir()):
+        if folder is not None and folder.is_dir():
+            ids |= {p.name[:-len("_convert.yml")] for p in folder.glob("*_convert.yml")}
+    out = {}
+    for pid in sorted(i for i in ids if PROFILE_ID.fullmatch(i)):
+        edited = edited_dir() / f"{pid}_convert.yml"
+        out[f"convert_{pid}"] = (f"Converter — {pid}", lambda _u, e=edited, b=BUNDLED_DIR / f"{pid}_convert.yml": e if e.is_file() else b, check_convert)
+    return out
+
+
+def importer_files():
+    """Import profiles (<id>_import.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for pid in import_profiles.profile_ids():
+        try:
+            name = str(yaml.safe_load(import_profiles.profile_path(pid).read_text(encoding="utf-8")).get("name") or pid)
+        except Exception:
+            name = pid
+        out[f"import_{pid}"] = (f"Import — {name}", lambda _u, i=pid: import_profiles.profile_path(i), check_importer)
+    return out
+
+
+def check_graph(data):
+    try:
+        graph.parse_graph(data)
+    except workdb.SpecError as exc:
+        raise Problem(str(exc))
+
+
+def graph_files():
+    """Graph files (graph/*.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for fid in graph.graph_ids():
+        try:
+            name = str(yaml.safe_load(graph.graph_path(fid).read_text(encoding="utf-8")).get("name") or fid)
+        except Exception:
+            name = fid
+        out[f"graph_{fid}"] = (f"Graph — {name}", lambda _u, i=fid: graph.graph_path(i), check_graph)
+    return out
+
+
+def check_audit(data):
+    try:
+        audit.parse_audit(data)
+    except workdb.SpecError as exc:
+        raise Problem(str(exc))
+
+
+def audit_files():
+    """Audit rule files (audit/*.yml), shared by all accounts: the list comes from the folders, never from the request."""
+    out = {}
+    for fid in audit.audit_ids():
+        try:
+            name = str(yaml.safe_load(audit.audit_path(fid).read_text(encoding="utf-8")).get("name") or fid)
+        except Exception:
+            name = fid
+        out[f"audit_{fid}"] = (f"Audit — {name}", lambda _u, i=fid: audit.audit_path(i), check_audit)
+    return out
+
+
+def _registry():
+    """Files the current account may edit: its own YAML files, plus the converter profiles for administrators."""
+    files = dict(FILES)
+    if g.get("role") == "admin":
+        files.update(ADMIN_FILES)
+        files.update(importer_files())
+        files.update(audit_files())
+        files.update(graph_files())
+        files.update(converter_files())
+    return files
+
+
+def _write_target(key, path):
+    """Where a save goes: converter profiles are saved to a writable copy in appdata (the shipped file stays untouched)."""
+    if key == "aircraft_options":
+        return refdata.edited_options_path()
+    if key == "entities":
+        folder = import_profiles.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / import_profiles.ENTITIES_FILE
+    if key.startswith("graph_"):
+        folder = graph.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
+    if key.startswith("audit_"):
+        folder = audit.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
+    if key.startswith("import_"):
+        folder = import_profiles.edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
+    if key.startswith("convert_"):
+        folder = edited_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / path.name
+    return path
+
+
+def validate(key, text):
+    """Retourne None si le contenu est valable, sinon le message d'erreur."""
+    try:
+        (FILES.get(key) or ADMIN_FILES.get(key) or importer_files().get(key) or audit_files().get(key) or graph_files().get(key) or converter_files()[key])[2](parse(text))
+    except Problem as exc:
+        return str(exc)
+    return None
+
+
+def _ensure_files(username):
+    C.ensure_configs(username)
+
+
+def _backup_path(path):
+    return path.with_name(path.name + ".bak")
+
+
+@yaml_bp.route("", methods=["GET", "POST"])
+@login_required
+def editor():
+    username = current_username()
+    key = request.values.get("file")
+    files = _registry()
+    if key is None:                                        # no file chosen: list of the files to configure
+        _ensure_files(username)
+        group = request.args.get("group", "")
+        listed = {k: v for k, v in files.items() if k.startswith(group + "_")} if group else files
+        return render_template("config_editor.html", files=listed, index=True, title="Import profiles" if group == "import" else "Files")
+    if key not in files:
+        abort(404)
+    _ensure_files(username)
+    label, path_of, _check = files[key]
+    path = path_of(username)
+    target = _write_target(key, path)
+    backup = _backup_path(target)
+    content = path.read_text(encoding="utf-8")
+    error = None
+    if request.method == "POST":
+        action = request.form.get("action", "validate")
+        posted = request.form.get("content", "").replace("\r\n", "\n")
+        if action == "restore":
+            if backup.exists():
+                content = backup.read_text(encoding="utf-8")
+                flash("Previous backup loaded in the editor — click Save to apply it.")
+            else:
+                flash("No backup available for this file.")
+        else:
+            content = posted
+            error = validate(key, posted)
+            if error is None and action == "validate":
+                flash("Valid file.")
+            elif error is None and action == "save":
+                shutil.copyfile(path, backup)                      # the previous version is kept
+                tmp = target.with_name(target.name + ".tmp")
+                tmp.write_text(posted, encoding="utf-8")
+                os.replace(tmp, target)
+                log_event("config_change", target=f"yaml:{key}")
+                flash("File saved. The previous version is kept (“Restore” button).")
+                return redirect(url_for("yamledit.editor", file=key))
+    return render_template("config_editor.html", files=files, key=key, label=label, content=content, error=error,
+                           has_backup=backup.exists(), filename=path.name)

@@ -1,0 +1,23 @@
+# Audit — pilot and copilot.
+name: Crew
+rules:
+  - name: Pilot and copilot identical
+    severity: ANOMALY
+    when: not is_blank(pilot) and pilot == copilot
+    message: '“{pilot}”'
+  - name: Instruction without copilot
+    severity: ANOMALY
+    when: is_blank(copilot) and instruction_total > 0
+    message: instruction recorded without copilot
+  - name: Dual without copilot / instructor
+    severity: ANOMALY
+    when: is_blank(copilot) and dual_total > 0
+    message: dual time without copilot filled in
+
+group_rules:
+  - name: 'Different spellings: pilot name'
+    severity: ANOMALY
+    kind: spellings
+    columns: [pilot, copilot]
+    key: letters
+    ignore_values: [NAME]

@@ -1,0 +1,60 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+############### LOCATIONS ###############
+location_departure_code:
+  - value: location(location_departure_code, "display")
+  - value: location_departure_code
+
+location_departure_name:
+  - value: location(location_departure_code, "name")
+
+location_departure_latitude:
+  - value: location(location_departure_code, "latitude")
+
+location_departure_longitude:
+  - value: location(location_departure_code, "longitude")
+
+location_departure_time_utc:
+  - value: time_of(location_departure_time_utc)
+
+location_arrival_code:
+  - value: location(location_arrival_code, "display")
+  - value: location_arrival_code
+
+location_arrival_name:
+  - value: location(location_arrival_code, "name")
+
+location_arrival_latitude:
+  - value: location(location_arrival_code, "latitude")
+
+location_arrival_longitude:
+  - value: location(location_arrival_code, "longitude")
+
+location_arrival_time_utc:
+  - value: time_of(location_arrival_time_utc)
+
+############### SUN AND DAY / NIGHT ###############
+location_departure_sun:
+  - value: round(sun_angle(w_location_departure_latitude, w_location_departure_longitude, utc_datetime(w_date_year, w_date_month, w_date_day, w_location_departure_time_utc, "")), 1)
+
+location_departure_light:
+  - when: not is_blank(w_location_departure_sun) and w_location_departure_sun > -6
+    value: '"day"'
+  - when: not is_blank(w_location_departure_sun)
+    value: '"night"'
+
+location_arrival_sun:
+  - value: round(sun_angle(w_location_arrival_latitude, w_location_arrival_longitude, utc_datetime(w_date_year, w_date_month, w_date_day, w_location_arrival_time_utc, w_location_departure_time_utc)), 1)
+
+location_arrival_light:
+  - when: not is_blank(w_location_arrival_sun) and w_location_arrival_sun > -6
+    value: '"day"'
+  - when: not is_blank(w_location_arrival_sun)
+    value: '"night"'
+
+############### REMARKS ###############
+misc_remarks:
+  - value: misc_remarks
+

@@ -1,0 +1,126 @@
+# Global profile “1”: conversion rules, raw data to work data. Every key is the name of a work column followed by
+# its list of rules (the expressions that can be used are listed in the General profile). Managed from
+# Data > Conversion profiles.
+
+time_flight_hhmm:
+  - value: hhmm(minutes_between(location_departure_time_utc, location_arrival_time_utc))
+  - when: not is_blank(location_departure_time_utc) and not is_blank(location_arrival_time_utc) and minutes(location_arrival_time_utc) >= minutes(location_departure_time_utc)
+    value: hhmm(minutes(location_arrival_time_utc) - minutes(location_departure_time_utc))
+  - when: not is_blank(location_departure_time_utc) and not is_blank(location_arrival_time_utc) and minutes(location_arrival_time_utc) < minutes(location_departure_time_utc)
+    value: hhmm(minutes(location_arrival_time_utc) - minutes(location_departure_time_utc) + 1440)
+
+leg_length:
+  - value: round(distance_nm(w_location_departure_latitude, w_location_departure_longitude, w_location_arrival_latitude, w_location_arrival_longitude), 1)
+
+leg_average_speed:
+  - value: round(w_leg_length / (minutes(w_time_flight_hhmm) / 60), 0)
+
+############### FLIGHT TIME ###############
+# Decimal hours (Transport Canada table). Only one of these raw columns is filled for a flight, so the order does not matter.
+time_flight_decimal:
+  - value: tc_hours(time_se_dual_day)
+  - value: tc_hours(time_se_pic_day)
+  - value: tc_hours(time_se_dual_night)
+  - value: tc_hours(time_se_pic_night)
+  - value: tc_hours(time_me_dual_day)
+  - value: tc_hours(time_me_pic_day)
+  - value: tc_hours(time_me_copi_day)
+  - value: tc_hours(time_me_dual_night)
+  - value: tc_hours(time_me_pic_night)
+  - value: tc_hours(time_me_copi_night)
+  - value: tc_hours(time_flight_hhmm)
+
+# Each column first takes its own raw value (se_*, me_*). For the single engine columns only: when a flight has none of
+# these raw values (airline files without role columns), the flight time is copied into every column of the right category
+# (day or night of the arrival), whatever the role (dual, pic), so that errors show in the totals.
+# The multi engine columns (me_*) take only their raw value: the conversion profile of the company fills them from the role.
+
+time_se_dual_day:
+  - value: tc_hours(time_se_dual_day)
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
+
+time_se_pic_day:
+  - value: tc_hours(time_se_pic_day)
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
+
+time_se_dual_night:
+  - value: tc_hours(time_se_dual_night)
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
+
+time_se_pic_night:
+  - value: tc_hours(time_se_pic_night)
+  - when: is_blank(time_se_dual_day) and is_blank(time_se_pic_day) and is_blank(time_se_dual_night) and is_blank(time_se_pic_night) and is_blank(time_me_dual_day) and is_blank(time_me_pic_day) and is_blank(time_me_copi_day) and is_blank(time_me_dual_night) and is_blank(time_me_pic_night) and is_blank(time_me_copi_night) and w_aircraft_engine == "single" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
+
+time_me_dual_day:
+  - value: tc_hours(time_me_dual_day)
+
+time_me_pic_day:
+  - value: tc_hours(time_me_pic_day)
+
+time_me_copi_day:
+  - value: tc_hours(time_me_copi_day)
+
+time_me_dual_night:
+  - value: tc_hours(time_me_dual_night)
+
+time_me_pic_night:
+  - value: tc_hours(time_me_pic_night)
+
+time_me_copi_night:
+  - value: tc_hours(time_me_copi_night)
+
+############### FLIGHT DETAILS ###############
+# Instruments: the raw value when there is one; an IFR time equal to the flight time for a multi engine multi crew aircraft.
+time_ifr:
+  - value: tc_hours(time_ifr)
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi"
+    value: w_time_flight_decimal
+
+time_hood:
+  - value: tc_hours(time_hood)
+
+time_ftd:
+  - value: tc_hours(time_ftd)
+
+count_ifr_approach:
+  - value: count_ifr_approach
+
+# Cross-country: same rule as the IFR; the flight time goes to the day or night column of the arrival,
+# dual and pic both receive it for now (first pass, like the engine columns above).
+
+time_cc_dual_day:
+  - value: tc_hours(time_cc_dual_day)
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
+
+time_cc_pic_day:
+  - value: tc_hours(time_cc_pic_day)
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "day"
+    value: w_time_flight_decimal
+
+time_cc_dual_night:
+  - value: tc_hours(time_cc_dual_night)
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
+
+time_cc_pic_night:
+  - value: tc_hours(time_cc_pic_night)
+  - when: w_aircraft_engine == "multi" and w_aircraft_crew == "multi" and w_location_arrival_light == "night"
+    value: w_time_flight_decimal
+
+# Takeoffs and landings, instruction
+count_landing_day:
+  - value: count_landing_day
+
+count_landing_night:
+  - value: count_landing_night
+
+time_instruction_day:
+  - value: tc_hours(time_instruction_day)
+
+time_instruction_night:
+  - value: tc_hours(time_instruction_night)

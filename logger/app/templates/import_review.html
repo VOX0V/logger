@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<style>.rv{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 16px}.rv th,.rv td{border-bottom:1px solid var(--border,#ccc);padding:4px 8px;text-align:left;vertical-align:top}.rv .old{color:#b91c1c}.rv .new{color:#15803d}.rv label{margin-right:12px;white-space:nowrap}.rvbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}</style>
+<div class="page-head"><h2>Review import</h2></div>
+<div class="card">
+<p>File(s): {{ info.files|join(", ") }} — profile: {{ info.profile_name }}. Every line of the file is compared with the raw data only, never with the other lines of the file. Nothing has been written to the raw data yet: check the lists below, then validate. Leaving this page cancels the import.</p>
+<p><strong>{{ sections.added|length }}</strong> flight(s) with no match: they will be added · <strong>{{ sections.changed|length }}</strong> similar but different · <strong>{{ sections.present|length }}</strong> already present.</p>
+</div>
+<form method="post" action="{{ url_for('review.import_apply') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<h3>Similar but different ({{ sections.changed|length }})</h3>
+{% if sections.changed %}
+<p class="muted">For each line: <em>Ignore</em> keeps the database line as it is, <em>File</em> takes the file's values for the fields listed, <em>Add</em> adds the file line as a new flight. Pre-selected: Add for a line that is not the first one matching the same database flight, otherwise File when it only fills empty fields, otherwise Ignore.</p>
+<div class="rvbar"><button type="button" class="btn secondary" data-review-all="ignore" data-review-group="changed">Ignore all</button><button type="button" class="btn secondary" data-review-all="file" data-review-group="changed">File for all</button><button type="button" class="btn secondary" data-review-all="add" data-review-group="changed">Add all</button></div>
+<table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Differences (database → file)</th><th>Choice</th></tr></thead><tbody>
+{% for r in sections.changed %}<tr>
+<td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td>
+<td>{% for d in r.diffs %}<div><strong>{{ d.label }}</strong>: <span class="old">{{ d.old }}</span> → <span class="new">{{ d.new }}</span></div>{% endfor %}{% for f in r.fills %}<div><strong>{{ f.label }}</strong>: <em>empty</em> → <span class="new">{{ f.new }}</span></div>{% endfor %}{% if r.repeat %}<div class="muted">Another line of the file already matches this database flight.</div>{% endif %}<div class="muted">{{ r.source }}</div></td>
+<td><label><input type="radio" name="choice_{{ r.id }}" value="ignore" data-review-group="changed"{% if r.default == "ignore" %} checked{% endif %}> Ignore</label><label><input type="radio" name="choice_{{ r.id }}" value="file" data-review-group="changed"{% if r.default == "file" %} checked{% endif %}> File</label><label><input type="radio" name="choice_{{ r.id }}" value="add" data-review-group="changed"{% if r.default == "add" %} checked{% endif %}> Add</label></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>Already present ({{ sections.present|length }})</h3>
+{% if sections.present %}
+<p class="muted">Same flight as one in the database. Pre-selected: Ignore, except for a line that is not the first one matching the same database flight (Add). You can still add any of them.</p>
+<div class="rvbar"><button type="button" class="btn secondary" data-review-all="ignore" data-review-group="present">Ignore all</button><button type="button" class="btn secondary" data-review-all="add" data-review-group="present">Add all</button></div>
+<details{% if sections.present|selectattr("repeat")|list %} open{% endif %}><summary>Show the list</summary><table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Remarks</th><th>File</th><th>Choice</th></tr></thead><tbody>
+{% for r in sections.present %}<tr><td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td><td>{{ r.summary.remarks }}{% if r.repeat %} <em>(another line of the file already matches this database flight)</em>{% endif %}</td><td>{{ r.source }}</td>
+<td><label><input type="radio" name="choice_{{ r.id }}" value="ignore" data-review-group="present"{% if r.default == "ignore" %} checked{% endif %}> Ignore</label><label><input type="radio" name="choice_{{ r.id }}" value="add" data-review-group="present"{% if r.default == "add" %} checked{% endif %}> Add</label></td></tr>{% endfor %}</tbody></table></details>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h3>To be added ({{ sections.added|length }})</h3>
+{% if sections.added %}<details><summary>Show the list</summary><table class="rv"><thead><tr><th>Date</th><th>Type</th><th>Reg.</th><th>Route</th><th>Hours</th><th>Remarks</th><th>File</th></tr></thead><tbody>
+{% for r in sections.added %}<tr><td>{{ r.summary.date }}</td><td>{{ r.summary.type }}</td><td>{{ r.summary.reg }}</td><td>{{ r.summary.route }}</td><td>{{ r.summary.hours }}</td><td>{{ r.summary.remarks }}</td><td>{{ r.source }}</td></tr>{% endfor %}</tbody></table></details>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<div class="rvbar"><button class="btn">Validate import</button></div>
+</form>
+<form method="post" action="{{ url_for('review.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn secondary">Cancel import</button></form>
+<script src="{{ url_for('static', filename='review.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}

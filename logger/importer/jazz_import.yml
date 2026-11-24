@@ -1,0 +1,33 @@
+# Import profile "Jazz Aviation": one line per header of the file, written  header: entity  (entities: see Data > Entities).
+# A header that is not listed here is not imported. The columns of the raw database are created by the import.
+# Editable from Data > Import data > Edit import rules.
+name: Jazz Aviation
+columns:
+  fcv_aircraft_type: aircraft_type
+  fcv_tail_number: aircraft_registration
+  crew_list: crew_list
+  dep_airport: location_departure_code
+  dep_datetime_utc: location_departure_time_utc
+  arr_airport: location_arrival_code
+  arr_datetime_utc: location_arrival_time_utc
+  block: time_flight_hhmm
+  nautical_miles: leg_length
+
+# Headers of the file that are deliberately not imported.
+ignored:
+  - flight_number          # no entity for it yet
+  - deadhead
+  - airplane_change
+  - fcv_skd_dep_datetime_local
+  - fcv_skd_arr_datetime_local
+  - dep_datetime_local
+  - fcv_off_datetime_local
+  - fcv_on_datetime_local
+  - arr_datetime_local
+  - fcv_off_datetime_utc
+  - fcv_on_datetime_utc
+  - dep_millis_utc
+  - fcv_off_millis_utc
+  - fcv_on_millis_utc
+  - arr_millis_utc
+  - tail_number

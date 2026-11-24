@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block content %}
+<style>[hidden]{display:none!important}.page-head .btns,.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stable{border-collapse:collapse;width:100%}.stable th,.stable td{padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);text-align:left;vertical-align:top}.stable .c{text-align:center}.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:12px}</style>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-head"><h2>Conversion profile — {{name}}</h2><div class="btns"><button class="btn">Save</button><a class="btn secondary" href="{{url_for('profiles.convert_list')}}">Cancel</a></div></div>
+<div class="card"><p class="muted">File {{profile_id}}_convert.yml{% if not exists %} (not created yet: it is created when you save){% endif %}. The rules are tried before the global ones.</p>
+<textarea name="content" rows="32" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px">{{content}}</textarea></div></form>
+{% endblock %}
